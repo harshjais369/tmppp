@@ -18,18 +18,23 @@ def sendInlineButton(chat_id):
     r = requests.post(url, json=payload)
     return r
 
-def sendStartGameInlineBtn(chat_id):
+def sendStartGameInlineBtn(chat_id, message):
     url = f'https://api.telegram.org/bot{token}/sendMessage'
     payload = {
         'chat_id': chat_id,
-        'text': "Start game!",
+        'text': f"**{message.from_user.first_name} is explaining the word!**",
+        'parse_mode': 'Markdown',
         'reply_markup': {
-            "inline_keyboard": [[
-                {"text": "See word", "callback_data": "see_word"},
-                {"text": "Generate hints", "callback_data": "generate_hints"},
-                {"text": "Change word", "callback_data": "change_word"},
-                {"text": "Drop lead", "callback_data": "drop_lead"}
-            ]]
+            "inline_keyboard": [
+                [
+                    {"text": "See word", "callback_data": "see_word"},
+                    {"text": "Generate hints", "callback_data": "generate_hints"}
+                ],
+                [
+                    {"text": "Change word", "callback_data": "change_word"},
+                    {"text": "Drop lead", "callback_data": "drop_lead"}
+                ]
+            ]
         }
     }
     r = requests.post(url, json=payload)
@@ -37,7 +42,7 @@ def sendStartGameInlineBtn(chat_id):
 
 bot = telebot.TeleBot(token)
 @bot.message_handler(commands=['start'])
-def start_message(message):
+def start_cmd(message):
     chatId = message.chat.id
     if chatId in ALLOW_CHATS:
         bot.send_message(chatId, 'Hey!\nI am alive and working properly.')
@@ -46,8 +51,13 @@ def start_message(message):
 def start_game(message):
     chatId = message.chat.id
     if chatId in ALLOW_CHATS:
-        sendStartGameInlineBtn(chatId)
-        bot.send_message(chatId, f'Hey!\nI am alive and working properly.\n\n{message}')
+        sendStartGameInlineBtn(chatId, message)
+
+@bot.message_handler(commands=['stop'])
+def stop_game(message):
+    chatId = message.chat.id
+    if chatId in ALLOW_CHATS:
+        bot.send_message(chatId, 'The game is stopped!\nTo start a new game, use /game@CrocodileGameENN_bot command.')
     
 @bot.message_handler(content_types=['text'])
 def send_text(message):
@@ -63,4 +73,4 @@ def handle_query(call):
         bot.send_message(ch,  f"-> Someone clicked on button:\n\n{call.from_user}")
 
 print("Bot is running...")
-bot.infinity_polling()
+bot.infinity_polling(interval=0, timeout=20)
