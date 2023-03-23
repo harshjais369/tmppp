@@ -1,16 +1,21 @@
+import os
 import requests
 import telebot
+from dotenv import load_dotenv
+load_dotenv(verbose=True)
 
-token = ""
+BOT_TOKEN = os.environ.get('BOT_TOKEN', None)
 ALLOW_CHATS = [-1001625589718]
 INVOKE_CMDS = ['lead someone..', 'take lead', 'take lead..', 'take lead guys', 'take lead guys..']
 INVOKE_CMDS = ['nonono']
 
-def sendInlineButton(chat_id):
-    url = f'https://api.telegram.org/bot{token}/sendMessage'
+def sendRefuseLeadInlineBtn(message):
+    chat_id = message.chat.id
+    first_name = message.from_user.first_name
+    url = f'https://api.telegram.org/bot{BOT_TOKEN}/sendMessage'
     payload = {
         'chat_id': chat_id,
-        'text': "Exception refused to lead!",
+        'text': f"{first_name} refused to lead!",
         'reply_markup': {
             "inline_keyboard": [[{"text": "I want to be a leader!", "callback_data": "new_game"}]]
         }
@@ -18,11 +23,13 @@ def sendInlineButton(chat_id):
     r = requests.post(url, json=payload)
     return r
 
-def sendStartGameInlineBtn(chat_id, message):
-    url = f'https://api.telegram.org/bot{token}/sendMessage'
+def sendStartGameInlineBtn(message):
+    chat_id = message.chat.id
+    first_name = message.from_user.first_name
+    url = f'https://api.telegram.org/bot{BOT_TOKEN}/sendMessage'
     payload = {
         'chat_id': chat_id,
-        'text': f"**{message.from_user.first_name} is explaining the word!**",
+        'text': f"**{first_name} is explaining the word!**",
         'parse_mode': 'Markdown',
         'reply_markup': {
             "inline_keyboard": [
@@ -40,7 +47,7 @@ def sendStartGameInlineBtn(chat_id, message):
     r = requests.post(url, json=payload)
     return r
 
-bot = telebot.TeleBot(token)
+bot = telebot.TeleBot(BOT_TOKEN)
 @bot.message_handler(commands=['start'])
 def start_cmd(message):
     chatId = message.chat.id
@@ -51,36 +58,41 @@ def start_cmd(message):
 def start_game(message):
     chatId = message.chat.id
     if chatId in ALLOW_CHATS:
-        sendStartGameInlineBtn(chatId, message)
+        sendStartGameInlineBtn(message)
 
 @bot.message_handler(commands=['stop'])
 def stop_game(message):
     chatId = message.chat.id
     if chatId in ALLOW_CHATS:
-        bot.send_message(chatId, 'The game is stopped!\nTo start a new game, use /game@CrocodileGameENN_bot command.')
+        bot.send_message(chatId, '❌ The game is stopped!\nTo start a new game, use command:\n/game@CrocodileGameENN_bot')
     
 @bot.message_handler(content_types=['text'])
 def send_text(message):
-    m = message.text.lower()
-    if m in INVOKE_CMDS:
-        r = sendInlineButton(message.chat.id)
-        print(r)
+    chatId = message.chat.id
+    if chatId in ALLOW_CHATS:
+        m = message.text.lower()
+        if m in INVOKE_CMDS:
+            r = sendRefuseLeadInlineBtn(message)
+            print(r)
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_query(call):
-    # print(call.message.chat.id)
-    if call.message.chat.id in ALLOW_CHATS:
+    chatId = call.message.chat.id
+    if chatId in ALLOW_CHATS:
         if call.data == 'new_game':
-            sendStartGameInlineBtn(call.message.chat.id, call.message)
-            bot.delete_message(call.message.chat.id, call.message.message_id)
-            bot.answer_callback_query(call.id, "You are a leader now!")
+            sendStartGameInlineBtn(call)
+            bot.delete_message(chatId, call.message.message_id)
+            bot.answer_callback_query(call.id, "Word: Radio", show_alert=True)
         elif call.data == 'see_word':
-            bot.answer_callback_query(call.id, "The word is: **word**", show_alert=True, parse_mode='Markdown')
+            bot.answer_callback_query(call.id, "Word: Radio", show_alert=True)
         elif call.data == 'generate_hints':
-            bot.answer_callback_query(call.id, "Hints are: **hint1** and **hint2**")
+            bot.answer_callback_query(call.id, "Hint 1:\nHint 2:\nHint 3:\nHint 4:\nHint 5:\n\n❕ You are free to use your own customised hints!", show_alert=True)
         elif call.data == 'change_word':
-            bot.answer_callback_query(call.id, "The word is changed!")
+            bot.answer_callback_query(call.id, "Word: Light", show_alert=True)
         elif call.data == 'drop_lead':
-            bot.answer_callback_query(call.id, "You are not a leader now!")
+            sendRefuseLeadInlineBtn(call)
+            bot.delete_message(chatId, call.message.message_id)
+
+
 print("Bot is running...")
 bot.infinity_polling(none_stop=True)
