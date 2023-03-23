@@ -12,7 +12,7 @@ def sendInlineButton(chat_id):
         'chat_id': chat_id,
         'text': "Exception refused to lead!",
         'reply_markup': {
-            "inline_keyboard": [[{"text": "I want to be a leader!", "callback_data": "call"}]]
+            "inline_keyboard": [[{"text": "I want to be a leader!", "callback_data": "new_game"}]]
         }
     }
     r = requests.post(url, json=payload)
@@ -68,9 +68,19 @@ def send_text(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_query(call):
-    print(call.message.chat.id)
-    for ch in ALLOW_CHATS:
-        bot.send_message(ch,  f"-> Someone clicked on button:\n\n{call.from_user}")
-
+    # print(call.message.chat.id)
+    if call.message.chat.id in ALLOW_CHATS:
+        if call.data == 'new_game':
+            sendStartGameInlineBtn(call.message.chat.id, call.message)
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+            bot.answer_callback_query(call.id, "You are a leader now!")
+        elif call.data == 'see_word':
+            bot.answer_callback_query(call.id, "The word is: **word**", show_alert=True, parse_mode='Markdown')
+        elif call.data == 'generate_hints':
+            bot.answer_callback_query(call.id, "Hints are: **hint1** and **hint2**")
+        elif call.data == 'change_word':
+            bot.answer_callback_query(call.id, "The word is changed!")
+        elif call.data == 'drop_lead':
+            bot.answer_callback_query(call.id, "You are not a leader now!")
 print("Bot is running...")
-bot.infinity_polling(interval=0, timeout=20)
+bot.infinity_polling(none_stop=True)
