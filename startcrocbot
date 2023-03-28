@@ -1,0 +1,10 @@
+#!/bin/bash
+
+rm -rf venv
+virtualenv -p /usr/bin/python3 venv/
+source venv/bin/activate
+echo "Installing requirements..."
+python3 pip install -U -r requirements.txt
+echo "Installed requirements successfully!"
+echo "Launching Crocodile Bot..."
+python3 -m crocbot
