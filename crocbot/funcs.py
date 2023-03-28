@@ -23,7 +23,7 @@ def getAIResp(prompt):
 
 # Generate word
 def getNewWord():
-    import wordlist
+    import crocbot.wordlist
     return random.choice(wordlist.WORDLIST).lower()
 
 # Generate hints
