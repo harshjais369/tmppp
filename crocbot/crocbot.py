@@ -2,9 +2,9 @@ import os
 import time
 import requests
 import telebot
-import funcs
-from sql_helper.current_running_game_sql import addGame_sql, getGame_sql, removeGame_sql
-from sql_helper.rankings_sql import incrementPoints_sql, getUserPoints_sql, getTop25PlayersFromGroup_sql
+import crocbot.funcs as funcs
+from crocbot.sql_helper.current_running_game_sql import addGame_sql, getGame_sql, removeGame_sql
+from crocbot.sql_helper.rankings_sql import incrementPoints_sql, getUserPoints_sql, getTop25PlayersFromGroup_sql
 
 BOT_TOKEN = os.environ.get('BOT_TOKEN', None)
 ALLOW_CHATS = [-1001625589718, -1001953164028]
