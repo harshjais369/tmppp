@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String
-from sql_helper import BASE, SESSION
+from crocbot.sql_helper import BASE, SESSION
 import time
 
 class CurrentGame(BASE):
