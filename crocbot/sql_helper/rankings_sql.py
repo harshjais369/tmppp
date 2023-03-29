@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String, Integer
-from crocbot.sql_helper import BASE, SESSION
+from sql_helper import BASE, SESSION
 import time
 
 class RankingsSql(BASE):
