@@ -7,6 +7,7 @@ from crocbot.sql_helper.current_running_game_sql import addGame_sql, getGame_sql
 from crocbot.sql_helper.rankings_sql import incrementPoints_sql, getUserPoints_sql, getTop25PlayersFromGroup_sql
 
 BOT_TOKEN = os.environ.get('BOT_TOKEN', None)
+HANDLER_FILE_PATH = os.path.join(os.path.dirname(__file__), '.handler-saves/step.save')
 ALLOW_CHATS = [-1001625589718, -1001953164028]
 WORD = ['[Change this word]']
 HINTS = []
@@ -364,7 +365,7 @@ def handle_query(call):
 
 # ------------------------------------------------------------- #
 # Enable save next step handlers, so they work for all messages
-bot.enable_save_next_step_handlers(delay=2)
+bot.enable_save_next_step_handlers(delay=2, filename=HANDLER_FILE_PATH)
 # Load next_step_handlers from a file
 bot.load_next_step_handlers()
 print("Bot is running...")
