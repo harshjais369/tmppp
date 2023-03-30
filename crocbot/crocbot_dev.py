@@ -7,7 +7,7 @@ from sql_helper.current_running_game_sql import addGame_sql, getGame_sql, remove
 from sql_helper.rankings_sql import incrementPoints_sql, getUserPoints_sql, getTop25PlayersFromGroup_sql
 
 BOT_TOKEN = os.environ.get('BOT_TOKEN', None)
-BLOCK_CHATS = [int(x) for x in os.environ.get('BLOCK_CHATS', '').split(',') if x]
+ALLOW_CHATS = [-1001625589718, -1001953164028]
 WORD = ['[Change this word]']
 HINTS = []
 
@@ -210,32 +210,32 @@ bot = telebot.TeleBot(BOT_TOKEN)
 @bot.message_handler(commands=['start'])
 def start_cmd(message):
     chatId = message.chat.id
-    if chatId not in BLOCK_CHATS:
-        bot.send_message(chatId, '👋 Hey!\nTo start a new game, use command:\n/game@CrocodileGameEnn_bot')
+    if chatId in ALLOW_CHATS:
+        bot.send_message(chatId, '👋 Hey!\nI am alive and working properly.')
 
 @bot.message_handler(commands=['game'])
 def start_game(message):
     chatId = message.chat.id
-    if chatId not in BLOCK_CHATS:
+    if chatId in ALLOW_CHATS:
         startGame(message, isStartFromCmd=True)
 
 @bot.message_handler(commands=['stop'])
 def stop_game(message):
     chatId = message.chat.id
-    if chatId not in BLOCK_CHATS:
+    if chatId in ALLOW_CHATS:
         stopGame(message)
 
 @bot.message_handler(commands=['rules'])
 def rules_cmd(message):
     chatId = message.chat.id
-    if chatId not in BLOCK_CHATS:
+    if chatId in ALLOW_CHATS:
         rules_msg = "There are two basic roles in this game: the leader (who explains the word) and the other participants (who find the word). The leader will press /game to look for a random word and try to describe it (or give few hints about the word) to other participants without saying that word. The other player\'s role is to find the word the leader explains, and type it in chat. The person who find and types the correct word in the chat first, will be considered winner. If the leader does not like the word, he can press “Change word” for another word. Additionally, if he finds it difficult explaining the word, he can get assistance by pressing “Generate hint” on his leader panel buttons."
         bot.send_message(chatId, f"📖 **Game Rules:**\n\n{rules_msg}", parse_mode='Markdown')
 
 @bot.message_handler(commands=['mystats'])
 def mystats_cmd(message):
     chatId = message.chat.id
-    if chatId not in BLOCK_CHATS:
+    if chatId in ALLOW_CHATS:
         user_obj = message.from_user
         user_stats = getUserPoints_sql(user_obj.id, chatId)
         if user_stats is None:
@@ -246,12 +246,12 @@ def mystats_cmd(message):
 @bot.message_handler(commands=['help'])
 def help_cmd(message):
     chatId = message.chat.id
-    if chatId not in BLOCK_CHATS:
+    if chatId in ALLOW_CHATS:
         bot.send_message(chatId, '📖 **Help commands:**\n\n'
                                  '🎮 /game - start new game\n'
                                  '🛑 /stop - stop current game\n'
                                  '/rules - see game rules\n'
-                                 '/mystats - see your stats\n'
+                                 '/stats - see your stats\n'
                                  '/ranking - see top 25 players of this group\n'
                                  '/globalranking - see top 10 global level players\n'
                                  '/groupranking - see top 10 groups\n'
@@ -264,7 +264,7 @@ def help_cmd(message):
 def handle_query(call):
     chatId = call.message.chat.id
     userObj = call.from_user
-    if chatId not in BLOCK_CHATS:
+    if chatId in ALLOW_CHATS:
         curr_game = getCurrGame(chatId, userObj.id)
 
         # Inline btn handlers for all general use cases
@@ -363,5 +363,5 @@ def handle_query(call):
 bot.enable_save_next_step_handlers(delay=2)
 # Load next_step_handlers from a file
 bot.load_next_step_handlers()
-print("[PROD] Bot is running...")
+print("[DEV] Bot is running...")
 bot.infinity_polling(none_stop=True)
