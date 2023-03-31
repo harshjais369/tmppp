@@ -251,7 +251,7 @@ def help_cmd(message):
                                  '🎮 /game - start new game\n'
                                  '🛑 /stop - stop current game\n'
                                  '/rules - see game rules\n'
-                                 '/stats - see your stats\n'
+                                 '/mystats - see your stats\n'
                                  '/ranking - see top 25 players of this group\n'
                                  '/globalranking - see top 10 global level players\n'
                                  '/groupranking - see top 10 groups\n'
