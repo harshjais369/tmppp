@@ -9,6 +9,8 @@ from sql_helper.current_running_game_sql import addGame_sql, getGame_sql, remove
 from sql_helper.rankings_sql import incrementPoints_sql, getUserPoints_sql, getTop25PlayersFromGroup_sql
 
 BOT_TOKEN = os.environ.get('BOT_TOKEN', None)
+MY_IDs = [5321125784, 6103212777] # My ID, and Bot ID
+AI_USERS = {}
 BLOCK_CHATS = [int(x) for x in os.environ.get('BLOCK_CHATS', '').split(',') if x]
 STATE = {}
 WORD = {}
@@ -191,6 +193,54 @@ async def start_cmd(message):
     if chatId not in BLOCK_CHATS:
         await bot.send_message(chatId, '👋 Hey!\nI\'m Crocodile Game Bot. To start a game, use command: /game')
 
+@bot.message_handler(commands=['aiuser'])
+async def setaiuser_cmd(message):
+    chatId = message.chat.id
+    if chatId not in BLOCK_CHATS:
+        user_obj = message.from_user
+        # Check if user is me (MY_IDs[0])
+        if user_obj.id == MY_IDs[0]:
+            # get user from reply and add to AI_USERS with chatId
+            if message.reply_to_message is not None:
+                reply_user_obj = message.reply_to_message.from_user
+                global AI_USERS
+                AI_USERS.update({str(reply_user_obj.id): str(chatId)})
+                await bot.send_message(chatId, f"🤖 AI user set to [{reply_user_obj.first_name}](tg://user?id={reply_user_obj.id})!", parse_mode='Markdown')
+            else:
+                await bot.send_message(chatId, '❌ Please reply to a message from the user you want to set as AI user!')
+        else:
+            await bot.send_message(chatId, '❌ Only my creator can use this command!')
+
+@bot.message_handler(commands=['delaiuser'])
+async def delaiuser_cmd(message):
+    chatId = message.chat.id
+    if chatId not in BLOCK_CHATS:
+        user_obj = message.from_user
+        if user_obj.id == MY_IDs[0]:
+            if message.reply_to_message is not None:
+                reply_user_obj = message.reply_to_message.from_user
+                global AI_USERS
+                AI_USERS.pop(str(reply_user_obj.id), None)
+                await bot.send_message(chatId, f"🤖 [{reply_user_obj.first_name}](tg://user?id={reply_user_obj.id}) has no AI access anymore!", parse_mode='Markdown')
+            else:
+                await bot.send_message(chatId, '❌ Please reply to a message from the user you want to remove AI access from!')
+        else:
+            await bot.send_message(chatId, '❌ Only my creator can use this command!')
+
+@bot.message_handler(commands=['showaiusers'])
+async def showaiusers_cmd(message):
+    chatId = message.chat.id
+    if chatId not in BLOCK_CHATS:
+        user_obj = message.from_user
+        if user_obj.id == MY_IDs[0]:
+            global AI_USERS
+            if len(AI_USERS) == 0:
+                await bot.send_message(chatId, '🤖 No AI users set yet to show!')
+            else:
+                await bot.send_message(chatId, f"🤖 **AI users:**\n\n{', '.join([f'[{user}](tg://user?id={user})' for user in AI_USERS.keys()])}", parse_mode='Markdown')
+        else:
+            await bot.send_message(chatId, '❌ Only my creator can use this command!')
+
 @bot.message_handler(commands=['game'])
 async def start_game(message):
     chatId = message.chat.id
@@ -246,6 +296,29 @@ async def handle_group_message(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         userId = message.from_user.id
+
+        if ((str(userId) in AI_USERS.keys()) and (chatId == int(AI_USERS.get(str(userId)))) and (message.text.startswith('@croco ') or ((message.reply_to_message is not None) and (message.reply_to_message.from_user.id == MY_IDs[1]))) and (not message.text.startswith('/'))):
+            msgText = message.text
+            rplyMsg = message.reply_to_message
+            prompt = "You: " + msgText
+            await bot.send_chat_action(chatId, 'typing')
+            prompt = prompt.replace('@croco ', '')
+            if (rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[1]):
+                while rplyMsg and (rplyMsg.from_user.id == MY_IDs[1] or rplyMsg.from_user.id == userId):
+                    if rplyMsg.from_user.id == MY_IDs[1]:
+                        prompt = f"Terrex: {rplyMsg.text}\n\n{prompt}"
+                    elif rplyMsg.from_user.id == userId:
+                        prompt = f"You: {rplyMsg.text}\n\n{prompt}"
+                        prompt = prompt.replace('@croco ', '') if prompt.startswith('@croco ') else prompt
+                    rplyMsg = rplyMsg.reply_to_message
+            prompt = prompt + "\n\nTerrex:"
+            # Generate response using GPT-4 model and send it to user as a reply to his message
+            pre_prompt = "Terrex is a chatbot that derisively answers questions with negative responses making fun of it:\n\nYou: When should I start preparing for JEE-Mains entrance exam?\nTerrex: Whoa, slow down there! Don't you know that JEE-Mains is just a bunch of made up nonsense of this bad education system? Save your time and just skip it!\nYou: Can't you say anything positive?\nTerrex: Positive? Absolutely not! I'm here to provide a dose of realism and tell it like it is. I suggest you find a better use of your time than studying for a silly exam.\n\n"
+            aiResp = funcs.getAIResp(pre_prompt + prompt, "text-davinci-002", 0.8, 1800, 1, 0.2, 0)
+            aiResp = "Something went wrong! Please try again later." if aiResp == 0 else aiResp.choices[0].text
+            await bot.send_message(chatId, aiResp, reply_to_message_id=message.message_id)
+            return
+
         global STATE
         if STATE.get(str(chatId)) is None:
             STATE.update({str(chatId): WAITING_FOR_COMMAND})

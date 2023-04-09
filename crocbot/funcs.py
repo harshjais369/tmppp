@@ -6,16 +6,24 @@ API_KEY = os.environ.get('OPENAI_API_KEY', None)
 openai.api_key = API_KEY
 
 # Get GPT4-AI response
-def getAIResp(prompt):
+def getAIResp(
+    prompt,
+    model="text-davinci-003",
+    temperature=1,
+    max_tokens=2048,
+    top_p=1.0,
+    frequency_penalty=0.0,
+    presence_penalty=0.0
+):
     try:
         return openai.Completion.create(
-            model="text-davinci-003",
+            model=model,
             prompt=prompt,
-            temperature=1,
-            max_tokens=2048,
-            top_p=1.0,
-            frequency_penalty=0.0,
-            presence_penalty=0.0
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty
         )
     except Exception as e:
         print(str(e))
