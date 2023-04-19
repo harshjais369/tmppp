@@ -84,13 +84,13 @@ async def stopGame(message, isRefused=False, isChangeLeader=False, isWordReveale
         chatId = message.message.chat.id
     userObj = message.from_user.id
     if isRefused:
-        await bot.send_message(chatId, f'{funcs.escChar(userObj.first_name)} refused to lead\!', reply_markup=getInlineBtn('refused_lead'))
+        await bot.send_message(chatId, f'{funcs.escChar(userObj.first_name)} refused to lead!', reply_markup=getInlineBtn('refused_lead'))
     elif isChangeLeader:
         # If game started more than 30 seconds, allow others to change leader
         pass
     elif isWordRevealed:
         # Leader revealed the word (deduct point)
-        await bot.send_message(chatId, f'🛑 *Game stopped\!*\n[{funcs.escChar(userObj.first_name)}](tg://user?id={userObj.id}) \(\-💎\) revealed the word: *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('refused_lead'), parse_mode='MarkdownV2')
+        await bot.send_message(chatId, f'🛑 *Game stopped!*\n[{funcs.escChar(userObj.first_name)}](tg://user?id={userObj.id}) \(\-💎\) revealed the word: *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('refused_lead'), parse_mode='MarkdownV2')
     else:
         chatMemb_obj = await bot.get_chat_member(chatId, userObj.id)
         curr_game = await getCurrGame(chatId, userObj.id)
@@ -288,7 +288,7 @@ async def handle_group_message(message):
                 if curr_game['status'] == 'not_leader':
                     # Someone guessed the word (delete word from database)
                     removeGame_sql(chatId)
-                    await bot.send_message(chatId, f'🎉 [{funcs.escChar(message.from_user.first_name)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
+                    await bot.send_message(chatId, f'🎉 [{funcs.escChar(message.from_user.first_name)}](tg://user?id={userId}) found the word! *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
                     incrementPoints_sql(userId, chatId)
                 elif curr_game['status'] == 'not_started':
                     pass

@@ -84,13 +84,13 @@ async def stopGame(message, isRefused=False, isChangeLeader=False, isWordReveale
         chatId = message.message.chat.id
     userObj = message.from_user
     if isRefused:
-        await bot.send_message(chatId, f'{funcs.escChar(userObj.first_name)} refused to lead\!', reply_markup=getInlineBtn('refused_lead'))
+        await bot.send_message(chatId, f'{funcs.escChar(userObj.first_name)} refused to lead!', reply_markup=getInlineBtn('refused_lead'))
     elif isChangeLeader:
         # If game started more than 30 seconds, allow others to change leader
         pass
     elif isWordRevealed:
         # Leader revealed the word (deduct point)
-        await bot.send_message(chatId, f'🛑 *Game stopped\!*\n[{funcs.escChar(userObj.first_name)}](tg://user?id={userObj.id}) \(\-💎\) revealed the word: *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('refused_lead'), parse_mode='MarkdownV2')
+        await bot.send_message(chatId, f'🛑 *Game stopped!*\n[{funcs.escChar(userObj.first_name)}](tg://user?id={userObj.id}) \(\-💎\) revealed the word: *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('refused_lead'), parse_mode='MarkdownV2')
     else:
         chatMemb_obj = await bot.get_chat_member(chatId, userObj.id)
         curr_game = await getCurrGame(chatId, userObj.id)
@@ -256,10 +256,10 @@ async def handle_group_message(message):
     chatId = message.chat.id
     if chatId in ALLOW_CHATS:
         userId = message.from_user.id
+        msgText = message.text
+        rplyMsg = message.reply_to_message
 
-        if ((str(userId) in AI_USERS.keys()) and (chatId == int(AI_USERS.get(str(userId)))) and (message.text.startswith('@croco ') or ((message.reply_to_message is not None) and (message.reply_to_message.from_user.id == MY_IDs[1]))) and (not message.text.startswith('/'))):
-            msgText = message.text
-            rplyMsg = message.reply_to_message
+        if ((str(userId) in AI_USERS.keys()) and (chatId == int(AI_USERS.get(str(userId)))) and (msgText.startswith('@croco ') or ((rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[1]))) and (not msgText.startswith('/'))):
             prompt = "You: " + msgText
             await bot.send_chat_action(chatId, 'typing')
             prompt = prompt.replace('@croco ', '')
@@ -280,20 +280,20 @@ async def handle_group_message(message):
             return
 
         global STATE
-        print(WORD.get(str(chatId)), message.text.lower())
-        print(f'state: {str(STATE)}')
+        print(f'state: {str(STATE)}\t{WORD.get(str(chatId))}:{msgText.lower()}')
         if STATE.get(str(chatId)) is None:
             STATE.update({str(chatId): WAITING_FOR_COMMAND})
             print(f'Updated state (was None): {str(STATE)}')
-        if STATE.get(str(chatId)) == WAITING_FOR_WORD:
+
+        elif STATE.get(str(chatId)) == WAITING_FOR_WORD:
             # Check if the message contains the word "Word"
-            if message.text.lower() == WORD.get(str(chatId)):
+            if msgText.lower() == WORD.get(str(chatId)):
                 # Check if user is not leader
                 curr_game = await getCurrGame(chatId, userId)
                 if curr_game['status'] == 'not_leader':
                     # Someone guessed the word (delete word from database)
                     removeGame_sql(chatId)
-                    await bot.send_message(chatId, f'🎉 [{funcs.escChar(message.from_user.first_name)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
+                    await bot.send_message(chatId, f'🎉 [{funcs.escChar(message.from_user.first_name)}](tg://user?id={userId}) found the word! *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
                     incrementPoints_sql(userId, chatId)
                 elif curr_game['status'] == 'not_started':
                     pass
@@ -301,6 +301,31 @@ async def handle_group_message(message):
                     # Leader revealed the word (stop game and deduct leader's points)
                     await stopGame(message, isWordRevealed=True)
                 STATE.update({str(chatId): WAITING_FOR_COMMAND})
+        
+        elif chatId in ALLOW_CHATS['EVS']:
+            if (rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[1]) and (rplyMsg.text.startswith('Croco: ')) and not (msgText.startswith('/') or msgText.startswith('@')):
+                rplyText = rplyMsg.text.replace('Croco ', '')
+                resp = None
+                preConvObj = funcs.getAllConv_sql()
+                foundPreConv = False
+                if preConvObj is not None:
+                    for x in preConvObj.prompts:
+                        if (x.find(rplyText) != -1):
+                            foundPreConv = True
+                            # get English AI resp and then update prompt in DB
+                            p = f"{x}\nMember 4: {msgText}\nCroco:"
+                            resp = funcs.getAIResp(prompt=p)
+                            funcs.updateEngAIPrompt_sql(preConvObj.id, x + resp)
+                            break
+                if not foundPreConv:
+                    p = f"{rplyMsg.text}\nAnother group member: {msgText}\nCroco:"
+                    resp = funcs.escChar(funcs.getAIResp(prompt=p))
+                await bot.send_message(chatId, f'*Croco:* {resp}', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
+            elif msgText in funcs.TRIGGER_MSGS:
+                p = f"{funcs.NEW_CONV_PROMPT}\nAnother group member: {msgText}\nCroco:"
+                resp = funcs.getAIResp(prompt=p)
+                await bot.send_message(chatId, f'*Croco:* {resp}', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
+
 
 
 
