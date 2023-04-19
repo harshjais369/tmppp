@@ -82,7 +82,7 @@ async def stopGame(message, isRefused=False, isChangeLeader=False, isWordReveale
         chatId = message.chat.id
     except:
         chatId = message.message.chat.id
-    userObj = message.from_user.id
+    userObj = message.from_user
     if isRefused:
         await bot.send_message(chatId, f'{funcs.escChar(userObj.first_name)} refused to lead!', reply_markup=getInlineBtn('refused_lead'))
     elif isChangeLeader:
