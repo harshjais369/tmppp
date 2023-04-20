@@ -12,7 +12,7 @@ BOT_TOKEN = os.environ.get('BOT_TOKEN', None)
 MY_IDs = [5321125784, 6103212777] # My ID, and Bot ID
 AI_USERS = {}
 ALLOW_CHATS = [-1001625589718, -1001953164028, -865812485]
-STATE = {}
+STATE = {} # STATE('chat_id': [str(game_state), int(leader_id), bool(show_changed_word_msg)])
 WORD = {}
 HINTS = {}
 
@@ -121,6 +121,7 @@ async def changeWord(message):
     except:
         chatId = message.message.chat.id
     user_obj = message.from_user
+    global STATE
     # Save word to database and return (leader changed the word)
     try:
         HINTS.get(str(chatId)).pop()
@@ -128,7 +129,8 @@ async def changeWord(message):
         pass
     WORD.update({str(chatId): funcs.getNewWord()})
     addGame_sql(chatId, user_obj.id, WORD.get(str(chatId)))
-    await bot.send_message(chatId, f"❗ {funcs.escChar(user_obj.first_name)} has changed the word\!", parse_mode='MarkdownV2')
+    if (STATE.get(str(chatId))[0] == WAITING_FOR_COMMAND) or (STATE.get(str(chatId))[0] == WAITING_FOR_WORD and STATE.get(str(chatId))[2]):
+        await bot.send_message(chatId, f"❗ {funcs.escChar(user_obj.first_name)} changed the word\!", parse_mode='MarkdownV2')
     return WORD.get(str(chatId))
 
 async def getCurrGame(chatId, userId):
@@ -205,9 +207,10 @@ async def start_game(message):
     chatId = message.chat.id
     if chatId in ALLOW_CHATS:
         print('Game is starting...!')
+        userId = message.from_user.id
         global STATE
         if await startGame(message, isStartFromCmd=True) is not None:
-            STATE.update({str(chatId): WAITING_FOR_WORD})
+            STATE.update({str(chatId): [WAITING_FOR_WORD, userId, False]})
 
 @bot.message_handler(commands=['stop'])
 async def stop_game(message):
@@ -215,7 +218,7 @@ async def stop_game(message):
     if chatId in ALLOW_CHATS:
         global STATE
         if await stopGame(message):
-            STATE.update({str(chatId): WAITING_FOR_COMMAND})
+            STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
 
 @bot.message_handler(commands=['mystats'])
 async def mystats_cmd(message):
@@ -282,10 +285,13 @@ async def handle_group_message(message):
         global STATE
         print(f'state: {str(STATE)}\t{WORD.get(str(chatId))}:{msgText.lower()}')
         if STATE.get(str(chatId)) is None:
-            STATE.update({str(chatId): WAITING_FOR_COMMAND})
+            STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
             print(f'Updated state (was None): {str(STATE)}')
 
-        elif STATE.get(str(chatId)) == WAITING_FOR_WORD:
+        elif STATE.get(str(chatId))[0] == WAITING_FOR_WORD:
+            # If leader types sth after starting game, change state to showChangedWordText=True
+            if STATE.get(str(chatId))[1] == userId:
+                STATE.update({str(chatId): [WAITING_FOR_WORD, userId, True]})
             # Check if the message contains the word "Word"
             if msgText.lower() == WORD.get(str(chatId)):
                 # Check if user is not leader
@@ -300,7 +306,7 @@ async def handle_group_message(message):
                 elif curr_game['status'] == 'leader':
                     # Leader revealed the word (stop game and deduct leader's points)
                     await stopGame(message, isWordRevealed=True)
-                STATE.update({str(chatId): WAITING_FOR_COMMAND})
+                STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
         
         elif chatId in ALLOW_CHATS['EVS']:
             if (rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[1]) and (rplyMsg.text.startswith('Croco: ')) and not (msgText.startswith('/') or msgText.startswith('@')):
@@ -337,7 +343,7 @@ async def handle_query(call):
     if chatId in ALLOW_CHATS:
         global STATE
         if STATE.get(str(chatId)) is None:
-            STATE.update({str(chatId): WAITING_FOR_COMMAND})
+            STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
         curr_game = await getCurrGame(chatId, userObj.id)
 
         # Inline btn handlers for all general use cases
@@ -346,9 +352,9 @@ async def handle_query(call):
                 word = await startGame(call)
                 if word is not None:
                     await bot.answer_callback_query(call.id, f"Word: {word}", show_alert=True)
-                    STATE.update({str(chatId): WAITING_FOR_WORD})
+                    STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False]})
                 else:
-                    STATE.update({str(chatId): WAITING_FOR_COMMAND})
+                    STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
             elif curr_game['status'] == 'not_leader':
                 if int(time.time()) - curr_game['started_at'] > 30:
                     # If game started more than 30 seconds ago, then another user can restart the game taking leader's place
@@ -356,9 +362,9 @@ async def handle_query(call):
                     word = await startGame(call)
                     if word is not None:
                         await bot.answer_callback_query(call.id, f"Word: {word}", show_alert=True)
-                        STATE.update({str(chatId): WAITING_FOR_WORD})
+                        STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False]})
                     else:
-                        STATE.update({str(chatId): WAITING_FOR_COMMAND})
+                        STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
                 else:
                     await bot.answer_callback_query(call.id, "⚠ Do not blabber! Game has already started by someone else.", show_alert=True)
             else:
@@ -369,9 +375,9 @@ async def handle_query(call):
                 if word is not None:
                     await bot.answer_callback_query(call.id, f"Word: {word}", show_alert=True)
                     await bot.delete_message(chatId, call.message.message_id)
-                    STATE.update({str(chatId): WAITING_FOR_WORD})
+                    STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False]})
                 else:
-                    STATE.update({str(chatId): WAITING_FOR_COMMAND})
+                    STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
             elif curr_game['status'] == 'not_leader':
                 if int(time.time()) - curr_game['started_at'] > 30:
                     # If game started more than 30 seconds ago, then another user can restart the game taking leader's place
@@ -379,9 +385,9 @@ async def handle_query(call):
                     word = await startGame(call)
                     if word is not None:
                         await bot.answer_callback_query(call.id, f"Word: {word}", show_alert=True)
-                        STATE.update({str(chatId): WAITING_FOR_WORD})
+                        STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False]})
                     else:
-                        STATE.update({str(chatId): WAITING_FOR_COMMAND})
+                        STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
                 else:
                     await bot.answer_callback_query(call.id, "⚠ Do not blabber! Game has already started by someone else.", show_alert=True)
             else:
@@ -417,7 +423,7 @@ async def handle_query(call):
             else:
                 word = await changeWord(call)
                 await bot.answer_callback_query(call.id, f"Word: {word}", show_alert=True)
-                STATE.update({str(chatId): WAITING_FOR_WORD})
+                STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False]})
                 print(STATE.get(str(chatId)))
         elif call.data == 'drop_lead':
             if curr_game['status'] == 'not_started':
@@ -427,7 +433,7 @@ async def handle_query(call):
             else:
                 await stopGame(call, isRefused=True)
                 await bot.delete_message(chatId, call.message.message_id)
-                STATE.update({str(chatId): WAITING_FOR_COMMAND})
+                STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
 
 # Start the bot
 print("[DEV] Bot is running...")
