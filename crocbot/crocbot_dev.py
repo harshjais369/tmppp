@@ -251,7 +251,7 @@ async def ranking_cmd(message):
 async def global_ranking_cmd(message):
     chatId = message.chat.id
     if chatId in ALLOW_CHATS:
-        grp_player_ranks = getTop10PlayersFromAllGroups_sql(chatId)
+        grp_player_ranks = getTop10PlayersFromAllGroups_sql()
         if grp_player_ranks is None:
             await bot.send_message(chatId, '📊 No player\'s rank determined yet!')
         else:
