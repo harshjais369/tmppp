@@ -61,9 +61,9 @@ def getTop25PlayersFromGroup_sql(chat_id):
     finally:
         SESSION.close()
 
-def getTop10PlayersFromAllGroups_sql():
+def getTop25PlayersFromAllGroups_sql():
     try:
-        return SESSION.query(RankingsSql).order_by(RankingsSql.points.desc()).limit(10).all()
+        return SESSION.query(RankingsSql).order_by(RankingsSql.points.desc()).limit(25).all()
     except Exception as e:
         print(e)
         SESSION.rollback()
