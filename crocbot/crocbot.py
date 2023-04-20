@@ -6,7 +6,7 @@ from telebot.async_telebot import AsyncTeleBot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import funcs
 from sql_helper.current_running_game_sql import addGame_sql, getGame_sql, removeGame_sql
-from sql_helper.rankings_sql import incrementPoints_sql, getUserPoints_sql, getTop25PlayersFromGroup_sql
+from sql_helper.rankings_sql import incrementPoints_sql, getUserPoints_sql, getTop25PlayersFromGroup_sql, getTop10PlayersFromAllGroups_sql, getTop10Groups_sql
 
 BOT_TOKEN = os.environ.get('BOT_TOKEN', None)
 MY_IDs = [5321125784, 6103212777] # My ID, and Bot ID
@@ -230,7 +230,7 @@ async def mystats_cmd(message):
             await bot.send_message(chatId, f'📊 *Your total points:* {str(user_stats.points)}', parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['ranking'])
-async def mystats_cmd(message):
+async def ranking_cmd(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         grp_player_ranks = getTop25PlayersFromGroup_sql(chatId)
@@ -242,8 +242,22 @@ async def mystats_cmd(message):
             for gprObj in grp_player_ranks:
                 ranksTxt += f'*{i}\.* {funcs.escChar(gprObj.name)} — {gprObj.points}💎\n'
                 i += 1
-            print(ranksTxt)
             await bot.send_message(chatId, f'*TOP\-25 players* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
+
+@bot.message_handler(commands=['globalranking'])
+async def global_ranking_cmd(message):
+    chatId = message.chat.id
+    if chatId not in BLOCK_CHATS:
+        grp_player_ranks = getTop10PlayersFromAllGroups_sql(chatId)
+        if grp_player_ranks is None:
+            await bot.send_message(chatId, '📊 No player\'s rank determined yet!')
+        else:
+            i = 1
+            ranksTxt = ''
+            for gprObj in grp_player_ranks:
+                ranksTxt += f'*{i}\.* {funcs.escChar(gprObj.name)} — {gprObj.points}💎\n'
+                i += 1
+            await bot.send_message(chatId, f'*TOP\-10 players in all groups* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['rules'])
 async def rules_cmd(message):
