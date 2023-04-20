@@ -231,6 +231,22 @@ async def mystats_cmd(message):
         else:
             await bot.send_message(chatId, f'📊 *Your total points:* {str(user_stats.points)}', parse_mode='MarkdownV2')
 
+@bot.message_handler(commands=['ranking'])
+async def mystats_cmd(message):
+    chatId = message.chat.id
+    if chatId in ALLOW_CHATS:
+        grp_player_ranks = getTop25PlayersFromGroup_sql(chatId)
+        if grp_player_ranks is None:
+            await bot.send_message(chatId, '📊 No player\'s rank determined yet for this group!')
+        else:
+            i = 1
+            ranksTxt = ''
+            for gprObj in grp_player_ranks:
+                ranksTxt += f'*{i}\.* {funcs.escChar(gprObj.name)} — {gprObj.points}💎\n'
+                i += 1
+            print(ranksTxt)
+            await bot.send_message(chatId, f'*TOP\-25 players* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
+
 @bot.message_handler(commands=['rules'])
 async def rules_cmd(message):
     chatId = message.chat.id
@@ -300,7 +316,7 @@ async def handle_group_message(message):
                     # Someone guessed the word (delete word from database)
                     removeGame_sql(chatId)
                     await bot.send_message(chatId, f'🎉 [{funcs.escChar(message.from_user.first_name)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
-                    incrementPoints_sql(userId, chatId)
+                    incrementPoints_sql(userId, chatId, message.from_user.first_name)
                 elif curr_game['status'] == 'not_started':
                     pass
                 elif curr_game['status'] == 'leader':
@@ -308,29 +324,29 @@ async def handle_group_message(message):
                     await stopGame(message, isWordRevealed=True)
                 STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
         
-        elif chatId in ALLOW_CHATS['EVS']:
-            if (rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[1]) and (rplyMsg.text.startswith('Croco: ')) and not (msgText.startswith('/') or msgText.startswith('@')):
-                rplyText = rplyMsg.text.replace('Croco ', '')
-                resp = None
-                preConvObj = funcs.getAllConv_sql()
-                foundPreConv = False
-                if preConvObj is not None:
-                    for x in preConvObj.prompts:
-                        if (x.find(rplyText) != -1):
-                            foundPreConv = True
-                            # get English AI resp and then update prompt in DB
-                            p = f"{x}\nMember 4: {msgText}\nCroco:"
-                            resp = funcs.getAIResp(prompt=p)
-                            funcs.updateEngAIPrompt_sql(preConvObj.id, x + resp)
-                            break
-                if not foundPreConv:
-                    p = f"{rplyMsg.text}\nAnother group member: {msgText}\nCroco:"
-                    resp = funcs.escChar(funcs.getAIResp(prompt=p))
-                await bot.send_message(chatId, f'*Croco:* {resp}', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
-            elif msgText in funcs.TRIGGER_MSGS:
-                p = f"{funcs.NEW_CONV_PROMPT}\nAnother group member: {msgText}\nCroco:"
-                resp = funcs.getAIResp(prompt=p)
-                await bot.send_message(chatId, f'*Croco:* {resp}', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
+        # elif chatId in ALLOW_CHATS['EVS']:
+        #     if (rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[1]) and (rplyMsg.text.startswith('Croco: ')) and not (msgText.startswith('/') or msgText.startswith('@')):
+        #         rplyText = rplyMsg.text.replace('Croco ', '')
+        #         resp = None
+        #         preConvObj = funcs.getAllConv_sql()
+        #         foundPreConv = False
+        #         if preConvObj is not None:
+        #             for x in preConvObj.prompts:
+        #                 if (x.find(rplyText) != -1):
+        #                     foundPreConv = True
+        #                     # get English AI resp and then update prompt in DB
+        #                     p = f"{x}\nMember 4: {msgText}\nCroco:"
+        #                     resp = funcs.getAIResp(prompt=p)
+        #                     funcs.updateEngAIPrompt_sql(preConvObj.id, x + resp)
+        #                     break
+        #         if not foundPreConv:
+        #             p = f"{rplyMsg.text}\nAnother group member: {msgText}\nCroco:"
+        #             resp = funcs.escChar(funcs.getAIResp(prompt=p))
+        #         await bot.send_message(chatId, f'*Croco:* {resp}', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
+        #     elif msgText in funcs.TRIGGER_MSGS:
+        #         p = f"{funcs.NEW_CONV_PROMPT}\nAnother group member: {msgText}\nCroco:"
+        #         resp = funcs.getAIResp(prompt=p)
+        #         await bot.send_message(chatId, f'*Croco:* {resp}', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
 
 
 

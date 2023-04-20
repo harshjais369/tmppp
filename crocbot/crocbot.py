@@ -229,6 +229,22 @@ async def mystats_cmd(message):
         else:
             await bot.send_message(chatId, f'📊 *Your total points:* {str(user_stats.points)}', parse_mode='MarkdownV2')
 
+@bot.message_handler(commands=['ranking'])
+async def mystats_cmd(message):
+    chatId = message.chat.id
+    if chatId not in BLOCK_CHATS:
+        grp_player_ranks = getTop25PlayersFromGroup_sql(chatId)
+        if grp_player_ranks is None:
+            await bot.send_message(chatId, '📊 No player\'s rank determined yet for this group!')
+        else:
+            i = 1
+            ranksTxt = ''
+            for gprObj in grp_player_ranks:
+                ranksTxt += f'*{i}\.* {funcs.escChar(gprObj.name)} — {gprObj.points}💎\n'
+                i += 1
+            print(ranksTxt)
+            await bot.send_message(chatId, f'*TOP\-25 players* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
+
 @bot.message_handler(commands=['rules'])
 async def rules_cmd(message):
     chatId = message.chat.id
@@ -295,7 +311,7 @@ async def handle_group_message(message):
                     # Someone guessed the word (delete word from database)
                     removeGame_sql(chatId)
                     await bot.send_message(chatId, f'🎉 [{funcs.escChar(message.from_user.first_name)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
-                    incrementPoints_sql(userId, chatId)
+                    incrementPoints_sql(userId, chatId, message.from_user.first_name)
                 elif curr_game['status'] == 'not_started':
                     pass
                 elif curr_game['status'] == 'leader':

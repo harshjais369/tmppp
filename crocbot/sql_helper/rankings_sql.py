@@ -9,27 +9,30 @@ class RankingsSql(BASE):
     chat_id = Column(String(30))
     points = Column(Integer, default=1)
     last_played = Column(String(80))
+    name = Column(String(255))
 
-    def __init__(self, id, user_id, chat_id, points, last_played):
+    def __init__(self, id, user_id, chat_id, points, last_played, name):
         self.id = id
         self.user_id = user_id
         self.chat_id = chat_id
         self.points = points
         self.last_played = last_played
+        self.name = name
 
     def __repr__(self):
         return "<Rankings %s>" % self.id
 
 RankingsSql.__table__.create(checkfirst=True, bind=SESSION.bind)
 
-def incrementPoints_sql(user_id, chat_id):
+def incrementPoints_sql(user_id, chat_id, name):
     try:
         adder = SESSION.query(RankingsSql).filter_by(user_id=str(user_id), chat_id=str(chat_id)).first()
         if adder:
             adder.points = int(adder.points) + 1
             adder.last_played = str(int(time.time()))
+            adder.name = str(name)
         else:
-            adder = RankingsSql(None, str(user_id), str(chat_id), 1, str(int(time.time())))
+            adder = RankingsSql(None, str(user_id), str(chat_id), 1, str(int(time.time())), str(name))
         SESSION.add(adder)
         SESSION.commit()
         return True
