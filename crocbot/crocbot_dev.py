@@ -273,14 +273,14 @@ async def rules_cmd(message):
 async def help_cmd(message):
     chatId = message.chat.id
     if chatId in ALLOW_CHATS:
-        await bot.send_message(chatId, '📖 *Help commands:*\n\n'
+        await bot.send_message(chatId, '🐊📖 *Help commands:*\n\n'
                                  '🎮 /game \- start new game\n'
                                  '🛑 /stop \- stop current game\n'
-                                 '/rules \- see game rules\n'
-                                 '/mystats \- see your stats\n'
-                                 '/ranking \- see top 25 players of this group\n'
-                                 '/globalranking \- see top 10 global level players\n'
-                                 '/groupranking \- see top 10 groups\n'
+                                 '📋 /rules \- see game rules\n'
+                                 '📊 /mystats \- see your stats\n'
+                                 '📈 /ranking \- see top 25 players of this group\n'
+                                 '📈 /globalranking \- see top 10 global level players\n'
+                                 '📈 /chatranking \- see top 10 groups\n'
                                  '📖 /help \- show this message',
                                  parse_mode='MarkdownV2')
 
