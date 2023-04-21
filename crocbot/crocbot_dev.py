@@ -240,7 +240,7 @@ async def mystats_cmd(message):
                                     f' *— in all chats:* {str(user_stats.points)}\n'
                                     f'*Rank:* \#{rank}\n'
                                     f'*Global rank:* \#{grank}\n\n'
-                                    f'❕ _You receive 1💵 reward for each correct word guess._',
+                                    f'❕ _You receive 1💵 reward for each correct word guess\._',
                                     parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['ranking'])
@@ -268,7 +268,7 @@ async def global_ranking_cmd(message):
             await bot.send_message(chatId, '📊 No player\'s rank determined yet!')
         else:
             ranksTxt = ''
-            ranks = {}
+            ranks = []
             tmp_gObjList = grp_player_ranks.copy()
             tmp_gObjList.pop(0)
             for gprObj in grp_player_ranks:
@@ -285,10 +285,10 @@ async def global_ranking_cmd(message):
                 for index in remItemIndexList:
                     tmp_gObjList.pop(index)
                 # Add to dict ------------------------------------------------------- #
-                ranks.update({name: points})
-            sorted_ranks = dict(sorted(ranks.items(), key=lambda item: item[1], reverse=True))
+                ranks.append((name, points))
+            sorted_ranks = sorted(ranks, key=lambda x: x[1], reverse=True)
             i = 1
-            for nm, pts in sorted_ranks.items():
+            for nm, pts in sorted_ranks:
                 ranksTxt += f'*{i}\.* {nm} — {pts}💎\n'
                 i += 1
             await bot.send_message(chatId, f'*TOP\-25 players in all groups* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
@@ -320,7 +320,8 @@ async def help_cmd(message):
 async def handle_group_message(message):
     chatId = message.chat.id
     if chatId in ALLOW_CHATS:
-        userId = message.from_user.id
+        userObj = message.from_user
+        userId = userObj.id
         msgText = message.text
         rplyMsg = message.reply_to_message
 
@@ -360,9 +361,12 @@ async def handle_group_message(message):
                 curr_game = await getCurrGame(chatId, userId)
                 if curr_game['status'] == 'not_leader':
                     # Someone guessed the word (delete word from database)
+                    fullName = userObj.first_name
+                    if userObj.last_name is not None:
+                        fullName += ' ' + userObj.last_name
                     removeGame_sql(chatId)
-                    await bot.send_message(chatId, f'🎉 [{funcs.escChar(message.from_user.first_name)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
-                    incrementPoints_sql(userId, chatId, message.from_user.first_name)
+                    await bot.send_message(chatId, f'🎉 [{funcs.escChar(userObj.first_name)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
+                    incrementPoints_sql(userId, chatId, fullName)
                 elif curr_game['status'] == 'not_started':
                     pass
                 elif curr_game['status'] == 'leader':
