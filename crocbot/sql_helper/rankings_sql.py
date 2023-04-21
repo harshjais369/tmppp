@@ -51,7 +51,7 @@ def getUserPoints_sql(user_id, chat_id):
     finally:
         SESSION.close()
 
-def getTop25PlayersFromGroup_sql(chat_id):
+def getTop25Players_sql(chat_id):
     try:
         return SESSION.query(RankingsSql).filter_by(chat_id=str(chat_id)).order_by(RankingsSql.points.desc()).limit(25).all()
     except Exception as e:
@@ -61,7 +61,7 @@ def getTop25PlayersFromGroup_sql(chat_id):
     finally:
         SESSION.close()
 
-def getTop25PlayersFromAllGroups_sql():
+def getTop25PlayersInAllChats_sql():
     try:
         return SESSION.query(RankingsSql).order_by(RankingsSql.points.desc()).limit(25).all()
     except Exception as e:
@@ -71,5 +71,5 @@ def getTop25PlayersFromAllGroups_sql():
     finally:
         SESSION.close()
 
-def getTop10Groups_sql():
+def getTop10Chats_sql():
     pass

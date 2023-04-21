@@ -6,7 +6,7 @@ from telebot.async_telebot import AsyncTeleBot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import funcs
 from sql_helper.current_running_game_sql import addGame_sql, getGame_sql, removeGame_sql
-from sql_helper.rankings_sql import incrementPoints_sql, getUserPoints_sql, getTop25PlayersFromGroup_sql, getTop25PlayersFromAllGroups_sql, getTop10Groups_sql
+from sql_helper.rankings_sql import incrementPoints_sql, getUserPoints_sql, getTop25Players_sql, getTop25PlayersInAllChats_sql, getTop10Chats_sql
 
 BOT_TOKEN = os.environ.get('BOT_TOKEN', None)
 MY_IDs = [5321125784, 6103212777] # My ID, and Bot ID
@@ -229,13 +229,25 @@ async def mystats_cmd(message):
         if user_stats is None:
             await bot.send_message(chatId, '📊 You have no stats yet!')
         else:
-            await bot.send_message(chatId, f'📊 *Your total points:* {str(user_stats.points)}', parse_mode='MarkdownV2')
+            fullName = user_obj.first_name
+            if user_obj.last_name is not None:
+                fullName += ' ' + user_obj.last_name
+            rank = ''
+            grank = ''
+            await bot.send_message(chatId, f'*Player stats* 📊\n\n'
+                                    f'*Name:* {funcs.escChar(fullName)}\n'
+                                    f'*Earned cash:* {str(user_stats.points)}💵\n'
+                                    f' *— in all chats:* {str(user_stats.points)}\n'
+                                    f'*Rank:* \#{rank}\n'
+                                    f'*Global rank:* \#{grank}\n\n'
+                                    f'❕ _You receive 1💵 reward for each correct word guess._',
+                                    parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['ranking'])
 async def ranking_cmd(message):
     chatId = message.chat.id
     if chatId in ALLOW_CHATS:
-        grp_player_ranks = getTop25PlayersFromGroup_sql(chatId)
+        grp_player_ranks = getTop25Players_sql(chatId)
         if grp_player_ranks is None:
             await bot.send_message(chatId, '📊 No player\'s rank determined yet for this group!')
         else:
@@ -251,14 +263,33 @@ async def ranking_cmd(message):
 async def global_ranking_cmd(message):
     chatId = message.chat.id
     if chatId in ALLOW_CHATS:
-        grp_player_ranks = getTop25PlayersFromAllGroups_sql()
+        grp_player_ranks = getTop25PlayersInAllChats_sql()
         if grp_player_ranks is None:
             await bot.send_message(chatId, '📊 No player\'s rank determined yet!')
         else:
-            i = 1
             ranksTxt = ''
+            ranks = {}
+            tmp_gObjList = grp_player_ranks.copy()
+            tmp_gObjList.pop(0)
             for gprObj in grp_player_ranks:
-                ranksTxt += f'*{i}\.* {funcs.escChar(gprObj.name)} — {gprObj.points}💎\n'
+                name = funcs.escChar(gprObj.name)
+                points = gprObj.points
+                # Remove duplicate user in the list -------------------------------- #
+                j = 0
+                remItemIndexList = []
+                for tmp_gObj in tmp_gObjList.copy():
+                    if tmp_gObj.user_id == gprObj.user_id:
+                        points += tmp_gObj.points
+                        remItemIndexList.append(j)
+                    j += 1
+                for index in remItemIndexList:
+                    tmp_gObjList.pop(index)
+                # Add to dict ------------------------------------------------------- #
+                ranks.update({name: points})
+            sorted_ranks = dict(sorted(ranks.items(), key=lambda item: item[1], reverse=True))
+            i = 1
+            for nm, pts in sorted_ranks.items():
+                ranksTxt += f'*{i}\.* {nm} — {pts}💎\n'
                 i += 1
             await bot.send_message(chatId, f'*TOP\-25 players in all groups* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
 
@@ -273,14 +304,14 @@ async def rules_cmd(message):
 async def help_cmd(message):
     chatId = message.chat.id
     if chatId in ALLOW_CHATS:
-        await bot.send_message(chatId, '🐊📖 *Help commands:*\n\n'
+        await bot.send_message(chatId, '🐊📖 *Bot commands:*\n\n'
                                  '🎮 /game \- start new game\n'
                                  '🛑 /stop \- stop current game\n'
                                  '📋 /rules \- see game rules\n'
                                  '📊 /mystats \- see your stats\n'
-                                 '📈 /ranking \- see top 25 players of this group\n'
-                                 '📈 /globalranking \- see top 10 global level players\n'
-                                 '📈 /chatranking \- see top 10 groups\n'
+                                 '📈 /ranking \- see top 25 players in this chat\n'
+                                 '📈 /globalranking \- see top 25 players in all chats\n'
+                                 '📈 /chatranking \- see top 10 chats\n'
                                  '📖 /help \- show this message',
                                  parse_mode='MarkdownV2')
 
