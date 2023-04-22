@@ -274,7 +274,17 @@ async def global_ranking_cmd(message):
                     ranks[gprObj.user_id] = {'name': gprObj.name, 'points': gprObj.points}
             ranks = sorted(ranks.values(), key=lambda x: x['points'], reverse=True)
             for i, user in enumerate(ranks, 1):
-                ranksTxt += f"*{i}\.* {user['name']} — {user['points']} 💵\n"
+                j = i
+                if i == 1:
+                    i = '🥇'
+                elif i == 2:
+                    i = '🥈'
+                elif i == 3:
+                    i = '🥉'
+                else:
+                    i = f"*{str(i)}\.*"
+                ranksTxt += f"{i} {funcs.escChar(user['name'])} — {user['points']} 💵\n"
+                i = j
             await bot.send_message(chatId, f'*TOP\-25 players in all groups* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['rules'])
