@@ -234,11 +234,11 @@ async def mystats_cmd(message):
             grank = ''
             await bot.send_message(chatId, f'*Player stats* 📊\n\n'
                                     f'*Name:* {funcs.escChar(fullName)}\n'
-                                    f'*Earned cash:* {str(user_stats.points)}💵\n'
-                                    f' *— in all chats:* {str(user_stats.points)}💵\n'
+                                    f'*Earned cash:* {str(user_stats.points)} 💵\n'
+                                    f' *— in all chats:* {str(user_stats.points)} 💵\n'
                                     f'*Rank:* \#{rank}\n'
                                     f'*Global rank:* \#{grank}\n\n'
-                                    f'❕ _You receive 1💵 reward\nfor each correct word guess\._',
+                                    f'❕ _You receive 1💵 reward for\neach correct word guess\._',
                                     parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['ranking'])
@@ -252,7 +252,7 @@ async def ranking_cmd(message):
             i = 1
             ranksTxt = ''
             for gprObj in grp_player_ranks:
-                ranksTxt += f'*{i}\.* {funcs.escChar(gprObj.name)} — {gprObj.points}💵\n'
+                ranksTxt += f'*{i}\.* {funcs.escChar(gprObj.name)} — {gprObj.points} 💵\n'
                 i += 1
             await bot.send_message(chatId, f'*TOP\-25 players* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
 
@@ -269,12 +269,12 @@ async def global_ranking_cmd(message):
             ranks = {}
             for gprObj in grp_player_ranks:
                 if gprObj.user_id in ranks:
-                    ranks[gprObj.user_id][points] += gprObj.points
+                    ranks[gprObj.user_id]['points'] += gprObj.points
                 else:
                     ranks[gprObj.user_id] = {'name': gprObj.name, 'points': gprObj.points}
             ranks = sorted(ranks.values(), key=lambda x: x['points'], reverse=True)
             for i, user in enumerate(ranks, 1):
-                ranksTxt += f'*{i}\.* {user[name]} — {user[points]}💵\n'
+                ranksTxt += f'*{i}\.* {user['name']} — {user['points']} 💵\n'
             await bot.send_message(chatId, f'*TOP\-25 players in all groups* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['rules'])
