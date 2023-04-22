@@ -90,7 +90,7 @@ async def stopGame(message, isRefused=False, isChangeLeader=False, isWordReveale
         pass
     elif isWordRevealed:
         # Leader revealed the word (deduct point)
-        await bot.send_message(chatId, f'🛑 *Game stopped\!*\n[{funcs.escChar(userObj.first_name)}](tg://user?id={userObj.id}) \(\-💎\) revealed the word: *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('refused_lead'), parse_mode='MarkdownV2')
+        await bot.send_message(chatId, f'🛑 *Game stopped\!*\n[{funcs.escChar(userObj.first_name)}](tg://user?id={userObj.id}) \(\-1💵\) revealed the word: *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('refused_lead'), parse_mode='MarkdownV2')
     else:
         chatMemb_obj = await bot.get_chat_member(chatId, userObj.id)
         curr_game = await getCurrGame(chatId, userObj.id)
@@ -252,7 +252,7 @@ async def ranking_cmd(message):
             i = 1
             ranksTxt = ''
             for gprObj in grp_player_ranks:
-                ranksTxt += f'*{i}\.* {funcs.escChar(gprObj.name)} — {gprObj.points}💎\n'
+                ranksTxt += f'*{i}\.* {funcs.escChar(gprObj.name)} — {gprObj.points}💵\n'
                 i += 1
             await bot.send_message(chatId, f'*TOP\-25 players* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
 
@@ -264,30 +264,17 @@ async def global_ranking_cmd(message):
         if grp_player_ranks is None:
             await bot.send_message(chatId, '📊 No player\'s rank determined yet!')
         else:
+            # Remove duplicates and re-order the data
             ranksTxt = ''
-            ranks = []
-            tmp_gObjList = grp_player_ranks.copy()
-            tmp_gObjList.pop(0)
+            ranks = {}
             for gprObj in grp_player_ranks:
-                name = funcs.escChar(gprObj.name)
-                points = gprObj.points
-                # Remove duplicate user in the list -------------------------------- #
-                j = 0
-                remItemIndexList = []
-                for tmp_gObj in tmp_gObjList.copy():
-                    if tmp_gObj.user_id == gprObj.user_id:
-                        points += tmp_gObj.points
-                        remItemIndexList.append(j)
-                    j += 1
-                for index in remItemIndexList:
-                    tmp_gObjList.pop(index)
-                # Add to dict ------------------------------------------------------- #
-                ranks.append((name, points))
-            sorted_ranks = sorted(ranks, key=lambda x: x[1], reverse=True)
-            i = 1
-            for nm, pts in sorted_ranks:
-                ranksTxt += f'*{i}\.* {nm} — {pts}💎\n'
-                i += 1
+                if gprObj.user_id in ranks:
+                    ranks[gprObj.user_id] += gprObj.points
+                else:
+                    ranks[gprObj.user_id] = gprObj.points
+            ranks = sorted(ranks.items(), key=lambda x: x[1], reverse=True)
+            for i, (user_id, points) in enumerate(ranks, 1):
+                ranksTxt += f'*{i}\.* {user_id} — {points}💵\n'
             await bot.send_message(chatId, f'*TOP\-25 players in all groups* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['rules'])
