@@ -6,6 +6,24 @@ import openai
 API_KEY = os.environ.get('OPENAI_API_KEY', None)
 openai.api_key = API_KEY
 
+ENG_AI_PRE_PROMPT = ''
+ENG_AI_TRIGGER_MSGS = ['@croco', 'i\'m new here', 'am new here', 'anyone alive', 'want to learn english',
+    'wants to learn english', 'want learn english', 'wants learn english', 'wanna learn english', 'want to practice english',
+    'wants to practice english', 'want practice english', 'wants practice english', 'wanna practice english',
+    'want to practice my english', 'wants to practice my english', 'want practice my english', 'wants practice my english',
+    'wanna practice my english', 'improve their english', 'improve my english', 'improve my communication',
+    'improve their communication', 'teach me english', 'teach me speak', 'teach how to speak', 'teach me how to speak',
+    'can i learn english', 'i can learn english', 'can i practice english', 'i can practice english',
+    'can i practice my english', 'i can practice my english', 'help learn english', 'help learning english',
+    'help me learn english', 'i\'m new in group', 'i\'m new in this group', 'am new in group', 'am new in grp',
+    'am new in this group', 'am new in this grp', 'am new member', 'i just joined this group', 'i joined this group now',
+    'welcome me', 'no one welcome me', 'no one greets me', 'hey croco', 'hello croco', 'where is croco', 'who is croco',
+    'my english grammar', 'how to learn english', 'how to practice english', 'how to practice speaking', 'how to start reading',
+    'i want to start reading book', 'i want to start book reading', 'improve my speaking', 'me any suggestion',
+    'any suggestion for me', 'any suggestion for me', 'suggest me guys', 'listen guys', 'tell me about group',
+    'tell me about this group', 'what\'s this group purpose', 'whats this group purpose', 'what this group purpose'
+]
+
 # Get GPT4-AI response
 def getAIResp(
     prompt,
@@ -47,6 +65,19 @@ def getHints(word):
         except Exception as e:
             # print(str(e))
             return ["Error 0x406: Please try again later!"]
+
+# Get English AI response (Croco)
+def getCrocoResp(prompt):
+    return "Ok"
+    resp = getAIResp(prompt)
+    if resp == 0:
+        return "Error 0x404: Please try again later!"
+    else:
+        try:
+            return str(resp.choices[0].text)
+        except Exception as e:
+            # print(str(e))
+            return "Error 0x406: Please try again later!"
 
 
 # Other funcs ------------------------------------------------------------------ #

@@ -7,11 +7,13 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import funcs
 from sql_helper.current_running_game_sql import addGame_sql, getGame_sql, removeGame_sql
 from sql_helper.rankings_sql import incrementPoints_sql, getUserPoints_sql, getTop25Players_sql, getTop25PlayersInAllChats_sql, getTop10Chats_sql
+from sql_helper.ai_conv_sql import getAllConv_sql, updateEngAIPrompt_sql
 
 BOT_TOKEN = os.environ.get('BOT_TOKEN', None)
 MY_IDs = [5321125784, 6103212777] # My ID, and Bot ID
 AI_USERS = {}
 BLOCK_CHATS = [int(x) for x in os.environ.get('BLOCK_CHATS', '').split(',') if x]
+CROCO_CHATS = [int(x) for x in os.environ.get('CROCO_CHATS', '').split(',') if x]
 STATE = {} # STATE('chat_id': [str(game_state), int(leader_id), bool(show_changed_word_msg)])
 WORD = {}
 HINTS = {}
@@ -342,7 +344,7 @@ async def handle_group_message(message):
         global STATE
         if STATE.get(str(chatId)) is None:
             STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
-        if STATE.get(str(chatId))[0] == WAITING_FOR_WORD:
+        elif STATE.get(str(chatId))[0] == WAITING_FOR_WORD:
             # If leader types sth after starting game, change state to showChangedWordText=True
             if STATE.get(str(chatId))[1] == userId:
                 STATE.update({str(chatId): [WAITING_FOR_WORD, userId, True]})
@@ -364,6 +366,29 @@ async def handle_group_message(message):
                     # Leader revealed the word (stop game and deduct leader's points)
                     await stopGame(message, isWordRevealed=True)
                 STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
+        
+        elif chatId in CROCO_CHATS: # Check if chat is allowed to use Croco English AI
+            if (rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[1]) and (rplyMsg.text.startswith('Croco: ')) and not (msgText.startswith('/') or msgText.startswith('@')):
+                rplyText = rplyMsg.text
+                resp = None
+                preConvObj = getAllConv_sql(chatId)
+                foundPreConv = False
+                if preConvObj is not None and preConvObj.prompts is not None and (str(preConvObj.prompts).find(rplyText) != -1):
+                    foundPreConv = True
+                    # get Croco English AI resp and then update prompt in DB
+                    p = f"{preConvObj.prompts}\nMember 4: {msgText}\nCroco:"
+                    resp = funcs.escChar(funcs.getCrocoResp(p))
+                    updateEngAIPrompt_sql(preConvObj.id, chatId, p + resp, False)
+                if not foundPreConv:
+                    p = f"{funcs.ENG_AI_PRE_PROMPT}\n- Another conversation -\n...\n{rplyText}\nMember 4: {msgText}\nCroco:"
+                    resp = funcs.escChar(funcs.getCrocoResp(p))
+                    updateEngAIPrompt_sql(None, chatId, p + resp, True)
+                await bot.send_message(chatId, f'*Croco:* {resp}', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
+            elif any(t in msgText.lower() for t in funcs.ENG_AI_TRIGGER_MSGS):
+                p = f"{funcs.ENG_AI_PRE_PROMPT}\nMember 4: {msgText}\nCroco:"
+                resp = funcs.escChar(funcs.getCrocoResp(p))
+                updateEngAIPrompt_sql(None, chatId, p + resp, True)
+                await bot.send_message(chatId, f'*Croco:* {resp}', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
 
 
 
