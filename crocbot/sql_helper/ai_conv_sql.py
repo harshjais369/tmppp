@@ -19,7 +19,7 @@ AiConvSql.__table__.create(checkfirst=True, bind=SESSION.bind)
 
 def getAllConv_sql(chat_id):
     try:
-        return SESSION.query(AiConvSql).get(str(chat_id))
+        return SESSION.query(AiConvSql).filter_by(chat_id=str(chat_id))
     except Exception as e:
         print(e)
         SESSION.rollback()
