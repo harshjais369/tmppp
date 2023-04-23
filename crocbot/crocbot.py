@@ -318,10 +318,10 @@ async def handle_group_message(message):
     if chatId not in BLOCK_CHATS:
         userObj = message.from_user
         userId = userObj.id
+        msgText = message.text
+        rplyMsg = message.reply_to_message
 
         if ((str(userId) in AI_USERS.keys()) and (chatId == int(AI_USERS.get(str(userId)))) and (message.text.startswith('@croco ') or ((message.reply_to_message is not None) and (message.reply_to_message.from_user.id == MY_IDs[1]))) and (not message.text.startswith('/'))):
-            msgText = message.text
-            rplyMsg = message.reply_to_message
             prompt = "You: " + msgText
             await bot.send_chat_action(chatId, 'typing')
             prompt = prompt.replace('@croco ', '')
