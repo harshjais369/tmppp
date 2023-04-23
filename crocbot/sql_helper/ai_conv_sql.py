@@ -38,7 +38,7 @@ def updateEngAIPrompt_sql(id, chat_id, prompt, isNewConv):
             adder.time = str(int(time.time()))
             adder.prompt = prompt
         else:
-            adder = AiConvSql(None, str(chat_id), str(int(time.time())), str(prompt))
+            adder = AiConvSql(id=None, chat_id=str(chat_id), time=str(int(time.time())), prompt=str(prompt))
         SESSION.add(adder)
         SESSION.commit()
         return True
