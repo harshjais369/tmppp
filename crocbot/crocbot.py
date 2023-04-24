@@ -274,7 +274,7 @@ async def global_ranking_cmd(message):
                     ranks[gprObj.user_id]['points'] += gprObj.points
                 else:
                     ranks[gprObj.user_id] = {'name': gprObj.name, 'points': gprObj.points}
-            ranks = sorted(ranks.values(), key=lambda x: x['points'], reverse=True)
+            ranks = sorted(ranks.values(), key=lambda x: x['points'], reverse=True)[:25]
             for i, user in enumerate(ranks, 1):
                 j = i
                 if i == 1:
