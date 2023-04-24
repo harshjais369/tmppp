@@ -17,9 +17,10 @@ class AiConvSql(BASE):
 
 AiConvSql.__table__.create(checkfirst=True, bind=SESSION.bind)
 
-def getAllConv_sql(chat_id):
+def getEngAIConv_sql(chat_id, search_str):
     try:
-        return SESSION.query(AiConvSql).filter_by(chat_id=str(chat_id)).all()
+        query = SESSION.query(AiConvSql).filter_by(chat_id=str(chat_id)).filter(AiConvSql.prompt.ilike(f'%{search_str}%'))
+        return query.all()
     except Exception as e:
         print(e)
         SESSION.rollback()
@@ -31,14 +32,14 @@ def updateEngAIPrompt_sql(id, chat_id, prompt, isNewConv):
     try:
         adder = False
         if isNewConv:
-            adder = SESSION.query(AiConvSql).filter_by(chat_id=str(chat_id)).first()
+            adder = AiConvSql(id=None, chat_id=str(chat_id), time=str(int(time.time())), prompt=str(prompt))
         else:
             adder = SESSION.query(AiConvSql).get(id)
-        if adder:
-            adder.time = str(int(time.time()))
-            adder.prompt = prompt
-        else:
-            adder = AiConvSql(id=None, chat_id=str(chat_id), time=str(int(time.time())), prompt=str(prompt))
+            if adder:
+                adder.time = str(int(time.time()))
+                adder.prompt = str(prompt)
+            else:
+                adder = AiConvSql(id=None, chat_id=str(chat_id), time=str(int(time.time())), prompt=str(prompt))
         SESSION.add(adder)
         SESSION.commit()
         return True

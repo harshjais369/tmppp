@@ -7,7 +7,7 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import funcs
 from sql_helper.current_running_game_sql import addGame_sql, getGame_sql, removeGame_sql
 from sql_helper.rankings_sql import incrementPoints_sql, getUserPoints_sql, getTop25Players_sql, getTop25PlayersInAllChats_sql, getTop10Chats_sql
-from sql_helper.ai_conv_sql import getAllConv_sql, updateEngAIPrompt_sql
+from sql_helper.ai_conv_sql import getEngAIConv_sql, updateEngAIPrompt_sql
 
 BOT_TOKEN = os.environ.get('BOT_TOKEN', None)
 MY_IDs = [5321125784, 6103212777] # My ID, and Bot ID
@@ -371,23 +371,32 @@ async def handle_group_message(message):
             if (rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[1]) and (rplyMsg.text.startswith('Croco: ')) and not (msgText.startswith('/') or msgText.startswith('@')):
                 rplyText = rplyMsg.text
                 resp = None
-                preConvObj = getAllConv_sql(chatId)
-                foundPreConv = False
-                if preConvObj is not None and preConvObj.prompts is not None and (str(preConvObj.prompts).find(rplyText) != -1):
-                    foundPreConv = True
+                preConvObjList = getEngAIConv_sql(chatId, rplyText)
+                if preConvObjList:
+                    preConvObj = preConvObjList[0]
                     # get Croco English AI resp and then update prompt in DB
-                    p = f"{preConvObj.prompts}\nMember 4: {msgText}\nCroco:"
-                    resp = funcs.escChar(funcs.getCrocoResp(p))
-                    updateEngAIPrompt_sql(id=preConvObj.id, chat_id=chatId, prompt=str(p + resp), isNewConv=False)
-                if not foundPreConv:
+                    if (int(rplyMsg.date) - int(preConvObj.time)) < 3:
+                        p = f"{preConvObj.prompt}\nMember 4: {msgText}\nCroco:"
+                        resp = funcs.escChar(funcs.getCrocoResp(p))
+                        updateEngAIPrompt_sql(id=preConvObj.id, chat_id=chatId, prompt=str(p+" "+resp), isNewConv=False)
+                    else:
+                        rem_prmt_frm_indx = str(preConvObj.prompt).find(rplyText)
+                        if rem_prmt_frm_indx == -1:
+                            await bot.send_message(chatId, f'Something went wrong!\n*Err:* #0x604', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
+                            return
+                        renew_prompt = preConvObj.prompt[:rem_prmt_frm_indx + len(rplyText)]
+                        p = f"{renew_prompt}\nMember 4: {msgText}\nCroco:"
+                        resp = funcs.escChar(funcs.getCrocoResp(p))
+                        updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p+" "+resp), isNewConv=True)
+                else:
                     p = f"{funcs.ENG_AI_PRE_PROMPT}\n- Another conversation -\n...\n{rplyText}\nMember 4: {msgText}\nCroco:"
                     resp = funcs.escChar(funcs.getCrocoResp(p))
-                    updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
+                    updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p+" "+resp), isNewConv=True)
                 await bot.send_message(chatId, f'*Croco:* {resp}', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
             elif any(t in msgText.lower() for t in funcs.ENG_AI_TRIGGER_MSGS):
                 p = f"{funcs.ENG_AI_PRE_PROMPT}\nMember 4: {msgText}\nCroco:"
                 resp = funcs.escChar(funcs.getCrocoResp(p))
-                updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
+                updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p+" "+resp), isNewConv=True)
                 await bot.send_message(chatId, f'*Croco:* {resp}', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
 
 
