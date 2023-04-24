@@ -372,9 +372,11 @@ async def handle_group_message(message):
                 rplyText = rplyMsg.text
                 resp = None
                 preConvObjList = getEngAIConv_sql(chatId, rplyText)
+                print(preConvObjList)
                 if preConvObjList:
                     preConvObj = preConvObjList[0]
                     # get Croco English AI resp and then update prompt in DB
+                    print(int(rplyMsg.date) - int(preConvObj.time))
                     if (int(rplyMsg.date) - int(preConvObj.time)) < 3:
                         p = f"{preConvObj.prompt}\nMember 4: {msgText}\nCroco:"
                         resp = funcs.escChar(funcs.getCrocoResp(p))
