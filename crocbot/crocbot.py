@@ -225,7 +225,10 @@ async def mystats_cmd(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         user_obj = message.from_user
-        user_stats = getUserPoints_sql(user_obj.id, chatId)
+        curr_chat_user_stat = None
+        curr_chat_points = 0
+        total_points = 'Loading...'
+        user_stats = getUserPoints_sql(user_obj.id)
         if user_stats is None:
             await bot.send_message(chatId, '📊 You have no stats yet!')
         else:
@@ -234,10 +237,17 @@ async def mystats_cmd(message):
                 fullName += ' ' + user_obj.last_name
             rank = ''
             grank = ''
+            total_points = 0
+            for us in user_stats:
+                if str(us.chat_id) == str(chatId):
+                    curr_chat_user_stat = us
+                total_points += int(us.points)
+            if curr_chat_user_stat is not None:
+                curr_chat_points = curr_chat_user_stat.points
             await bot.send_message(chatId, f'*Player stats* 📊\n\n'
                                     f'*Name:* {funcs.escChar(fullName)}\n'
-                                    f'*Earned cash:* {str(user_stats.points)} 💵\n'
-                                    f' *— in all chats:* {str(user_stats.points)} 💵\n'
+                                    f'*Earned cash:* {str(curr_chat_points)} 💵\n'
+                                    f' *— in all chats:* {str(total_points)} 💵\n'
                                     f'*Rank:* \#{rank}\n'
                                     f'*Global rank:* \#{grank}\n\n'
                                     f'❕ _You receive 1💵 reward for\neach correct word guess\._',
