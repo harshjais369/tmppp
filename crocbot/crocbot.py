@@ -393,7 +393,7 @@ async def handle_group_message(message):
                     print(int(rplyMsg.date) - int(preConvObj.time))
                     if (int(rplyMsg.date) - int(preConvObj.time)) < 3:
                         p = f"{preConvObj.prompt}\nMember 4: {msgText}\nCroco:"
-                        resp = funcs.escChar(funcs.getCrocoResp(p))
+                        resp = funcs.getCrocoResp(p)
                         updateEngAIPrompt_sql(id=preConvObj.id, chat_id=chatId, prompt=str(p + resp), isNewConv=False)
                     else:
                         rem_prmt_frm_indx = str(preConvObj.prompt).find(rplyText)
@@ -402,18 +402,18 @@ async def handle_group_message(message):
                             return
                         renew_prompt = preConvObj.prompt[:rem_prmt_frm_indx + len(rplyText)]
                         p = f"{renew_prompt}\nMember 4: {msgText}\nCroco:"
-                        resp = funcs.escChar(funcs.getCrocoResp(p))
+                        resp = funcs.getCrocoResp(p)
                         updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
                 else:
                     p = f"{funcs.ENG_AI_PRE_PROMPT}\n- Another conversation -\n...\n{rplyText}\nMember 4: {msgText}\nCroco:"
-                    resp = funcs.escChar(funcs.getCrocoResp(p))
+                    resp = funcs.getCrocoResp(p)
                     updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
-                await bot.send_message(chatId, f'*Croco:*{resp}', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
+                await bot.send_message(chatId, f'*Croco:*{funcs.escChar(resp)}', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
             elif any(t in msgText.lower() for t in funcs.ENG_AI_TRIGGER_MSGS):
                 p = f"{funcs.ENG_AI_PRE_PROMPT}\nMember 4: {msgText}\nCroco:"
-                resp = funcs.escChar(funcs.getCrocoResp(p))
+                resp = funcs.getCrocoResp(p)
                 updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
-                await bot.send_message(chatId, f'*Croco:*{resp}', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
+                await bot.send_message(chatId, f'*Croco:*{funcs.escChar(resp)}', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
 
 
 
