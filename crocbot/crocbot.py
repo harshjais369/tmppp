@@ -229,7 +229,7 @@ async def mystats_cmd(message):
         curr_chat_points = 0
         total_points = 'Loading...'
         user_stats = getUserPoints_sql(user_obj.id)
-        if user_stats is None:
+        if not user_stats:
             await bot.send_message(chatId, '📊 You have no stats yet!')
         else:
             fullName = user_obj.first_name
