@@ -82,13 +82,13 @@ def getCrocoResp(prompt):
 
 # Other funcs ------------------------------------------------------------------ #
 
-def escChar(content: str) -> str:
+def escChar(content) -> str:
     """
     Escapes Markdown characters in a string of Markdown.
     
     :param content: The string of Markdown to escape.
     :return: The escaped string.
     """
-    parse = re.sub(r"([_*\[\]()~`>\#\+\-=|\.!\{\}])", r"\\\1", content)
+    parse = re.sub(r"([_*\[\]()~`>\#\+\-=|\.!\{\}])", r"\\\1", str(content))
     reparse = re.sub(r"\\\\([_*\[\]()~`>\#\+\-=|\.!\{\}])", r"\1", parse)
     return reparse

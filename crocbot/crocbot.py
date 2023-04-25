@@ -246,8 +246,8 @@ async def mystats_cmd(message):
                 curr_chat_points = curr_chat_user_stat.points
             await bot.send_message(chatId, f'*Player stats* 📊\n\n'
                                     f'*Name:* {funcs.escChar(fullName)}\n'
-                                    f'*Earned cash:* {str(curr_chat_points)} 💵\n'
-                                    f' *— in all chats:* {str(total_points)} 💵\n'
+                                    f'*Earned cash:* {funcs.escChar(curr_chat_points)} 💵\n'
+                                    f' *— in all chats:* {funcs.escChar(total_points)} 💵\n'
                                     f'*Rank:* \#{rank}\n'
                                     f'*Global rank:* \#{grank}\n\n'
                                     f'❕ _You receive 1💵 reward for\neach correct word guess\._',
@@ -264,7 +264,7 @@ async def ranking_cmd(message):
             i = 1
             ranksTxt = ''
             for gprObj in grp_player_ranks:
-                ranksTxt += f'*{i}\.* {funcs.escChar(gprObj.name)} — {gprObj.points} 💵\n'
+                ranksTxt += f'*{i}\.* {funcs.escChar(gprObj.name)} — {funcs.escChar(gprObj.points)} 💵\n'
                 i += 1
             await bot.send_message(chatId, f'*TOP\-25 players* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
 
@@ -295,7 +295,7 @@ async def global_ranking_cmd(message):
                     i = '🥉'
                 else:
                     i = f"*{str(i)}\.*"
-                ranksTxt += f"{i} {funcs.escChar(user['name'])} — {user['points']} 💵\n"
+                ranksTxt += f"{i} {funcs.escChar(user['name'])} — {funcs.escChar(user['points'])} 💵\n"
                 i = j
             await bot.send_message(chatId, f'*TOP\-25 players in all groups* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
 
