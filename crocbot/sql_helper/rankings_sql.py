@@ -41,7 +41,7 @@ def incrementPoints_sql(user_id, chat_id, name):
         SESSION.rollback()
         return False
 
-def getUserPoints_sql(user_id, chat_id):
+def getUserPoints_sql(user_id):
     try:
         return SESSION.query(RankingsSql).filter_by(user_id=str(user_id)).all()
     except Exception as e:
