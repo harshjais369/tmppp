@@ -369,12 +369,16 @@ async def handle_group_message(message):
                         fullName += ' ' + userObj.last_name
                     removeGame_sql(chatId)
                     await bot.send_message(chatId, f'🎉 [{funcs.escChar(userObj.first_name)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
-                    incrementPoints_sql(userId, chatId, fullName)
+                    incrementPoints_sql(userId, chatId, 1, fullName)
                 elif curr_game['status'] == 'not_started':
                     pass
                 elif curr_game['status'] == 'leader':
                     # Leader revealed the word (stop game and deduct leader's points)
                     await stopGame(message, isWordRevealed=True)
+                    fullName = userObj.first_name
+                    if userObj.last_name is not None:
+                        fullName += ' ' + userObj.last_name
+                    incrementPoints_sql(userId, chatId, -1, fullName)
                 STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
         
         elif chatId in CROCO_CHATS: # Check if chat is allowed to use Croco English AI

@@ -226,8 +226,11 @@ async def mystats_cmd(message):
     chatId = message.chat.id
     if chatId in ALLOW_CHATS:
         user_obj = message.from_user
-        user_stats = getUserPoints_sql(user_obj.id, chatId)
-        if user_stats is None:
+        curr_chat_user_stat = None
+        curr_chat_points = 0
+        total_points = 'Loading...'
+        user_stats = getUserPoints_sql(user_obj.id)
+        if not user_stats:
             await bot.send_message(chatId, '📊 You have no stats yet!')
         else:
             fullName = user_obj.first_name
@@ -235,10 +238,17 @@ async def mystats_cmd(message):
                 fullName += ' ' + user_obj.last_name
             rank = ''
             grank = ''
+            total_points = 0
+            for us in user_stats:
+                if str(us.chat_id) == str(chatId):
+                    curr_chat_user_stat = us
+                total_points += int(us.points)
+            if curr_chat_user_stat is not None:
+                curr_chat_points = curr_chat_user_stat.points
             await bot.send_message(chatId, f'*Player stats* 📊\n\n'
                                     f'*Name:* {funcs.escChar(fullName)}\n'
-                                    f'*Earned cash:* {str(user_stats.points)} 💵\n'
-                                    f' *— in all chats:* {str(user_stats.points)} 💵\n'
+                                    f'*Earned cash:* {str(curr_chat_points)} 💵\n'
+                                    f' *— in all chats:* {str(total_points)} 💵\n'
                                     f'*Rank:* \#{rank}\n'
                                     f'*Global rank:* \#{grank}\n\n'
                                     f'❕ _You receive 1💵 reward for\neach correct word guess\._',
@@ -364,12 +374,16 @@ async def handle_group_message(message):
                         fullName += ' ' + userObj.last_name
                     removeGame_sql(chatId)
                     await bot.send_message(chatId, f'🎉 [{funcs.escChar(userObj.first_name)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
-                    incrementPoints_sql(userId, chatId, fullName)
+                    incrementPoints_sql(userId, chatId, 1, fullName)
                 elif curr_game['status'] == 'not_started':
                     pass
                 elif curr_game['status'] == 'leader':
                     # Leader revealed the word (stop game and deduct leader's points)
                     await stopGame(message, isWordRevealed=True)
+                    fullName = userObj.first_name
+                    if userObj.last_name is not None:
+                        fullName += ' ' + userObj.last_name
+                    incrementPoints_sql(userId, chatId, -1, fullName)
                 STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
         
         elif chatId in ALLOW_CHATS: # Check if chat is allowed to use Croco English AI

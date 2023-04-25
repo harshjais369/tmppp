@@ -24,15 +24,15 @@ class RankingsSql(BASE):
 
 RankingsSql.__table__.create(checkfirst=True, bind=SESSION.bind)
 
-def incrementPoints_sql(user_id, chat_id, name):
+def incrementPoints_sql(user_id, chat_id, point, name):
     try:
         adder = SESSION.query(RankingsSql).filter_by(user_id=str(user_id), chat_id=str(chat_id)).first()
         if adder:
-            adder.points = int(adder.points) + 1
+            adder.points = int(adder.points) + int(point)
             adder.last_played = str(int(time.time()))
             adder.name = str(name)
         else:
-            adder = RankingsSql(None, str(user_id), str(chat_id), 1, str(int(time.time())), str(name))
+            adder = RankingsSql(None, str(user_id), str(chat_id), int(point), str(int(time.time())), str(name))
         SESSION.add(adder)
         SESSION.commit()
         return True
