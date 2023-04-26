@@ -391,7 +391,7 @@ async def handle_group_message(message):
                     preConvObj = preConvObjList[0]
                     # get Croco English AI resp and then update prompt in DB
                     print(int(rplyMsg.date) - int(preConvObj.time))
-                    if (int(rplyMsg.date) - int(preConvObj.time)) < 3:
+                    if (int(rplyMsg.date) - int(preConvObj.time)) in (0, 1, 2, 3):
                         p = f"{preConvObj.prompt}\nMember 4: {msgText}\nCroco:"
                         resp = funcs.getCrocoResp(p)
                         updateEngAIPrompt_sql(id=preConvObj.id, chat_id=chatId, prompt=str(p + resp), isNewConv=False)
@@ -400,10 +400,16 @@ async def handle_group_message(message):
                         if rem_prmt_frm_indx == -1:
                             await bot.send_message(chatId, f'Something went wrong!\n*Err:* #0x604', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
                             return
-                        renew_prompt = preConvObj.prompt[:rem_prmt_frm_indx + len(rplyText)]
-                        p = f"{renew_prompt}\nMember 4: {msgText}\nCroco:"
-                        resp = funcs.getCrocoResp(p)
-                        updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
+                        end_offset_index = rem_prmt_frm_indx + len(rplyText)
+                        if end_offset_index == len(preConvObj.prompt):
+                            p = f"{preConvObj.prompt}\nMember 4: {msgText}\nCroco:"
+                            resp = funcs.getCrocoResp(p)
+                            updateEngAIPrompt_sql(id=preConvObj.id, chat_id=chatId, prompt=str(p + resp), isNewConv=False)
+                        else:
+                            renew_prompt = preConvObj.prompt[:end_offset_index]
+                            p = f"{renew_prompt}\nMember 4: {msgText}\nCroco:"
+                            resp = funcs.getCrocoResp(p)
+                            updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
                 else:
                     p = f"{funcs.ENG_AI_PRE_PROMPT}\n- Another conversation -\n...\n{rplyText}\nMember 4: {msgText}\nCroco:"
                     resp = funcs.getCrocoResp(p)
