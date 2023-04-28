@@ -367,6 +367,7 @@ async def handle_group_message(message):
                 STATE.update({str(chatId): [WAITING_FOR_WORD, userId, True]})
             # Check if the message contains the word "Word"
             if message.text.lower() == WORD.get(str(chatId)):
+                STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
                 # Check if user is not leader
                 curr_game = await getCurrGame(chatId, userId)
                 if curr_game['status'] == 'not_leader':
@@ -386,7 +387,6 @@ async def handle_group_message(message):
                     if userObj.last_name is not None:
                         fullName += ' ' + userObj.last_name
                     incrementPoints_sql(userId, chatId, -1, fullName)
-                STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
         
         elif chatId in CROCO_CHATS: # Check if chat is allowed to use Croco English AI
             if (rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[1]) and (rplyMsg.text.startswith('Croco: ')) and not (msgText.startswith('/') or msgText.startswith('@') or msgText.lower().startswith('croco:')):
