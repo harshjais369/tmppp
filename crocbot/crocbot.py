@@ -1,5 +1,7 @@
 import os
 import time
+import pytz
+from datetime import datetime
 import asyncio
 from asyncio import sleep
 from telebot.async_telebot import AsyncTeleBot
@@ -129,11 +131,9 @@ async def changeWord(message):
         HINTS.get(str(chatId)).pop()
     except:
         pass
-    WORD.update({str(chatId): funcs.getNewWord()})
     addGame_sql(chatId, user_obj.id, WORD.get(str(chatId)))
     if (STATE.get(str(chatId))[0] == WAITING_FOR_COMMAND) or (STATE.get(str(chatId))[0] == WAITING_FOR_WORD and STATE.get(str(chatId))[2]):
         await bot.send_message(chatId, f"❗ {funcs.escChar(user_obj.first_name)} changed the word\!", parse_mode='MarkdownV2')
-    return WORD.get(str(chatId))
 
 async def getCurrGame(chatId, userId):
     # Get current game from database
@@ -208,6 +208,13 @@ async def start_game(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         userId = message.from_user.id
+        # Schedule bot mute for EVS group
+        if chatId == -1001596465392:
+            now = datetime.now(pytz.timezone('Asia/Kolkata'))
+            if not (now.time() >= datetime.time(datetime.strptime('23:30:00', '%H:%M:%S')) or \
+            now.time() <= datetime.time(datetime.strptime('09:00:00', '%H:%M:%S'))):
+                await bot.send_message(chatId, f"❗ Game will be available for play daily from 11:30 PM to 9:00 AM IST.")
+                return
         global STATE
         if await startGame(message, isStartFromCmd=True) is not None:
             STATE.update({str(chatId): [WAITING_FOR_WORD, userId, False]})
@@ -367,8 +374,8 @@ async def handle_group_message(message):
                     fullName = userObj.first_name
                     if userObj.last_name is not None:
                         fullName += ' ' + userObj.last_name
-                    removeGame_sql(chatId)
                     await bot.send_message(chatId, f'🎉 [{funcs.escChar(userObj.first_name)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
+                    removeGame_sql(chatId)
                     incrementPoints_sql(userId, chatId, 1, fullName)
                 elif curr_game['status'] == 'not_started':
                     pass
@@ -386,11 +393,9 @@ async def handle_group_message(message):
                 rplyText = rplyMsg.text
                 resp = None
                 preConvObjList = getEngAIConv_sql(chatId, rplyText)
-                print(preConvObjList)
                 if preConvObjList:
                     preConvObj = preConvObjList[0]
                     # get Croco English AI resp and then update prompt in DB
-                    print(int(rplyMsg.date) - int(preConvObj.time))
                     if (int(rplyMsg.date) - int(preConvObj.time)) in (0, 1, 2, 3):
                         p = f"{preConvObj.prompt}\nMember 4: {msgText}\nCroco:"
                         resp = funcs.getCrocoResp(p)
@@ -429,6 +434,13 @@ async def handle_query(call):
     chatId = call.message.chat.id
     userObj = call.from_user
     if chatId not in BLOCK_CHATS:
+        # Schedule bot mute for EVS group
+        if chatId == -1001596465392:
+            now = datetime.now(pytz.timezone('Asia/Kolkata'))
+            if not (now.time() >= datetime.time(datetime.strptime('23:30:00', '%H:%M:%S')) or \
+            now.time() <= datetime.time(datetime.strptime('09:00:00', '%H:%M:%S'))):
+                await bot.answer_callback_query(call.id, f"❗ Game will be available for play daily from 11:30 PM to 9:00 AM IST.", show_alert=True)
+                return
         global STATE
         if STATE.get(str(chatId)) is None:
             STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
@@ -509,8 +521,9 @@ async def handle_query(call):
             elif curr_game['status'] == 'not_leader':
                 await bot.answer_callback_query(call.id, "⚠ Only leader can change the word!", show_alert=True)
             else:
-                word = await changeWord(call)
-                await bot.answer_callback_query(call.id, f"Word: {word}", show_alert=True)
+                WORD.update({str(chatId): funcs.getNewWord()})
+                await bot.answer_callback_query(call.id, f"Word: {WORD.get(str(chatId))}", show_alert=True)
+                await changeWord(call)
                 STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False]})
         elif call.data == 'drop_lead':
             if curr_game['status'] == 'not_started':

@@ -128,11 +128,9 @@ async def changeWord(message):
         HINTS.get(str(chatId)).pop()
     except:
         pass
-    WORD.update({str(chatId): funcs.getNewWord()})
     addGame_sql(chatId, user_obj.id, WORD.get(str(chatId)))
     if (STATE.get(str(chatId))[0] == WAITING_FOR_COMMAND) or (STATE.get(str(chatId))[0] == WAITING_FOR_WORD and STATE.get(str(chatId))[2]):
         await bot.send_message(chatId, f"❗ {funcs.escChar(user_obj.first_name)} changed the word\!", parse_mode='MarkdownV2')
-    return WORD.get(str(chatId))
 
 async def getCurrGame(chatId, userId):
     # Get current game from database
@@ -372,8 +370,8 @@ async def handle_group_message(message):
                     fullName = userObj.first_name
                     if userObj.last_name is not None:
                         fullName += ' ' + userObj.last_name
-                    removeGame_sql(chatId)
                     await bot.send_message(chatId, f'🎉 [{funcs.escChar(userObj.first_name)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
+                    removeGame_sql(chatId)
                     incrementPoints_sql(userId, chatId, 1, fullName)
                 elif curr_game['status'] == 'not_started':
                     pass
@@ -512,8 +510,9 @@ async def handle_query(call):
             elif curr_game['status'] == 'not_leader':
                 await bot.answer_callback_query(call.id, "⚠ Only leader can change the word!", show_alert=True)
             else:
-                word = await changeWord(call)
-                await bot.answer_callback_query(call.id, f"Word: {word}", show_alert=True)
+                WORD.update({str(chatId): funcs.getNewWord()})
+                await bot.answer_callback_query(call.id, f"Word: {WORD.get(str(chatId))}", show_alert=True)
+                await changeWord(call)
                 STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False]})
                 print(STATE.get(str(chatId)))
         elif call.data == 'drop_lead':
