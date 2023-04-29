@@ -75,6 +75,7 @@ async def startGame(message, isStartFromCmd=False):
         await bot.delete_message(chatId, msg.message_id)
         return None
     await bot.send_message(chatId, f'*[{funcs.escChar(userObj.first_name)}](tg://user?id={userObj.id}) is explaining the word\!*', reply_markup=getInlineBtn('leading'), parse_mode='MarkdownV2')
+    HINTS.pop(str(chatId))
     return WORD.get(str(chatId))
 
 async def stopGame(message, isRefused=False, isChangeLeader=False, isWordRevealed=False):
@@ -125,7 +126,7 @@ async def changeWord(message):
     global STATE
     # Save word to database and return (leader changed the word)
     try:
-        HINTS.get(str(chatId)).pop()
+        HINTS.pop(str(chatId))
     except:
         pass
     addGame_sql(chatId, user_obj.id, WORD.get(str(chatId)))
