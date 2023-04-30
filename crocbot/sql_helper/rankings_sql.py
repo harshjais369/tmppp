@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer
+from sqlalchemy import Column, String, Integer, func
 from sql_helper import BASE, SESSION
 import time
 
@@ -72,4 +72,11 @@ def getTop25PlayersInAllChats_sql():
         SESSION.close()
 
 def getTop10Chats_sql():
-    pass
+    try:
+        return SESSION.query(RankingsSql.chat_id, func.sum(RankingsSql.points)).group_by(RankingsSql.chat_id).order_by(func.sum(RankingsSql.points).desc()).limit(10).all()
+    except Exception as e:
+        print(e)
+        SESSION.rollback()
+        return None
+    finally:
+        SESSION.close()

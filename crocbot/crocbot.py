@@ -1,5 +1,6 @@
 import os
 import time
+import json
 import pytz
 from datetime import datetime
 import asyncio
@@ -16,6 +17,7 @@ MY_IDs = [5321125784, 6103212777] # My ID, and Bot ID
 AI_USERS = {}
 BLOCK_CHATS = [int(x) for x in os.environ.get('BLOCK_CHATS', '').split(',') if x]
 CROCO_CHATS = [int(x) for x in os.environ.get('CROCO_CHATS', '').split(',') if x]
+TOP10_CHAT_NAMES = json.loads(os.environ.get('TOP10_CHAT_NAMES', '{}'))
 STATE = {} # STATE('chat_id': [str(game_state), int(leader_id), bool(show_changed_word_msg)])
 WORD = {}
 HINTS = {}
@@ -77,7 +79,8 @@ async def startGame(message, isStartFromCmd=False):
         await sleep(10)
         await bot.delete_message(chatId, msg.message_id)
         return None
-    await bot.send_message(chatId, f'*[{funcs.escChar(userObj.first_name)}](tg://user?id={userObj.id}) is explaining the word\!*', reply_markup=getInlineBtn('leading'), parse_mode='MarkdownV2')
+    f_name = userObj.first_name[:25] + '...' if len(userObj.first_name) > 25 else userObj.first_name
+    await bot.send_message(chatId, f'*[{funcs.escChar(f_name)}](tg://user?id={userObj.id}) is explaining the word\!*', reply_markup=getInlineBtn('leading'), parse_mode='MarkdownV2')
     return WORD.get(str(chatId))
 
 async def stopGame(message, isRefused=False, isChangeLeader=False, isWordRevealed=False):
@@ -87,14 +90,15 @@ async def stopGame(message, isRefused=False, isChangeLeader=False, isWordReveale
     except:
         chatId = message.message.chat.id
     userObj = message.from_user
+    f_name = userObj.first_name[:25] + '...' if len(userObj.first_name) > 25 else userObj.first_name
     if isRefused:
-        await bot.send_message(chatId, f'{funcs.escChar(userObj.first_name)} refused to lead!', reply_markup=getInlineBtn('refused_lead'))
+        await bot.send_message(chatId, f'{funcs.escChar(f_name)} refused to lead!', reply_markup=getInlineBtn('refused_lead'))
     elif isChangeLeader:
         # If game started more than 30 seconds, allow others to change leader
         pass
     elif isWordRevealed:
         # Leader revealed the word (deduct point)
-        await bot.send_message(chatId, f'🛑 *Game stopped\!*\n[{funcs.escChar(userObj.first_name)}](tg://user?id={userObj.id}) \(\-1💵\) revealed the word: *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('refused_lead'), parse_mode='MarkdownV2')
+        await bot.send_message(chatId, f'🛑 *Game stopped\!*\n[{funcs.escChar(f_name)}](tg://user?id={userObj.id}) \(\-1💵\) revealed the word: *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('refused_lead'), parse_mode='MarkdownV2')
     else:
         chatMemb_obj = await bot.get_chat_member(chatId, userObj.id)
         curr_game = await getCurrGame(chatId, userObj.id)
@@ -133,7 +137,8 @@ async def changeWord(message):
         pass
     addGame_sql(chatId, user_obj.id, WORD.get(str(chatId)))
     if (STATE.get(str(chatId))[0] == WAITING_FOR_COMMAND) or (STATE.get(str(chatId))[0] == WAITING_FOR_WORD and STATE.get(str(chatId))[2]):
-        await bot.send_message(chatId, f"❗ {funcs.escChar(user_obj.first_name)} changed the word\!", parse_mode='MarkdownV2')
+        f_name = user_obj.first_name[:25] + '...' if len(user_obj.first_name) > 25 else user_obj.first_name
+        await bot.send_message(chatId, f"❗ {funcs.escChar(f_name)} changed the word\!", parse_mode='MarkdownV2')
 
 async def getCurrGame(chatId, userId):
     # Get current game from database
@@ -242,6 +247,7 @@ async def mystats_cmd(message):
             fullName = user_obj.first_name
             if user_obj.last_name is not None:
                 fullName += ' ' + user_obj.last_name
+            fullName = fullName[:25] + '...' if len(fullName) > 25 else fullName
             rank = ''
             grank = ''
             total_points = 0
@@ -271,7 +277,8 @@ async def ranking_cmd(message):
             i = 1
             ranksTxt = ''
             for gprObj in grp_player_ranks:
-                ranksTxt += f'*{i}\.* {funcs.escChar(gprObj.name)} — {funcs.escChar(gprObj.points)} 💵\n'
+                name = gprObj.name[:25] + '...' if len(gprObj.name) > 25 else gprObj.name
+                ranksTxt += f'*{i}\.* {funcs.escChar(name)} — {funcs.escChar(gprObj.points)} 💵\n'
                 i += 1
             await bot.send_message(chatId, f'*TOP\-25 players* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
 
@@ -302,9 +309,26 @@ async def global_ranking_cmd(message):
                     i = '🥉'
                 else:
                     i = f"*{str(i)}\.*"
-                ranksTxt += f"{i} {funcs.escChar(user['name'])} — {funcs.escChar(user['points'])} 💵\n"
+                name = user['name'][:25] + '...' if len(user['name']) > 25 else user['name']
+                ranksTxt += f"{i} {funcs.escChar(name)} — {funcs.escChar(user['points'])} 💵\n"
                 i = j
             await bot.send_message(chatId, f'*TOP\-25 players in all groups* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
+
+@bot.message_handler(commands=['chatranking'])
+async def chat_ranking_cmd(message):
+    chatId = message.chat.id
+    if chatId not in BLOCK_CHATS:
+        grp_ranks = getTop10Chats_sql()
+        if grp_ranks is None:
+            msg = await bot.send_message(chatId, '❗ An unknown error occurred!')
+            await asyncio.sleep(5)
+            await bot.delete_message(chatId, msg.message_id)
+        else:
+            ranksTxt = ''
+            for i, (chat_id, points) in enumerate(grp_ranks, 1):
+                chat_name = TOP10_CHAT_NAMES.get(str(chat_id), "Unknown group")
+                ranksTxt += f'*{i}\.* {funcs.escChar(chat_name)} — {funcs.escChar(points)} 💵\n'
+            await bot.send_message(chatId, f'*TOP\-10 groups* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['rules'])
 async def rules_cmd(message):
@@ -372,10 +396,12 @@ async def handle_group_message(message):
                 curr_game = await getCurrGame(chatId, userId)
                 if curr_game['status'] == 'not_leader':
                     # Someone guessed the word (delete word from database)
-                    fullName = userObj.first_name
+                    f_name = userObj.first_name
+                    fullName = f_name
                     if userObj.last_name is not None:
                         fullName += ' ' + userObj.last_name
-                    await bot.send_message(chatId, f'🎉 [{funcs.escChar(userObj.first_name)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
+                    f_name = f_name[:25] + '...' if len(f_name) > 25 else f_name
+                    await bot.send_message(chatId, f'🎉 [{funcs.escChar(f_name)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
                     removeGame_sql(chatId)
                     incrementPoints_sql(userId, chatId, 1, fullName)
                 elif curr_game['status'] == 'not_started':
@@ -389,7 +415,8 @@ async def handle_group_message(message):
                     incrementPoints_sql(userId, chatId, -1, fullName)
         
         elif chatId in CROCO_CHATS: # Check if chat is allowed to use Croco English AI
-            if (rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[1]) and (rplyMsg.text.startswith('Croco: ')) and not (msgText.startswith('/') or msgText.startswith('@') or msgText.lower().startswith('croco:')):
+            if (rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[1]) and (rplyMsg.text.startswith('Croco:')) and not (msgText.startswith('/') or msgText.startswith('@') or msgText.lower().startswith('croco:')):
+                await bot.send_chat_action(chatId, 'typing')
                 rplyText = rplyMsg.text
                 resp = None
                 preConvObjList = getEngAIConv_sql(chatId, rplyText)
@@ -421,6 +448,7 @@ async def handle_group_message(message):
                     updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
                 await bot.send_message(chatId, f'*Croco:*{funcs.escChar(resp)}', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
             elif any(t in msgText.lower() for t in funcs.ENG_AI_TRIGGER_MSGS):
+                await bot.send_chat_action(chatId, 'typing')
                 p = f"{funcs.ENG_AI_PRE_PROMPT}\nMember 4: {msgText}\nCroco:"
                 resp = funcs.getCrocoResp(p)
                 updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)

@@ -35,7 +35,7 @@ ENG_AI_PRE_PROMPT = "System: Croco is a humuristic chatbot designed by an unknow
     "now\nCroco: Alright, farewell. I'm sorry to see you go. If you change your mind, come back anytime and we'll be always " \
     "here happy to help you out with your English learning. Have a nice day!"
 
-ENG_AI_TRIGGER_MSGS = ['@croco', 'i\'m new here', 'am new here', 'anyone alive', 'gc dead', 'want to learn english',
+ENG_AI_TRIGGER_MSGS = ['@croco ', ' @croco', 'i\'m new here', 'am new here', 'anyone alive', 'gc dead', 'want to learn english',
     'wants to learn english', 'want learn english', 'wants learn english', 'wanna learn english', 'want to practice english',
     'wants to practice english', 'want practice english', 'wants practice english', 'wanna practice english',
     'want to practice my english', 'wants to practice my english', 'want practice my english', 'wants practice my english',
@@ -98,7 +98,7 @@ def getHints(word):
 
 # Get English AI response (Croco)
 def getCrocoResp(prompt):
-    resp = getAIResp(prompt=prompt, frequency_penalty=0.3)
+    resp = getAIResp(prompt=prompt, frequency_penalty=0.5)
     if resp == 0:
         return "Error 0x404: Please try again later!"
     else:

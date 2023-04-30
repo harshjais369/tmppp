@@ -14,3 +14,7 @@ else:
 # BOT_TOKEN: Telegram bot token
 # DATABASE_URL: PostgreSQL database URL
 # OPENAI_API_KEY: OpenAI API key
+# 
+# BLOCK_CHATS: Chat id to block bot (separated by `,`)
+# CROCO_CHATS: Chat id to enable CROCO AI (separated by `,`)
+# TOP10_CHAT_NAMES: {chat_id: chat_name,...} - Chat names for each chat_id in TOP10 CHATS cmd
