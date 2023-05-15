@@ -33,12 +33,11 @@ def getInlineBtn(event: str):
     markup = InlineKeyboardMarkup()
     if event == 'leading':
         markup.row_width = 2
-        markup.add(
-            InlineKeyboardButton('See word', callback_data='see_word'),
-            InlineKeyboardButton('Generate hints', callback_data='generate_hints'),
+        markup.add(InlineKeyboardButton('See word', callback_data='see_word'))
+        markup.add(*[
             InlineKeyboardButton('Change word', callback_data='change_word'),
             InlineKeyboardButton('Drop lead', callback_data='drop_lead')
-        )
+        ])
     elif event == 'found_word':
         markup.row_width = 1
         markup.add(InlineKeyboardButton('Start new game!', callback_data='start_game'))
