@@ -142,7 +142,6 @@ async def changeWord(message):
 async def getCurrGame(chatId, userId):
     if STATE is not None and str(chatId) in STATE and STATE.get(str(chatId))[0] == WAITING_FOR_WORD:
         # Game is started (known from STATE)
-        print('Fetched game from STATE')
         state = 'leader' if (STATE.get(str(chatId))[1] == userId) else 'not_leader'
         return dict(status=state, started_at=STATE.get(str(chatId))[3])
     else:
@@ -221,12 +220,12 @@ async def start_game(message):
     if chatId not in BLOCK_CHATS:
         userId = message.from_user.id
         # Schedule bot mute for EVS group
-        if chatId == -1001596465392:
-            now = datetime.now(pytz.timezone('Asia/Kolkata'))
-            if not (now.time() >= datetime.time(datetime.strptime('23:30:00', '%H:%M:%S')) or \
-            now.time() <= datetime.time(datetime.strptime('09:00:00', '%H:%M:%S'))):
-                await bot.send_message(chatId, f"❗ Game will be available for play daily from 11:30 PM to 9:00 AM IST.")
-                return
+        # if chatId == -1001596465392:
+        #     now = datetime.now(pytz.timezone('Asia/Kolkata'))
+        #     if not (now.time() >= datetime.time(datetime.strptime('23:30:00', '%H:%M:%S')) or \
+        #     now.time() <= datetime.time(datetime.strptime('09:00:00', '%H:%M:%S'))):
+        #         await bot.send_message(chatId, f"❗ Game will be available for play daily from 11:30 PM to 9:00 AM IST.")
+        #         return
         global STATE
         if await startGame(message, isStartFromCmd=True) is not None:
             STATE.update({str(chatId): [WAITING_FOR_WORD, userId, False, int(time.time())]})
@@ -278,7 +277,7 @@ async def ranking_cmd(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         grp_player_ranks = getTop25Players_sql(chatId)
-        if grp_player_ranks is None:
+        if grp_player_ranks is None or len(grp_player_ranks) > 0:
             await bot.send_message(chatId, '📊 No player\'s rank determined yet for this group!')
         else:
             i = 1
