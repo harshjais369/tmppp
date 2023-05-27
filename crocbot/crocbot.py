@@ -142,6 +142,7 @@ async def changeWord(message):
 async def getCurrGame(chatId, userId):
     if STATE is not None and str(chatId) in STATE and STATE.get(str(chatId))[0] == WAITING_FOR_WORD:
         # Game is started (known from STATE)
+        print('Fetched game from STATE')
         state = 'leader' if (STATE.get(str(chatId))[1] == userId) else 'not_leader'
         return dict(status=state, started_at=STATE.get(str(chatId))[3])
     else:
@@ -162,7 +163,9 @@ async def getCurrGame(chatId, userId):
 async def start_cmd(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
-        await bot.send_message(chatId, '👋 Hey!\nI\'m Crocodile Game Bot. To start a game, use command: /game')
+        msgTxt = message.text.lower()
+        if msgTxt == '/start' or msgTxt.startswith('/start ') or msgTxt.startswith('/start@croco'):
+            await bot.send_message(chatId, '👋 Hey!\nI\'m Crocodile Game Bot. To start a game, use command: /game')
 
 @bot.message_handler(commands=['aiuser'])
 async def setaiuser_cmd(message):
