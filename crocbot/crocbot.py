@@ -277,7 +277,7 @@ async def ranking_cmd(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         grp_player_ranks = getTop25Players_sql(chatId)
-        if grp_player_ranks is None or len(grp_player_ranks) > 0:
+        if grp_player_ranks is None or len(grp_player_ranks) < 1:
             await bot.send_message(chatId, '📊 No player\'s rank determined yet for this group!')
         else:
             i = 1
