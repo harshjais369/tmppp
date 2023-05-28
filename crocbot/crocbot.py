@@ -469,12 +469,12 @@ async def handle_query(call):
     userObj = call.from_user
     if chatId not in BLOCK_CHATS:
         # Schedule bot mute for EVS group
-        if chatId == -1001596465392:
-            now = datetime.now(pytz.timezone('Asia/Kolkata'))
-            if not (now.time() >= datetime.time(datetime.strptime('23:30:00', '%H:%M:%S')) or \
-            now.time() <= datetime.time(datetime.strptime('09:00:00', '%H:%M:%S'))):
-                await bot.answer_callback_query(call.id, f"❗ Game will be available for play daily from 11:30 PM to 9:00 AM IST.", show_alert=True)
-                return
+        # if chatId == -1001596465392:
+        #     now = datetime.now(pytz.timezone('Asia/Kolkata'))
+        #     if not (now.time() >= datetime.time(datetime.strptime('23:30:00', '%H:%M:%S')) or \
+        #     now.time() <= datetime.time(datetime.strptime('09:00:00', '%H:%M:%S'))):
+        #         await bot.answer_callback_query(call.id, f"❗ Game will be available for play daily from 11:30 PM to 9:00 AM IST.", show_alert=True)
+        #         return
         global STATE
         if STATE.get(str(chatId)) is None:
             STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
