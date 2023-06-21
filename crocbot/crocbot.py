@@ -55,6 +55,15 @@ def getInlineBtn(event: str):
     return markup
 
 
+async def startBotCmdInPvt(message, chatId):
+    # Show greeting message and "Add Bot To Group" button
+    greet_msg = f'👋🏻 Hey {funcs.escChar(message.from_user.first_name)}!\n' \
+        f'🐊 *Crocodile Game* is a word guessing game where one player explains the word and others try to guess it.\n\n' \
+        f'👉🏻 Add me into your group and start playing the game now with your friends!\n\n' \
+        f'Press /help to see the *list of all commands* and how they work!'
+    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("➕ Add me to group", url="t.me/CrocodileGameEnn_bot?startgroup=new")]])
+    await bot.send_message(chatId, greet_msg, reply_markup=reply_markup)
+
 async def startGame(message, isStartFromCmd=False):
     # Init game and generate word
     try:
@@ -163,8 +172,10 @@ async def start_cmd(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         msgTxt = message.text.lower()
-        if msgTxt == '/start' or msgTxt.startswith('/start ') or msgTxt.startswith('/start@croco'):
-            await bot.send_message(chatId, '👋 Hey!\nI\'m Crocodile Game Bot. To start a game, use command: /game')
+        if message.chat.type == 'private':
+            await startBotCmdInPvt(message, chatId)
+        elif msgTxt == '/start' or msgTxt.startswith('/start ') or msgTxt.startswith('/start@croco'):
+            await bot.send_message(chatId, '👋🏻 Hey!\nI\'m Crocodile Game Bot. To start a game, press command: /game')
 
 @bot.message_handler(commands=['aiuser'])
 async def setaiuser_cmd(message):
@@ -227,7 +238,9 @@ async def start_game(message):
         #         await bot.send_message(chatId, f"❗ Game will be available for play daily from 11:30 PM to 9:00 AM IST.")
         #         return
         global STATE
-        if await startGame(message, isStartFromCmd=True) is not None:
+        if message.chat.type == 'private':
+            await startBotCmdInPvt(message, chatId)
+        elif await startGame(message, isStartFromCmd=True) is not None:
             STATE.update({str(chatId): [WAITING_FOR_WORD, userId, False, int(time.time())]})
 
 @bot.message_handler(commands=['stop'])
@@ -394,7 +407,8 @@ async def handle_group_message(message):
         elif STATE.get(str(chatId))[0] == WAITING_FOR_WORD:
             # If leader types sth after starting game, change state to showChangedWordText=True
             if STATE.get(str(chatId))[1] == userId:
-                STATE.update({str(chatId): [WAITING_FOR_WORD, userId, True, STATE.get(str(chatId))[3]]})
+                if (rplyMsg is None) or ((rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[1])):
+                    STATE.update({str(chatId): [WAITING_FOR_WORD, userId, True, STATE.get(str(chatId))[3]]})
             # Check if the message contains the word "Word"
             if message.text.lower() == WORD.get(str(chatId)):
                 STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
