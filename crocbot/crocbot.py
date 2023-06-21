@@ -60,7 +60,7 @@ async def startBotCmdInPvt(message, chatId):
     userObj = message.from_user
     f_name = '' if len(userObj.first_name) > 30 else userObj.first_name
     greet_msg = f'👋🏻 Hey {funcs.escChar(f_name)}\!\n' \
-        f'🐊 *Crocodile Game* is a word guessing game where one player explains the word and others try to guess it.\n\n' \
+        f'🐊 *Crocodile Game* is a word guessing game where one player explains the word and others try to guess it\.\n\n' \
         f'👉🏻 Add me into your group and start playing the game now with your friends\!\n\n' \
         f'Press \/help to see the *list of all commands* and how they work\!'
     reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("➕ Add me to a Group", url="t.me/CrocodileGameEnn_bot?startgroup=new")]])
