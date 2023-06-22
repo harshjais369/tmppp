@@ -41,6 +41,9 @@ def getInlineBtn(event: str):
     elif event == 'found_word':
         markup.row_width = 1
         markup.add(InlineKeyboardButton('Start new game!', callback_data='start_game'))
+    elif event == 'revealed_word':
+        markup.row_width = 1
+        markup.add(InlineKeyboardButton('I want to be a leader!', callback_data='start_game'))
     elif event == 'change_leader':
         markup.row_width = 2
         markup.add(
@@ -108,21 +111,21 @@ async def stopGame(message, isRefused=False, isChangeLeader=False, isWordReveale
         pass
     elif isWordRevealed:
         # Leader revealed the word (deduct point)
-        await bot.send_message(chatId, f'🛑 *Game stopped\!*\n[{funcs.escChar(f_name)}](tg://user?id={userObj.id}) \(\-1💵\) revealed the word: *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('refused_lead'), parse_mode='MarkdownV2')
+        await bot.send_message(chatId, f'🛑 *Game stopped\!*\n[{funcs.escChar(f_name)}](tg://user?id={userObj.id}) \(\-1💵\) revealed the word: *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('revealed_word'), parse_mode='MarkdownV2')
     else:
-        chatMemb_obj = await bot.get_chat_member(chatId, userObj.id)
+        chat_admins = await bot.get_chat_administrators(chatId)
         curr_game = await getCurrGame(chatId, userObj.id)
         if curr_game['status'] == 'not_started':
             msg = await bot.send_message(chatId, '⚠ The game is already stopped!')
             await sleep(10)
             await bot.delete_message(chatId, msg.message_id)
             return False
-        elif (not chatMemb_obj.status in ['creator', 'administrator']) and curr_game['status'] == 'not_leader':
+        elif (not userObj in (admin.user for admin in chat_admins)) and curr_game['status'] == 'not_leader':
             msg = await bot.send_message(chatId, '⚠ Only an admin or game leader can stop game!')
             await sleep(10)
             await bot.delete_message(chatId, msg.message_id)
             return False
-        await bot.send_message(chatId, '🛑 The game is stopped!\nTo start a new game, use command:\n/game@CrocodileGameEnn_bot')
+        await bot.send_message(chatId, '🛑 The game is stopped!\nTo start a new game, press command:\n/game@CrocodileGameEnn_bot')
     # Delete word from database
     try:
         WORD.pop(str(chatId))
