@@ -9,7 +9,7 @@ from telebot.async_telebot import AsyncTeleBot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import funcs
 from sql_helper.current_running_game_sql import addGame_sql, getGame_sql, removeGame_sql
-from sql_helper.rankings_sql import incrementPoints_sql, getUserPoints_sql, getTop25Players_sql, getTop25PlayersInAllChats_sql, getTop10Chats_sql
+from sql_helper.rankings_sql import incrementPoints_sql, getUserPoints_sql, getTop25Players_sql, getTop25PlayersInAllChats_sql, getTop10Chats_sql, getAllChatIds_sql
 from sql_helper.ai_conv_sql import getEngAIConv_sql, updateEngAIPrompt_sql
 
 BOT_TOKEN = os.environ.get('BOT_TOKEN', None)
@@ -181,6 +181,57 @@ async def start_cmd(message):
             await startBotCmdInPvt(message, chatId)
         elif msgTxt == '/start' or msgTxt.startswith('/start ') or msgTxt.startswith('/start@croco'):
             await bot.send_message(chatId, '👋🏻 Hey!\nI\'m Crocodile Game Bot. To start a game, press command: /game')
+
+@bot.message_handler(commands=['send'])
+async def send_message_to_chats(message):
+    user_obj = message.from_user
+    # Check if user is me (MY_IDs[0])
+    if user_obj.id != MY_IDs[0]:
+        return
+    if message.reply_to_message is None:
+        await bot.reply_to(message, 'Please reply to a message to forward.')
+        return
+    chat_ids = []
+    err_msg = []
+    if message.text.strip() == '/send -count':
+        # Count all chat_ids from database
+        c_ids, u_ids = getAllChatIds_sql()
+        # Add both chat IDs and user IDs to chat_ids
+        chat_ids.extend(c_ids)
+        chat_ids.extend(u_ids)
+        # Remove duplicates
+        chat_ids = list(set(chat_ids))
+        # Remove my IDs and blocked chats
+        chat_ids = [chat_id for chat_id in chat_ids if chat_id not in MY_IDs and chat_id not in BLOCK_CHATS]
+        await bot.reply_to(message, f'Total chat IDs: {len(chat_ids)}')
+        return
+    if message.text.strip() == '/send * CONFIRM':
+        # Forward to all chats from your database
+        c_ids, u_ids = getAllChatIds_sql()
+        chat_ids.extend(c_ids)
+        chat_ids.extend(u_ids)
+        chat_ids = list(set(chat_ids))
+        chat_ids = [chat_id for chat_id in chat_ids if chat_id not in MY_IDs and chat_id not in BLOCK_CHATS]
+    else:
+        # Forward to specified chat IDs
+        command_parts = message.text.split(' ', 2)
+        if len(command_parts) > 2 and command_parts[1] == '-id':
+            chat_ids_str = command_parts[2]
+            chat_ids = [int(chat_id.strip()) for chat_id in chat_ids_str.split(',') if chat_id.strip().lstrip('-').isdigit()]
+    if len(chat_ids) == 0:
+        await bot.reply_to(message, 'No chat ID specified!')
+        return
+    for chat_id in chat_ids:
+        try:
+            await bot.forward_message(chat_id, message.chat.id, message.reply_to_message.message_id)
+            await sleep(0.1)
+        except Exception as e:
+            print(f'Failed to forward message to chat ID {chat_id}.\nError: {str(e)}')
+            err_msg.append(chat_id)
+    if len(err_msg) > 0:
+        await bot.reply_to(message, f'Failed to forward message to chat IDs: {err_msg}')
+    else:
+        await bot.reply_to(message, 'Message forwarded to all chats successfully!')
 
 @bot.message_handler(commands=['aiuser'])
 async def setaiuser_cmd(message):

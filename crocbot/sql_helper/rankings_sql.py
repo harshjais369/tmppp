@@ -80,3 +80,21 @@ def getTop10Chats_sql():
         return None
     finally:
         SESSION.close()
+
+def getAllChatIds_sql():
+    chatIds = []
+    userIds = []
+    try:
+        chatIdsList = SESSION.query(RankingsSql.chat_id).group_by(RankingsSql.chat_id).all()
+        userIdsList = SESSION.query(RankingsSql.user_id).group_by(RankingsSql.user_id).all()
+        for chatId in chatIdsList:
+            chatIds.append(chatId[0])
+        for userId in userIdsList:
+            userIds.append(userId[0])
+        return chatIds, userIds
+    except Exception as e:
+        print(e)
+        SESSION.rollback()
+        return [], []
+    finally:
+        SESSION.close()
