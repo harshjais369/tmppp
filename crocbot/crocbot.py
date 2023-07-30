@@ -105,7 +105,7 @@ async def stopGame(message, isRefused=False, isChangeLeader=False, isWordReveale
     userObj = message.from_user
     f_name = userObj.first_name[:25] + '...' if len(userObj.first_name) > 25 else userObj.first_name
     if isRefused:
-        await bot.send_message(chatId, f'{funcs.escChar(f_name)} refused to lead!', reply_markup=getInlineBtn('refused_lead'))
+        await bot.send_message(chatId, f'{funcs.escChar(f_name)} refused to lead\!', reply_markup=getInlineBtn('refused_lead'), parse_mode='MarkdownV2')
     elif isChangeLeader:
         # If game started more than 30 seconds, allow others to change leader
         pass
@@ -326,6 +326,7 @@ async def mystats_cmd(message):
             rank = ''
             grank = ''
             total_points = 0
+            played_in_chats = len(user_stats)
             for us in user_stats:
                 if str(us.chat_id) == str(chatId):
                     curr_chat_user_stat = us
@@ -337,7 +338,8 @@ async def mystats_cmd(message):
                                     f'*Earned cash:* {funcs.escChar(curr_chat_points)} 💵\n'
                                     f' *— in all chats:* {funcs.escChar(total_points)} 💵\n'
                                     f'*Rank:* \#{rank}\n'
-                                    f'*Global rank:* \#{grank}\n\n'
+                                    f'*Global rank:* \#{grank}\n'
+                                    f'*Played in:* {played_in_chats} groups\n\n'
                                     f'❕ _You receive 1💵 reward for\neach correct word guess\._',
                                     parse_mode='MarkdownV2')
 
