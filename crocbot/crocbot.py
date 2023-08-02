@@ -281,6 +281,12 @@ async def showaiusers_cmd(message):
         else:
             await bot.send_message(chatId, '❌ Only my creator can use this command!')
 
+@bot.message_handler(commands=['startludo'])
+async def startludo_cmd(message):
+    chatId = message.chat.id
+    if chatId not in BLOCK_CHATS:
+        await bot.send_game(chatId, 'ludo')
+
 @bot.message_handler(commands=['game'])
 async def start_game(message):
     chatId = message.chat.id
@@ -598,6 +604,9 @@ async def handle_query(call):
                     await bot.answer_callback_query(call.id, "⚠ Do not blabber! Game has already started by someone else.", show_alert=True)
             else:
                 await bot.answer_callback_query(call.id, "⚠ Game has already started by you!", show_alert=True)
+
+        elif call.data == 'ludo':
+            await bot.answer_callback_query(call.id, url='https://t.me/CrocodileGameEnn_bot?game=ludo')
 
         # Game panel inline btn handlers for leader use cases only ---------------- #
         elif call.data == 'see_word':
