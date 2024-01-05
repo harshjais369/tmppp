@@ -272,7 +272,11 @@ async def info_cmd(message):
     except:
         await bot.reply_to(message, 'Invalid chat ID!')
         return
-    chat_obj = await bot.get_chat(chat_id)
+    try:
+        chat_obj = await bot.get_chat(chat_id)
+    except:
+        # TODO: Need to include more info about the error
+        chat_obj = None
     if chat_obj is None:
         await bot.reply_to(message, 'Chat not found!')
         return
