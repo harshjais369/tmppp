@@ -236,29 +236,31 @@ async def send_message_to_chats(message):
 @bot.message_handler(commands=['botstats'])
 async def botStats_cmd(message):
     user_obj = message.from_user
-    if user_obj.id == MY_IDs[0]:
-        total_ids = [] # Total chats
-        g_ids, u_ids = getAllChatIds_sql() # Group chats, Private (user) chats
-        g_ids, u_ids = (list(set(g_ids)), list(set(u_ids)))
-        total_ids.extend(g_ids)
-        total_ids.extend(u_ids)
-        total_ids = list(set(total_ids))
-        import wordlist
-        await bot.send_message(user_obj.id, f'🤖 *Bot stats:*\n\n'
-                                            f'*Total chats:* {len(total_ids)}\n'
-                                            f'*Total users:* {len(u_ids)}\n'
-                                            f'*Total groups:* {len(g_ids)}\n'
-                                            f'*Total AI users:* {len(AI_USERS)}\n'
-                                            f'*Total blocked chats:* {len(BLOCK_CHATS)}\n'
-                                            f'*Total Croco chats:* {len(CROCO_CHATS)}\n'
-                                            f'*Total WORDs:* {len(wordlist.WORDLIST)}\n'
-                                            f'*Running games:* {len(STATE)}\n'
-                                            f'*Total AI convs:* {len(getEngAIConv_sql())}', parse_mode='MarkdownV2')
+    if user_obj.id != MY_IDs[0]:
+        return
+    total_ids = [] # Total chats
+    g_ids, u_ids = getAllChatIds_sql() # Group chats, Private (user) chats
+    g_ids, u_ids = (list(set(g_ids)), list(set(u_ids)))
+    total_ids.extend(g_ids)
+    total_ids.extend(u_ids)
+    total_ids = list(set(total_ids))
+    import wordlist
+    await bot.reply_to(message, f'🤖 *Bot stats:*\n\n'
+                                        f'*Total chats:* {len(total_ids)}\n'
+                                        f'*Total users:* {len(u_ids)}\n'
+                                        f'*Total groups:* {len(g_ids)}\n'
+                                        f'*Total AI users:* {len(AI_USERS)}\n'
+                                        f'*Total Croco chats:* {len(CROCO_CHATS)}\n'
+                                        f'*Total blocked chats:* {len(BLOCK_CHATS)}\n'
+                                        f'*Total WORDs:* {len(wordlist.WORDLIST)}\n'
+                                        f'*Running games:* {len(STATE)}\n'
+                                        f'*Total AI convs:* {len(getEngAIConv_sql())}',
+                                        parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['info'])
 async def info_cmd(message):
     user_obj = message.from_user
-    if user_obj != MY_IDs[0]:
+    if user_obj.id != MY_IDs[0]:
         return
     command_parts = message.text.split(' ', 2)
     if len(command_parts) < 2:
@@ -274,15 +276,15 @@ async def info_cmd(message):
     if chat_obj is None:
         await bot.reply_to(message, 'Chat not found!')
         return
-    await bot.send_message(user_obj.id, f'🤖 *Chat info:*\n\n'
-                                        f'*Chat ID:* {chat_obj.id}\n'
-                                        f'*Chat type:* {chat_obj.type}\n'
-                                        f'*Chat title:* {chat_obj.title}\n'
-                                        f'*Chat username:* {chat_obj.username}\n'
-                                        f'*Chat first name:* {chat_obj.first_name}\n'
-                                        f'*Chat last name:* {chat_obj.last_name}\n'
-                                        f'*Chat description:* {chat_obj.description}\n'
-                                        f'*Chat invite link:* {chat_obj.invite_link}\n',
+    await bot.reply_to(message, f'🤖 *Chat info:*\n\n'
+                                        f'*ID:* {funcs.escChar(chat_obj.id)}\n'
+                                        f'*Type:* {funcs.escChar(chat_obj.type)}\n'
+                                        f'*Title:* {funcs.escChar(chat_obj.title)}\n'
+                                        f'*Username:* @{chat_obj.username}\n'
+                                        f'*First name:* {funcs.escChar(chat_obj.first_name)}\n'
+                                        f'*Last name:* {funcs.escChar(chat_obj.last_name)}\n'
+                                        f'*Description:* {funcs.escChar(chat_obj.description)}\n'
+                                        f'*Invite link:* {funcs.escChar(chat_obj.invite_link)}\n',
                                         parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['aiuser'])
