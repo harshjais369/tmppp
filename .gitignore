@@ -97,3 +97,6 @@ cython_debug/
 #  the following to ignore the entire idea 
 #  folder.
 #.idea/
+
+# EC2 server private key
+crocbot_ec2_keypair.pem
