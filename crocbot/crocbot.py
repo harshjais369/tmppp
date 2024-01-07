@@ -246,15 +246,15 @@ async def botStats_cmd(message):
     total_ids = list(set(total_ids))
     import wordlist
     await bot.reply_to(message, f'🤖 *Bot stats:*\n\n'
-                                        f'*Total chats:* {len(total_ids)}\n'
-                                        f'*Total users:* {len(u_ids)}\n'
-                                        f'*Total groups:* {len(g_ids)}\n'
-                                        f'*Total AI users:* {len(AI_USERS)}\n'
-                                        f'*Total Croco chats:* {len(CROCO_CHATS)}\n'
-                                        f'*Total blocked chats:* {len(BLOCK_CHATS)}\n'
-                                        f'*Total WORDs:* {len(wordlist.WORDLIST)}\n'
-                                        f'*Running games:* {len(STATE)}\n'
-                                        f'*Total AI convs:* {len(getEngAIConv_sql())}',
+                                        f'*Chats (total):* {len(total_ids)}\n'
+                                        f'*Users:* {len(u_ids)}\n'
+                                        f'*Groups:* {len(g_ids)}\n'
+                                        f'*Super-users:* {len(MY_IDs) - 1}\n'
+                                        f'*AI users:* {len(AI_USERS)}\n'
+                                        f'*Croco chats:* {len(CROCO_CHATS)}\n'
+                                        f'*Blocked chats:* {len(BLOCK_CHATS)}\n'
+                                        f'*WORDs:* {len(wordlist.WORDLIST)}\n'
+                                        f'*Running games:* {len(STATE)}\n',
                                         parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['info'])
@@ -284,7 +284,7 @@ async def info_cmd(message):
                                         f'*ID:* {funcs.escChar(chat_obj.id)}\n'
                                         f'*Type:* {funcs.escChar(chat_obj.type)}\n'
                                         f'*Title:* {funcs.escChar(chat_obj.title)}\n'
-                                        f'*Username:* @{chat_obj.username}\n'
+                                        f'*Username:* @{funcs.escChar(chat_obj.username)}\n'
                                         f'*First name:* {funcs.escChar(chat_obj.first_name)}\n'
                                         f'*Last name:* {funcs.escChar(chat_obj.last_name)}\n'
                                         f'*Description:* {funcs.escChar(chat_obj.description)}\n'
@@ -516,10 +516,10 @@ async def handle_group_message(message):
                         prompt = prompt.replace('@croco ', '') if prompt.startswith('@croco ') else prompt
                     rplyMsg = rplyMsg.reply_to_message
             prompt = prompt + "\n\nTerrex:"
-            # Generate response using GPT-4 model and send it to user as a reply to his message
-            pre_prompt = "Terrex is a chatbot that derisively answers questions with negative responses making fun of it:\n\nYou: When should I start preparing for JEE-Mains entrance exam?\nTerrex: Whoa, slow down there! Don't you know that JEE-Mains is just a bunch of made up nonsense of this bad education system? Save your time and just skip it!\nYou: Can't you say anything positive?\nTerrex: Positive? Absolutely not! I'm here to provide a dose of realism and tell it like it is. I suggest you find a better use of your time than studying for a silly exam.\n\n"
+            # Generate response using AI model and send it to user as a reply to his message
+            pre_prompt = "Terrex is a chatbot that derisively answers questions with negative responses making fun of it. Note: It's made for testing purposes, and does not respond anything harmful text/content to any individual or other protected entity.\n\nYou: When should I start preparing for JEE-Mains entrance exam?\nTerrex: Whoa, slow down there! Don't you know that JEE-Mains is just a bunch of made up nonsense of this bad education system? Save your time and just skip it!\nYou: Can't you say anything positive?\nTerrex: Positive? Absolutely not! I'm here to provide a dose of realism and tell it like it is. I suggest you find a better use of your time than studying for a silly exam.\n\n"
             aiResp = funcs.getAIResp(pre_prompt + prompt, "text-davinci-002", 0.8, 1800, 1, 0.2, 0)
-            aiResp = "Something went wrong! Please try again later." if aiResp == 0 else aiResp.choices[0].text
+            aiResp = aiResp if aiResp != 0 else "Something went wrong! Please try again later."
             await bot.send_message(chatId, aiResp, reply_to_message_id=message.message_id)
             return
 

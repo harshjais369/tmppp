@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
-load_dotenv(verbose=True)
+if not load_dotenv(verbose=True):
+    raise RuntimeError('Failed to load .env file')
 if os.environ.get('ENV') == 'PROD':
     import crocbot
 else:
@@ -13,7 +14,8 @@ else:
 # ENV: PROD or DEV (default) - bot production or development mode
 # BOT_TOKEN: Telegram bot token
 # DATABASE_URL: PostgreSQL database URL
-# OPENAI_API_KEY: OpenAI API key
+# AI_PLATFORM: AI-model platform (default: google)
+# AI_API_KEY: API key for AI services
 # 
 # BLOCK_CHATS: Chat id to block bot (separated by `,`)
 # CROCO_CHATS: Chat id to enable CROCO AI (separated by `,`)

@@ -1,0 +1,55 @@
+# Ignore common Python files and directories
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore development and debugging files
+*.env
+env/
+*.venv
+venv/
+ENV/
+env.bak/
+venv.bak/
+*.log
+*.vscode/
+.vscode/
+.idea/
+
+# Ignore package manager files
+pip-lock.txt
+pipenv.lock
+poetry.lock
+
+# Ignore system and temporary files
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Ignore database files
+*.sqlite
+*.sqlite3
+*.db
+*.hdf5
+*.h5
+*.sql
+*.xlsx
+*.xls
+*.csv
+*.dta
+*.pkl
+*.pickle
+*.sav
+*.wb
+*.dbf
+*.mdb
+*.accdb
+
+# SSH key files
+*.pub
+*.pem
+
+# Test files
+*-test.py

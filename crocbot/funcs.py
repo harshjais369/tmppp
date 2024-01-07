@@ -1,10 +1,16 @@
 import os
 import re
 import random
-import openai
 
-API_KEY = os.environ.get('OPENAI_API_KEY', None)
-openai.api_key = API_KEY
+AI_PLATFORM = os.environ.get('AI_PLATFORM', 'google')
+AI_API_KEY = os.environ.get('AI_API_KEY', None)
+
+if AI_PLATFORM == "google":
+    import google.generativeai as genai
+    genai.configure(api_key=AI_API_KEY)
+elif AI_PLATFORM == "openai":
+    from openai import OpenAI
+    client_openai = OpenAI(api_key=AI_API_KEY)
 
 ENG_AI_PRE_PROMPT = "System: Croco is a humuristic chatbot designed by an unknown mysterious person known by people as " \
     "\"Exception\". Its purpose is to greet newcomers in group, talk casually with peoples and also help people learn and practice English in " \
@@ -54,10 +60,10 @@ ENG_AI_TRIGGER_MSGS = ['@croco ', ' @croco', 'i\'m new here', 'am new here', 'an
     'members are online', 'one talk to me', 'one talks to me', 'who is admin', 'someone help me', 'help me someone'
 ]
 
-# Get GPT4-AI response
+# Get response from AI model
 def getAIResp(
     prompt,
-    model="text-davinci-003",
+    model=None,
     temperature=1,
     max_tokens=2048,
     top_p=1.0,
@@ -65,15 +71,32 @@ def getAIResp(
     presence_penalty=0.0
 ):
     try:
-        return openai.Completion.create(
-            model=model,
-            prompt=prompt,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            top_p=top_p,
-            frequency_penalty=frequency_penalty,
-            presence_penalty=presence_penalty
-        )
+        if AI_API_KEY is None:
+            raise Exception('AI_PLATFORM or AI_API_KEY is not configured properly. Please check .env file!')
+        elif AI_PLATFORM == 'google':
+            model = genai.GenerativeModel('gemini-pro')
+            res = model.generate_content(prompt, generation_config={
+                'temperature': temperature,
+                'max_output_tokens': max_tokens,
+                'top_p': top_p
+            })
+            pf = res.prompt_feedback
+            if pf.block_reason is not pf.BlockReason.BLOCK_REASON_UNSPECIFIED:
+                return 'Error 0x405: Response blocked by Croco AI.\n\nReason: ' + pf.block_reason.name
+            return res.text
+        elif AI_PLATFORM == 'openai':
+            model = "text-davinci-003"
+            return client_openai.completions.create(
+                model=model,
+                prompt=prompt,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                top_p=top_p,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty
+            ).choices[0].text
+        else:
+            raise Exception('AI_PLATFORM is not configured properly. Please check .env file!')
     except Exception as e:
         print(str(e))
         return 0
@@ -91,7 +114,7 @@ def getHints(word):
         return ["Error 0x404: Please try again later!"]
     else:
         try:
-            return f"Hint 1:{resp.choices[0].text}".split('\n')
+            return f"Hint 1:{resp}".split('\n')
         except Exception as e:
             # print(str(e))
             return ["Error 0x406: Please try again later!"]
@@ -103,7 +126,7 @@ def getCrocoResp(prompt):
         return "Error 0x404: Please try again later!"
     else:
         try:
-            return str(resp.choices[0].text)
+            return str(resp)
         except Exception as e:
             # print(str(e))
             return "Error 0x406: Please try again later!"
