@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
-if not load_dotenv(verbose=True):
-    #raise RuntimeError('Failed to load .env file')
+# if not load_dotenv(verbose=True):
+    # raise RuntimeError('Failed to load .env file')
 if os.environ.get('ENV') == 'PROD':
     import crocbot
 else:
