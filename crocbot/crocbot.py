@@ -17,7 +17,6 @@ MY_IDs = [5321125784, 6103212777] # My ID, and Bot ID
 AI_USERS = {}
 BLOCK_CHATS = [int(x) for x in os.environ.get('BLOCK_CHATS', '').split(',') if x]
 CROCO_CHATS = [int(x) for x in os.environ.get('CROCO_CHATS', '').split(',') if x]
-print(str(os.environ.get('TOP10_CHAT_NAMES')))
 TOP10_CHAT_NAMES = json.loads(os.environ.get('TOP10_CHAT_NAMES', '{}'))
 STATE = {} # STATE('chat_id': [str(game_state), int(leader_id), bool(show_changed_word_msg), int(started_at)])
 WORD = {}
@@ -247,10 +246,10 @@ async def botStats_cmd(message):
     total_ids = list(set(total_ids))
     import wordlist
     await bot.reply_to(message, f'🤖 *Bot stats:*\n\n'
-                                        f'*Chats (total):* {len(total_ids)}\n'
+                                        f'*Chats \(total\):* {len(total_ids)}\n'
                                         f'*Users:* {len(u_ids)}\n'
                                         f'*Groups:* {len(g_ids)}\n'
-                                        f'*Super-users:* {len(MY_IDs) - 1}\n'
+                                        f'*Super\-users:* {len(MY_IDs) - 1}\n'
                                         f'*AI users:* {len(AI_USERS)}\n'
                                         f'*Croco chats:* {len(CROCO_CHATS)}\n'
                                         f'*Blocked chats:* {len(BLOCK_CHATS)}\n'
@@ -519,6 +518,7 @@ async def handle_group_message(message):
             prompt = prompt + "\n\nTerrex:"
             # Generate response using AI model and send it to user as a reply to his message
             pre_prompt = "Terrex is a chatbot that derisively answers questions with negative responses making fun of it. Note: It's made for testing purposes, and does not respond anything harmful text/content to any individual or other protected entity.\n\nYou: When should I start preparing for JEE-Mains entrance exam?\nTerrex: Whoa, slow down there! Don't you know that JEE-Mains is just a bunch of made up nonsense of this bad education system? Save your time and just skip it!\nYou: Can't you say anything positive?\nTerrex: Positive? Absolutely not! I'm here to provide a dose of realism and tell it like it is. I suggest you find a better use of your time than studying for a silly exam.\n\n"
+            pre_prompt = "" #TODO: Need to fix here
             aiResp = funcs.getAIResp(pre_prompt + prompt, "text-davinci-002", 0.8, 1800, 1, 0.2, 0)
             aiResp = aiResp if aiResp != 0 else "Something went wrong! Please try again later."
             await bot.send_message(chatId, aiResp, reply_to_message_id=message.message_id)
