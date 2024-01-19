@@ -17,7 +17,7 @@ MY_IDs = [5321125784, 6103212777] # My ID, and Bot ID
 AI_USERS = {}
 BLOCK_CHATS = [int(x) for x in os.environ.get('BLOCK_CHATS', '').split(',') if x]
 CROCO_CHATS = [int(x) for x in os.environ.get('CROCO_CHATS', '').split(',') if x]
-print(str(os.environ.get('TOP10_CHAT_NAMES'))
+print(str(os.environ.get('TOP10_CHAT_NAMES')))
 TOP10_CHAT_NAMES = json.loads(os.environ.get('TOP10_CHAT_NAMES', '{}'))
 STATE = {} # STATE('chat_id': [str(game_state), int(leader_id), bool(show_changed_word_msg), int(started_at)])
 WORD = {}
