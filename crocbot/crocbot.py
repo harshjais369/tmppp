@@ -13,7 +13,7 @@ from sql_helper.rankings_sql import incrementPoints_sql, getUserPoints_sql, getT
 from sql_helper.ai_conv_sql import getEngAIConv_sql, updateEngAIPrompt_sql
 
 BOT_TOKEN = os.environ.get('BOT_TOKEN', None)
-MY_IDs = [5321125784, 6103212777] # My ID, and Bot ID
+MY_IDs = [6103212777, [5321125784, 6060491450, 5475165236]] # Bot ID, [Superuser IDs]
 AI_USERS = {}
 BLOCK_CHATS = [int(x) for x in os.environ.get('BLOCK_CHATS', '').split(',') if x]
 CROCO_CHATS = [int(x) for x in os.environ.get('CROCO_CHATS', '').split(',') if x]
@@ -120,7 +120,7 @@ async def stopGame(message, isRefused=False, isChangeLeader=False, isWordReveale
             await sleep(10)
             await bot.delete_message(chatId, msg.message_id)
             return False
-        elif (not userObj in (admin.user for admin in chat_admins)) and curr_game['status'] == 'not_leader':
+        elif (userObj.id not in (admin.user.id for admin in chat_admins)) and curr_game['status'] == 'not_leader' and (userObj.id not in MY_IDs[1]):
             msg = await bot.send_message(chatId, '⚠ Only an admin or game leader can stop game!')
             await sleep(10)
             await bot.delete_message(chatId, msg.message_id)
@@ -171,7 +171,8 @@ async def getCurrGame(chatId, userId):
             # User is a leader
             return dict(status='leader', started_at=int(curr_game.started_at), data=curr_game)
 
-# Bot commands handler (start, game, stop, mystats, rules, help) ------------------------------ #
+# Bot commands handler ------------------------------------------------------------------------ #
+
 @bot.message_handler(commands=['start'])
 async def start_cmd(message):
     chatId = message.chat.id
@@ -182,11 +183,12 @@ async def start_cmd(message):
         elif msgTxt == '/start' or msgTxt.startswith('/start ') or msgTxt.startswith('/start@croco'):
             await bot.send_message(chatId, '👋🏻 Hey!\nI\'m Crocodile Game Bot. To start a game, press command: /game')
 
+# Basic commands (send, botstats, info) (superuser only) ------------------------------------- #
 @bot.message_handler(commands=['send'])
 async def send_message_to_chats(message):
     user_obj = message.from_user
-    # Check if user is me (MY_IDs[0])
-    if user_obj.id != MY_IDs[0]:
+    # Check if user is superuser (MY_IDs[1] = list of superuser IDs)
+    if user_obj.id not in MY_IDs[1]:
         return
     if message.reply_to_message is None:
         await bot.reply_to(message, 'Please reply to a message to forward.')
@@ -236,7 +238,7 @@ async def send_message_to_chats(message):
 @bot.message_handler(commands=['botstats'])
 async def botStats_cmd(message):
     user_obj = message.from_user
-    if user_obj.id != MY_IDs[0]:
+    if user_obj.id not in MY_IDs[1]:
         return
     total_ids = [] # Total chats
     g_ids, u_ids = getAllChatIds_sql() # Group chats, Private (user) chats
@@ -249,55 +251,121 @@ async def botStats_cmd(message):
                                         f'*Chats \(total\):* {len(total_ids)}\n'
                                         f'*Users:* {len(u_ids)}\n'
                                         f'*Groups:* {len(g_ids)}\n'
-                                        f'*Super\-users:* {len(MY_IDs) - 1}\n'
+                                        f'*Super\-users:* {len(MY_IDs[1])}\n'
                                         f'*AI users:* {len(AI_USERS)}\n'
-                                        f'*Croco chats:* {len(CROCO_CHATS)}\n'
+                                        f'*AI enabled groups:* {len(CROCO_CHATS)}\n'
                                         f'*Blocked chats:* {len(BLOCK_CHATS)}\n'
                                         f'*WORDs:* {len(wordlist.WORDLIST)}\n'
                                         f'*Running games:* {len(STATE)}\n',
                                         parse_mode='MarkdownV2')
 
+# See chat/user info
 @bot.message_handler(commands=['info'])
 async def info_cmd(message):
     user_obj = message.from_user
-    if user_obj.id != MY_IDs[0]:
+    if user_obj.id not in MY_IDs[1]:
         return
     command_parts = message.text.split(' ', 2)
     if len(command_parts) < 2:
         await bot.reply_to(message, 'No chat ID specified!')
         return
     chat_id = command_parts[1]
-    try:
-        chat_id = int(chat_id)
-    except:
+    if not (chat_id.isdigit() or (chat_id.startswith('-') and chat_id[1:].isdigit())
+            or (chat_id.startswith('@') and len(chat_id) > 5 and chat_id[1:][0].isalpha())):
         await bot.reply_to(message, 'Invalid chat ID!')
         return
     try:
         chat_obj = await bot.get_chat(chat_id)
     except:
-        # TODO: Need to include more info about the error
-        chat_obj = None
-    if chat_obj is None:
         await bot.reply_to(message, 'Chat not found!')
         return
-    await bot.reply_to(message, f'🤖 *Chat info:*\n\n'
-                                        f'*ID:* {funcs.escChar(chat_obj.id)}\n'
-                                        f'*Type:* {funcs.escChar(chat_obj.type)}\n'
-                                        f'*Title:* {funcs.escChar(chat_obj.title)}\n'
+    if chat_obj.type == 'private':
+        fullName = chat_obj.first_name + ' ' + chat_obj.last_name if chat_obj.last_name is not None else chat_obj.first_name
+        fullName = fullName[:25] + '...' if len(fullName) > 25 else fullName
+        await bot.reply_to(message, f'🤖 *User info:*\n\n'
+                                        f'*ID:* `{funcs.escChar(chat_obj.id)}`\n'
+                                        f'*Name:* {funcs.escChar(fullName)}\n'
                                         f'*Username:* @{funcs.escChar(chat_obj.username)}\n'
-                                        f'*First name:* {funcs.escChar(chat_obj.first_name)}\n'
-                                        f'*Last name:* {funcs.escChar(chat_obj.last_name)}\n'
-                                        f'*Description:* {funcs.escChar(chat_obj.description)}\n'
-                                        f'*Invite link:* {funcs.escChar(chat_obj.invite_link)}\n',
+                                        f'*User link:* [link](tg://user?id={funcs.escChar(chat_obj.id)})\n'
+                                        f'*Bio:* {funcs.escChar(chat_obj.bio)}\n',
                                         parse_mode='MarkdownV2')
+    else:
+        await bot.reply_to(message, f'🤖 *Chat info:*\n\n'
+                                            f'*ID:* `{funcs.escChar(chat_obj.id)}`\n'
+                                            f'*Type:* {funcs.escChar(chat_obj.type)}\n'
+                                            f'*Title:* {funcs.escChar(chat_obj.title)}\n'
+                                            f'*Username:* @{funcs.escChar(chat_obj.username)}\n'
+                                            f'*Invite link:* {funcs.escChar(chat_obj.invite_link)}\n'
+                                            f'*Description:* {funcs.escChar(chat_obj.description)}\n',
+                                            parse_mode='MarkdownV2')
 
+# Admin commands handler (mute, unmute, ban) (superuser only) --------------------------------- #
+# TODO: Add mute/unmute/ban/unban methods
+
+# Block/Unblock chat (superuser only) --------------------------------------------------------- #
+@bot.message_handler(commands=['blockchat'])
+async def blockchat_cmd(message):
+    user_obj = message.from_user
+    if user_obj.id not in MY_IDs[1]:
+        return
+    command_parts = message.text.split(' ', 2)
+    if len(command_parts) < 2:
+        await bot.reply_to(message, 'No chat ID specified!')
+        return
+    chat_id = command_parts[1]
+    if not (chat_id.isdigit() or (chat_id.startswith('-') and chat_id[1:].isdigit())
+            or (chat_id.startswith('@') and chat_id[1:][0].isalpha())):
+        await bot.reply_to(message, 'Invalid chat ID!')
+        return
+    try:
+        chat_obj = await bot.get_chat(chat_id)
+    except:
+        await bot.reply_to(message, 'Chat not found!')
+        return
+    if chat_obj.type == 'private':
+        await bot.reply_to(message, 'You cannot block a user!')
+        return
+    if chat_obj.id in BLOCK_CHATS:
+        await bot.reply_to(message, 'Chat already blocked!')
+        return
+    BLOCK_CHATS.append(chat_obj.id)
+    await bot.reply_to(message, f'Chat {funcs.escChar(chat_obj.title)} blocked successfully!')
+
+@bot.message_handler(commands=['unblockchat'])
+async def unblockchat_cmd(message):
+    user_obj = message.from_user
+    if user_obj.id not in MY_IDs[1]:
+        return
+    command_parts = message.text.split(' ', 2)
+    if len(command_parts) < 2:
+        await bot.reply_to(message, 'No chat ID specified!')
+        return
+    chat_id = command_parts[1]
+    if not (chat_id.isdigit() or (chat_id.startswith('-') and chat_id[1:].isdigit())
+            or (chat_id.startswith('@') and chat_id[1:][0].isalpha())):
+        await bot.reply_to(message, 'Invalid chat ID!')
+        return
+    try:
+        chat_obj = await bot.get_chat(chat_id)
+    except:
+        await bot.reply_to(message, 'Chat not found!')
+        return
+    if chat_obj.type == 'private':
+        await bot.reply_to(message, 'You cannot unblock a user!')
+        return
+    if chat_obj.id not in BLOCK_CHATS:
+        await bot.reply_to(message, 'Chat not blocked!')
+        return
+    BLOCK_CHATS.remove(chat_obj.id)
+    await bot.reply_to(message, f'Chat {funcs.escChar(chat_obj.title)} unblocked successfully!')
+
+# Add/Remove/Show AI chats (superuser only) --------------------------------------------------- #
 @bot.message_handler(commands=['aiuser'])
 async def setaiuser_cmd(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         user_obj = message.from_user
-        # Check if user is me (MY_IDs[0])
-        if user_obj.id == MY_IDs[0]:
+        if user_obj.id in MY_IDs[1]:
             # get user from reply and add to AI_USERS with chatId
             if message.reply_to_message is not None:
                 reply_user_obj = message.reply_to_message.from_user
@@ -307,14 +375,14 @@ async def setaiuser_cmd(message):
             else:
                 await bot.send_message(chatId, '❌ Please reply to a message from the user you want to set as AI user!')
         else:
-            await bot.send_message(chatId, '❌ Only my creator can use this command!')
+            await bot.send_message(chatId, '❌ Only users with superuser privileges can execute this command!')
 
 @bot.message_handler(commands=['delaiuser'])
 async def delaiuser_cmd(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         user_obj = message.from_user
-        if user_obj.id == MY_IDs[0]:
+        if user_obj.id in MY_IDs[1]:
             if message.reply_to_message is not None:
                 reply_user_obj = message.reply_to_message.from_user
                 global AI_USERS
@@ -323,28 +391,31 @@ async def delaiuser_cmd(message):
             else:
                 await bot.send_message(chatId, '❌ Please reply to a message from the user you want to remove AI access from!')
         else:
-            await bot.send_message(chatId, '❌ Only my creator can use this command!')
+            await bot.send_message(chatId, '❌ Only users with superuser privileges can execute this command!')
 
 @bot.message_handler(commands=['showaiusers'])
 async def showaiusers_cmd(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         user_obj = message.from_user
-        if user_obj.id == MY_IDs[0]:
+        if user_obj.id in MY_IDs[1]:
             global AI_USERS
             if len(AI_USERS) == 0:
                 await bot.send_message(chatId, '🤖 No AI users set yet to show!')
             else:
                 await bot.send_message(chatId, f"🤖 *AI users:*\n\n{', '.join([f'[{user}](tg://user?id={user})' for user in AI_USERS.keys()])}", parse_mode='MarkdownV2')
         else:
-            await bot.send_message(chatId, '❌ Only my creator can use this command!')
+            await bot.send_message(chatId, '❌ Only users with superuser privileges can execute this command!')
 
+# Ludo game commands handler (startludo) ------------------------------------------------------ #
 @bot.message_handler(commands=['startludo'])
 async def startludo_cmd(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         await bot.send_game(chatId, 'ludo')
 
+# Crocodile game commands handler ------------------------------------------------------------- #
+# (game, stop, stats, mystats, ranking, globalranking, chatranking, rules, help) -------------- #
 @bot.message_handler(commands=['game'])
 async def start_game(message):
     chatId = message.chat.id
@@ -370,6 +441,41 @@ async def stop_game(message):
         global STATE
         if await stopGame(message):
             STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
+
+# See other user's stats (superuser only)
+@bot.message_handler(commands=['stats'])
+async def stats_cmd(message):
+    chatId = message.chat.id
+    user_obj = message.from_user
+    if user_obj.id not in MY_IDs[1]:
+        return
+    if message.reply_to_message is not None:
+        reply_user_obj = message.reply_to_message.from_user
+        user_stats = getUserPoints_sql(reply_user_obj.id)
+        if not user_stats:
+            await bot.send_message(chatId, f'📊 {funcs.escChar(reply_user_obj.first_name)} has no stats yet!')
+        else:
+            fullName = reply_user_obj.first_name + ' ' + reply_user_obj.last_name if reply_user_obj.last_name is not None else reply_user_obj.first_name
+            fullName = fullName[:25] + '...' if len(fullName) > 25 else fullName
+            rank = ''
+            grank = ''
+            total_points = 0
+            played_in_chats = len(user_stats)
+            for us in user_stats:
+                if str(us.chat_id) == str(chatId):
+                    curr_chat_user_stat = us
+                total_points += int(us.points)
+            if curr_chat_user_stat is not None:
+                curr_chat_points = curr_chat_user_stat.points
+            await bot.send_message(chatId, f'*Player stats* 📊\n\n'
+                                    f'*Name:* {funcs.escChar(fullName)}\n'
+                                    f'*Earned cash:* {funcs.escChar(curr_chat_points)} 💵\n'
+                                    f' *— in all chats:* {funcs.escChar(total_points)} 💵\n'
+                                    f'*Rank:* \#{rank}\n'
+                                    f'*Global rank:* \#{grank}\n'
+                                    f'*Played in:* {played_in_chats} groups\n\n'
+                                    f'❕ _You receive 1💵 reward for\neach correct word guess\._',
+                                    parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['mystats'])
 async def mystats_cmd(message):
@@ -475,8 +581,13 @@ async def chat_ranking_cmd(message):
 async def rules_cmd(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
-        rules_msg = "There are two basic roles in this game: the leader (who explains the word) and the other participants (who find the word). The leader will press /game to look for a random word and try to describe it (or give few hints about the word) to other participants without saying that word. The other player\'s role is to find the word the leader explains, and type it in chat. The person who find and types the correct word in the chat first, will be considered winner. If the leader does not like the word, he can press “Change word” for another word. Additionally, if he finds it difficult explaining the word, he can get assistance by pressing “Generate hint” on his leader panel buttons."
-        await bot.send_message(chatId, f"📖 *Game Rules:*\n\n{funcs.escChar(rules_msg)}", parse_mode='MarkdownV2')
+        rules_msg = 'In this game, there are two roles: the leader and the other participants. ' \
+            'The leader selects a random word and tries to describe it without saying the word. ' \
+            'The other players\' goal is to find the word and type it in the groupchat. ' \
+            'The first person to type the correct word is the winner, and is awarded 1💵. ' \
+            'If the leader reveals the word himself, he loses 1💵.\n\n' \
+            '- To see game commands, press /help'
+        await bot.send_message(chatId, f'📖 *Game Rules:*\n\n{funcs.escChar(rules_msg)}', parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['help'])
 async def help_cmd(message):
@@ -493,6 +604,19 @@ async def help_cmd(message):
                                  '📖 /help \- show this message',
                                  parse_mode='MarkdownV2')
 
+# Message handler ------------------------------------------------------------------------------ #
+
+# When bot added to a chat (send message to 1st superuser (MY_IDs[1][0]))
+@bot.message_handler(content_types=['new_chat_members'], func=lambda message: message.new_chat_members[-1].id == MY_IDs[0])
+async def handle_new_chat_members(message):
+    chatId = message.chat.id
+    if chatId not in BLOCK_CHATS:
+        await bot.send_message(MY_IDs[1][0], f'✅ Bot #added to chat: {funcs.escChar(message.chat.title)}')
+    else:
+        await bot.send_message(chatId, f'🚫 *This chat has been marked spam and restricted from using this bot\!*\n\n' \
+            f'If you think this is a mistake, please write to: \@{funcs.escChar((await bot.get_me()).username)}', parse_mode='MarkdownV2')
+        await bot.send_message(MY_IDs[1][0], f'☑️ Bot #added to a #blocked chat: {funcs.escChar(message.chat.title)}')
+
 # Define the handler for group messages
 @bot.message_handler(content_types=['text'], func=lambda message: message.chat.type == 'group' or message.chat.type == 'supergroup')
 async def handle_group_message(message):
@@ -503,13 +627,13 @@ async def handle_group_message(message):
         msgText = message.text
         rplyMsg = message.reply_to_message
 
-        if ((str(userId) in AI_USERS.keys()) and (chatId == int(AI_USERS.get(str(userId)))) and (message.text.startswith('@croco ') or ((message.reply_to_message is not None) and (message.reply_to_message.from_user.id == MY_IDs[1]))) and (not message.text.startswith('/'))):
+        if ((str(userId) in AI_USERS.keys()) and (chatId == int(AI_USERS.get(str(userId)))) and (message.text.startswith('@croco ') or ((message.reply_to_message is not None) and (message.reply_to_message.from_user.id == MY_IDs[0]))) and (not message.text.startswith('/'))):
             prompt = "You: " + msgText
             await bot.send_chat_action(chatId, 'typing')
             prompt = prompt.replace('@croco ', '')
-            if (rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[1]):
-                while rplyMsg and (rplyMsg.from_user.id == MY_IDs[1] or rplyMsg.from_user.id == userId):
-                    if rplyMsg.from_user.id == MY_IDs[1]:
+            if (rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[0]):
+                while rplyMsg and (rplyMsg.from_user.id == MY_IDs[0] or rplyMsg.from_user.id == userId):
+                    if rplyMsg.from_user.id == MY_IDs[0]:
                         prompt = f"Terrex: {rplyMsg.text}\n\n{prompt}"
                     elif rplyMsg.from_user.id == userId:
                         prompt = f"You: {rplyMsg.text}\n\n{prompt}"
@@ -521,7 +645,7 @@ async def handle_group_message(message):
             pre_prompt = "" #TODO: Need to fix here
             aiResp = funcs.getAIResp(pre_prompt + prompt, "text-davinci-002", 0.8, 1800, 1, 0.2, 0)
             aiResp = aiResp if aiResp != 0 else "Something went wrong! Please try again later."
-            await bot.send_message(chatId, aiResp, reply_to_message_id=message.message_id)
+            await bot.send_message(chatId, funcs.escChar(aiResp), reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
             return
 
         global STATE
@@ -530,7 +654,7 @@ async def handle_group_message(message):
         elif STATE.get(str(chatId))[0] == WAITING_FOR_WORD:
             # If leader types sth after starting game, change state to showChangedWordText=True
             if STATE.get(str(chatId))[1] == userId:
-                if (rplyMsg is None) or ((rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[1])):
+                if (rplyMsg is None) or ((rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[0])):
                     STATE.update({str(chatId): [WAITING_FOR_WORD, userId, True, STATE.get(str(chatId))[3]]})
             # Check if the message contains the word "Word"
             if message.text.lower() == WORD.get(str(chatId)):
@@ -558,7 +682,7 @@ async def handle_group_message(message):
                     incrementPoints_sql(userId, chatId, -1, fullName)
         
         elif chatId in CROCO_CHATS: # Check if chat is allowed to use Croco English AI
-            if (rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[1]) and (rplyMsg.text.startswith('Croco:')) and not (msgText.startswith('/') or msgText.startswith('@') or msgText.lower().startswith('croco:')):
+            if (rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[0]) and (rplyMsg.text.startswith('Croco:')) and not (msgText.startswith('/') or msgText.startswith('@') or msgText.lower().startswith('croco:')):
                 await bot.send_chat_action(chatId, 'typing')
                 rplyText = rplyMsg.text
                 resp = None
@@ -599,7 +723,8 @@ async def handle_group_message(message):
 
 
 
-# Callbacks handler for inline buttons ---------------------------------------- #
+# Callbacks handler for inline buttons --------------------------------------------------------- #
+
 @bot.callback_query_handler(func=lambda call: True)
 async def handle_query(call):
     chatId = call.message.chat.id
