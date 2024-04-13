@@ -83,7 +83,7 @@ def getAIResp(
             pf = res.prompt_feedback
             if pf.block_reason is not pf.BlockReason.BLOCK_REASON_UNSPECIFIED:
                 return 'Error 0x405: Response blocked by Croco AI.\n\nReason: ' + pf.block_reason.name
-            return res.text.replace('**', '*')
+            return res.text
         elif AI_PLATFORM == 'openai':
             model = "text-davinci-003"
             return client_openai.completions.create(

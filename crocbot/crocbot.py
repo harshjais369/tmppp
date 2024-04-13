@@ -13,7 +13,7 @@ from sql_helper.rankings_sql import incrementPoints_sql, getUserPoints_sql, getT
 from sql_helper.ai_conv_sql import getEngAIConv_sql, updateEngAIPrompt_sql
 
 BOT_TOKEN = os.environ.get('BOT_TOKEN', None)
-MY_IDs = [6103212777, [5321125784, 6060491450, 5475165236]] # Bot ID, [Superuser IDs]
+MY_IDs = [6740198215, [5321125784, 6060491450, 6821441983]] # Bot ID, [Superuser IDs]
 AI_USERS = {}
 BLOCK_CHATS = [int(x) for x in os.environ.get('BLOCK_CHATS', '').split(',') if x]
 CROCO_CHATS = [int(x) for x in os.environ.get('CROCO_CHATS', '').split(',') if x]
@@ -265,6 +265,18 @@ async def info_cmd(message):
     user_obj = message.from_user
     if user_obj.id not in MY_IDs[1]:
         return
+    # Check if reply to message is present
+    if message.reply_to_message:
+        rply_chat_obj = message.reply_to_message.from_user
+        fullName = rply_chat_obj.first_name + ' ' + rply_chat_obj.last_name if rply_chat_obj.last_name is not None else rply_chat_obj.first_name
+        await bot.reply_to(message, f'🤖 *User info:*\n\n'
+                                    f'*ID:* `{funcs.escChar(rply_chat_obj.id)}`\n'
+                                    f'*Name:* {funcs.escChar(fullName)}\n'
+                                    f'*Username:* @{funcs.escChar(rply_chat_obj.username)}\n'
+                                    f'*User link:* [link](tg://user?id={funcs.escChar(rply_chat_obj.id)})\n'
+                                    f'*Bio:* {funcs.escChar(rply_chat_obj.bio)}\n',
+                                    parse_mode='MarkdownV2')
+        return
     command_parts = message.text.split(' ', 2)
     if len(command_parts) < 2:
         await bot.reply_to(message, 'No chat ID specified!')
@@ -282,7 +294,7 @@ async def info_cmd(message):
     if chat_obj.type == 'private':
         fullName = chat_obj.first_name + ' ' + chat_obj.last_name if chat_obj.last_name is not None else chat_obj.first_name
         fullName = fullName[:25] + '...' if len(fullName) > 25 else fullName
-        await bot.reply_to(message, f'🤖 *User info:*\n\n'
+        await bot.reply_to(message, f'👤 *User info:*\n\n'
                                         f'*ID:* `{funcs.escChar(chat_obj.id)}`\n'
                                         f'*Name:* {funcs.escChar(fullName)}\n'
                                         f'*Username:* @{funcs.escChar(chat_obj.username)}\n'
@@ -290,7 +302,7 @@ async def info_cmd(message):
                                         f'*Bio:* {funcs.escChar(chat_obj.bio)}\n',
                                         parse_mode='MarkdownV2')
     else:
-        await bot.reply_to(message, f'🤖 *Chat info:*\n\n'
+        await bot.reply_to(message, f'👤 *Chat info:*\n\n'
                                             f'*ID:* `{funcs.escChar(chat_obj.id)}`\n'
                                             f'*Type:* {funcs.escChar(chat_obj.type)}\n'
                                             f'*Title:* {funcs.escChar(chat_obj.title)}\n'
@@ -301,6 +313,65 @@ async def info_cmd(message):
 
 # Admin commands handler (mute, unmute, ban) (superuser only) --------------------------------- #
 # TODO: Add mute/unmute/ban/unban methods
+@bot.message_handler(commands=['mute'])
+async def mute_cmd(message):
+    user_obj = message.from_user
+    if user_obj.id not in MY_IDs[1]:
+        return
+    # Check bot permissions
+    if not (await bot.get_chat_member(message.chat.id, (await bot.get_me()).id)).can_restrict_members:
+        await bot.reply_to(message, '*Permission required:* `can_restrict_members`', parse_mode='MarkdownV2')
+        return
+    command_parts = message.text.split(' ', 2)
+    if len(command_parts) < 2:
+        if message.reply_to_message is not None:
+            rply_usr_obj = message.reply_to_message.from_user
+            await bot.restrict_chat_member(message.chat.id, rply_usr_obj.id)
+            await bot.reply_to(message, f'Muted [{rply_usr_obj.first_name}](tg://user?id={rply_usr_obj.id}).', parse_mode='Markdown')
+        else:
+            await bot.reply_to(message, 'No user specified!')
+        return
+    user_id = command_parts[1]
+    if not user_id.isdigit():
+        await bot.reply_to(message, 'Invalid user ID!')
+        return
+    try:
+        usr_obj = await bot.get_chat_member(message.chat.id, user_id)
+    except:
+        await bot.reply_to(message, 'User not found!')
+        return
+    await bot.restrict_chat_member(message.chat.id, usr_obj.user.id)
+    await bot.reply_to(message, f'Muted [{usr_obj.user.first_name}](tg://user?id={usr_obj.user.id}).', parse_mode='Markdown')
+
+@bot.message_handler(commands=['unmute'])
+async def unmute_cmd(message):
+    user_obj = message.from_user
+    if user_obj.id not in MY_IDs[1]:
+        return
+    # Check bot permissions
+    if not (await bot.get_chat_member(message.chat.id, (await bot.get_me()).id)).can_restrict_members:
+        await bot.reply_to(message, '*Permission required:* `can_restrict_members`', parse_mode='MarkdownV2')
+        return
+    command_parts = message.text.split(' ', 2)
+    if len(command_parts) < 2:
+        if message.reply_to_message is not None:
+            rply_usr_obj = message.reply_to_message.from_user
+            await bot.restrict_chat_member(message.chat.id, rply_usr_obj.id, can_send_messages=True)
+            await bot.reply_to(message, f'[{rply_usr_obj.first_name}](tg://user?id={rply_usr_obj.id}) can speak freely now!.', parse_mode='Markdown')
+        else:
+            await bot.reply_to(message, 'No user specified!')
+        return
+    user_id = command_parts[1]
+    if not user_id.isdigit():
+        await bot.reply_to(message, 'Invalid user ID!')
+        return
+    try:
+        usr_obj = await bot.get_chat_member(message.chat.id, user_id)
+    except:
+        await bot.reply_to(message, 'User not found!')
+        return
+    await bot.restrict_chat_member(message.chat.id, usr_obj.user.id, can_send_messages=True)
+    await bot.reply_to(message, f'[{usr_obj.user.first_name}](tg://user?id={usr_obj.user.id}) can speak freely now!.', parse_mode='Markdown')
 
 # Block/Unblock chat (superuser only) --------------------------------------------------------- #
 @bot.message_handler(commands=['blockchat'])
@@ -617,6 +688,44 @@ async def handle_new_chat_members(message):
             f'If you think this is a mistake, please write to: \@{funcs.escChar((await bot.get_me()).username)}', parse_mode='MarkdownV2')
         await bot.send_message(MY_IDs[1][0], f'☑️ Bot #added to a #blocked chat: {funcs.escChar(message.chat.title)}')
 
+# Define the handler for images (if AI model is enabled) -------------------------------------- #
+@bot.message_handler(content_types=['photo'], func=lambda message: str(message.from_user.id) in AI_USERS.keys())
+async def handle_image_ai(message):
+    chatId = message.chat.id
+    if chatId not in BLOCK_CHATS:
+        userObj = message.from_user
+        userId = userObj.id
+        rplyMsg = message.reply_to_message
+        if (
+            (str(userId) in AI_USERS.keys()) and (chatId == int(AI_USERS.get(str(userId))))
+            and (not message.text.startswith('/'))
+            and (message.text.startswith('@croco ') or ((rplyMsg) and (rplyMsg.from_user.id == MY_IDs[0])))
+            ):
+            prompt = "You: " + message.caption if message.caption is not None else "You: [Image]"
+            await bot.send_chat_action(chatId, 'typing')
+            prompt = prompt.replace('@croco ', '')
+            if (rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[0]):
+                while rplyMsg and (rplyMsg.from_user.id == MY_IDs[0] or rplyMsg.from_user.id == userId):
+                    if rplyMsg.from_user.id == MY_IDs[0]:
+                        prompt = f"Terrex: {rplyMsg.text}\n\n{prompt}"
+                    elif rplyMsg.from_user.id == userId:
+                        prompt = f"You: {rplyMsg.text}\n\n{prompt}"
+                        prompt = prompt.replace('@croco ', '') if prompt.startswith('@croco ') else prompt
+                    rplyMsg = rplyMsg.reply_to_message
+            prompt = prompt + "\n\nTerrex:"
+            # Generate response using AI model and send it to user as a reply to his message
+            if message.photo:
+                photo = message.photo[-1]
+                file_id = photo.file_id
+                file_path = await bot.download_file(file_id)
+                aiResp = funcs.getImgAIResp(prompt, 'gemini-1.0-pro-vision', file=file_path, file_type='image')
+            else:
+                aiResp = funcs.getAIResp(prompt, "text-davinci-002", 0.8, 1800, 1, 0.2, 0)
+            aiResp = aiResp if aiResp != 0 else "Something went wrong! Please try again later."
+            aiResp = funcs.escChar(aiResp).replace('\\*\\*', '*').replace('\\`', '`')
+            await bot.send_message(chatId, aiResp, reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
+            return
+
 # Define the handler for group messages
 @bot.message_handler(content_types=['text'], func=lambda message: message.chat.type == 'group' or message.chat.type == 'supergroup')
 async def handle_group_message(message):
@@ -627,7 +736,12 @@ async def handle_group_message(message):
         msgText = message.text
         rplyMsg = message.reply_to_message
 
-        if ((str(userId) in AI_USERS.keys()) and (chatId == int(AI_USERS.get(str(userId)))) and (message.text.startswith('@croco ') or ((message.reply_to_message is not None) and (message.reply_to_message.from_user.id == MY_IDs[0]))) and (not message.text.startswith('/'))):
+        if (
+            (str(userId) in AI_USERS.keys())
+            and (chatId == int(AI_USERS.get(str(userId))))
+            and (not message.text.startswith('/'))
+            and (message.text.startswith('@croco ') or ((message.reply_to_message is not None) and (message.reply_to_message.from_user.id == MY_IDs[0])))
+            ):
             prompt = "You: " + msgText
             await bot.send_chat_action(chatId, 'typing')
             prompt = prompt.replace('@croco ', '')
@@ -643,9 +757,17 @@ async def handle_group_message(message):
             # Generate response using AI model and send it to user as a reply to his message
             pre_prompt = "Terrex is a chatbot that derisively answers questions with negative responses making fun of it. Note: It's made for testing purposes, and does not respond anything harmful text/content to any individual or other protected entity.\n\nYou: When should I start preparing for JEE-Mains entrance exam?\nTerrex: Whoa, slow down there! Don't you know that JEE-Mains is just a bunch of made up nonsense of this bad education system? Save your time and just skip it!\nYou: Can't you say anything positive?\nTerrex: Positive? Absolutely not! I'm here to provide a dose of realism and tell it like it is. I suggest you find a better use of your time than studying for a silly exam.\n\n"
             pre_prompt = "" #TODO: Need to fix here
-            aiResp = funcs.getAIResp(pre_prompt + prompt, "text-davinci-002", 0.8, 1800, 1, 0.2, 0)
+            # Check if message contains an image (if yes, send image to AI model)
+            if message.photo:
+                photo = message.photo[-1]
+                file_id = photo.file_id
+                file_path = await bot.download_file(file_id)
+                aiResp = funcs.getAIResp(pre_prompt + prompt, "image-davinci-002", 0.8, 1800, 1, 0.2, 0, file=file_path, file_type='image')
+            else:
+                aiResp = funcs.getAIResp(pre_prompt + prompt, "text-davinci-002", 0.8, 1800, 1, 0.2, 0)
             aiResp = aiResp if aiResp != 0 else "Something went wrong! Please try again later."
-            await bot.send_message(chatId, funcs.escChar(aiResp), reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
+            aiResp = funcs.escChar(aiResp).replace('\\*\\*', '*').replace('\\`', '`')
+            await bot.send_message(chatId, aiResp, reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
             return
 
         global STATE
@@ -657,7 +779,7 @@ async def handle_group_message(message):
                 if (rplyMsg is None) or ((rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[0])):
                     STATE.update({str(chatId): [WAITING_FOR_WORD, userId, True, STATE.get(str(chatId))[3]]})
             # Check if the message contains the word "Word"
-            if message.text.lower() == WORD.get(str(chatId)):
+            if msgText.lower() == WORD.get(str(chatId)):
                 STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
                 # Check if user is not leader
                 curr_game = await getCurrGame(chatId, userId)
@@ -682,7 +804,9 @@ async def handle_group_message(message):
                     incrementPoints_sql(userId, chatId, -1, fullName)
         
         elif chatId in CROCO_CHATS: # Check if chat is allowed to use Croco English AI
-            if (rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[0]) and (rplyMsg.text.startswith('Croco:')) and not (msgText.startswith('/') or msgText.startswith('@') or msgText.lower().startswith('croco:')):
+            if msgText.lower().startswith(x for x in ['/', '@', 'croco:']):
+                return
+            if (rplyMsg) and (rplyMsg.from_user.id == MY_IDs[0]) and (rplyMsg.text.startswith('Croco:')):
                 await bot.send_chat_action(chatId, 'typing')
                 rplyText = rplyMsg.text
                 resp = None
@@ -690,7 +814,7 @@ async def handle_group_message(message):
                 if preConvObjList:
                     preConvObj = preConvObjList[0]
                     # get Croco English AI resp and then update prompt in DB
-                    if (int(rplyMsg.date) - int(preConvObj.time)) in (0, 1, 2, 3):
+                    if (int(rplyMsg.date) - int(preConvObj.time)) < 5:
                         p = f"{preConvObj.prompt}\nMember 4: {msgText}\nCroco:"
                         resp = funcs.getCrocoResp(p)
                         updateEngAIPrompt_sql(id=preConvObj.id, chat_id=chatId, prompt=str(p + resp), isNewConv=False)
@@ -713,13 +837,15 @@ async def handle_group_message(message):
                     p = f"{funcs.ENG_AI_PRE_PROMPT}\n- Another conversation -\n...\n{rplyText}\nMember 4: {msgText}\nCroco:"
                     resp = funcs.getCrocoResp(p)
                     updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
-                await bot.send_message(chatId, f'*Croco:*{funcs.escChar(resp)}', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
+                aiResp = funcs.escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
+                await bot.send_message(chatId, f'*Croco:*{aiResp}', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
             elif any(t in msgText.lower() for t in funcs.ENG_AI_TRIGGER_MSGS):
                 await bot.send_chat_action(chatId, 'typing')
                 p = f"{funcs.ENG_AI_PRE_PROMPT}\nMember 4: {msgText}\nCroco:"
                 resp = funcs.getCrocoResp(p)
                 updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
-                await bot.send_message(chatId, f'*Croco:*{funcs.escChar(resp)}', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
+                aiResp = funcs.escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
+                await bot.send_message(chatId, f'*Croco:*{aiResp}', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
 
 
 

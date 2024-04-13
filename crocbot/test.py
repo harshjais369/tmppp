@@ -6,7 +6,18 @@ import asyncio
 from asyncio import sleep
 from telebot.async_telebot import AsyncTeleBot
 
-bot = AsyncTeleBot('5418430180:AAEZtvuRjTqPpYLR-gbvDMXssdnZziI566c')
+bot = AsyncTeleBot('5418430180:AAG4iOSP8XIuyiqrQ2Jgc3f9AxIi4DCm5n83')
+
+# Listen for incoming messages (private)
+@bot.message_handler(content_types=['photo'])
+async def private_message(message):
+    # Check if message contains an image
+    if message.photo:
+        file_id = message.photo[-1].file_id
+        file_info = await bot.get_file(file_id)
+        file_path = file_info.file_path
+        photo = f"https://api.telegram.org/file/bot{os.getenv('BOT_TOKEN')}/{file_path}"
+        await bot.send_message(message.chat.id, f"You sent an image! {photo}")
 
 @bot.message_handler(commands=['start'])
 async def start(message):
