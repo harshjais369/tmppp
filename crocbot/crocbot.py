@@ -3,6 +3,9 @@ import time
 import json
 import pytz
 from datetime import datetime
+import platform
+import psutil
+import speedtest
 import asyncio
 from asyncio import sleep
 from telebot.async_telebot import AsyncTeleBot
@@ -44,11 +47,11 @@ def getInlineBtn(event: str):
     elif event == 'revealed_word':
         markup.row_width = 1
         markup.add(InlineKeyboardButton('I want to be a leader!', callback_data='start_game'))
-    elif event == 'change_leader':
+    elif event == 'new_leader_req':
         markup.row_width = 2
         markup.add(
-            InlineKeyboardButton('Accept', callback_data='change_leader_accept'),
-            InlineKeyboardButton('Refuse', callback_data='change_leader_reject')
+            InlineKeyboardButton('Accept', callback_data='new_leader_req_accept'),
+            InlineKeyboardButton('Refuse', callback_data='new_leader_req_reject')
         )
     elif event == 'refused_lead':
         markup.row_width = 1
@@ -183,7 +186,7 @@ async def start_cmd(message):
         elif msgTxt == '/start' or msgTxt.startswith('/start ') or msgTxt.startswith('/start@croco'):
             await bot.send_message(chatId, '👋🏻 Hey!\nI\'m Crocodile Game Bot. To start a game, press command: /game')
 
-# Basic commands (send, botstats, info) (superuser only) ------------------------------------- #
+# Basic commands (send, botstats, serverinfo, info, del) (superuser only) ---------------------- #
 @bot.message_handler(commands=['send'])
 async def send_message_to_chats(message):
     user_obj = message.from_user
@@ -259,6 +262,33 @@ async def botStats_cmd(message):
                                         f'*Running games:* {len(STATE)}\n',
                                         parse_mode='MarkdownV2')
 
+@bot.message_handler(commands=['serverinfo'])
+async def serverInfo_cmd(message):
+    user_obj = message.from_user
+    if user_obj.id not in MY_IDs[1]:
+        return
+    # Fetch system info
+    cpu_usage = psutil.cpu_percent()
+    mem = psutil.virtual_memory()
+    disk = psutil.disk_usage('/')
+    # Fetch network speed
+    st = speedtest.Speedtest()
+    st.get_best_server()
+    download_speed = round(st.download() / 1024 / 1024, 2)
+    upload_speed = round(st.upload() / 1024 / 1024, 2)
+    ping = st.results.ping
+    await bot.reply_to(message, f'🖥 *Server info:*\n\n'
+                                f'*System:* {funcs.escChar(platform.system())} {funcs.escChar(platform.release())}\n'
+                                f'*CPU usage:* {funcs.escChar(cpu_usage)}%\n'
+                                f'*Memory usage:* {funcs.escChar(mem.percent)}%\n'
+                                f'*Disk usage:* {funcs.escChar(disk.percent)}%\n'
+                                f'*Network speed:*\n'
+                                f'\t*– Download:* {funcs.escChar(download_speed)} Mb/s\n'
+                                f'\t*– Upload:* {funcs.escChar(upload_speed)} Mb/s\n'
+                                f'\t*– Ping:* {funcs.escChar(ping)} ms\n'
+                                f'*Uptime:* {funcs.escChar(time.strftime("%H:%M:%S", time.gmtime(time.time() - psutil.boot_time())))}\n',
+                                parse_mode='MarkdownV2')
+
 # See chat/user info
 @bot.message_handler(commands=['info'])
 async def info_cmd(message):
@@ -273,8 +303,7 @@ async def info_cmd(message):
                                     f'*ID:* `{funcs.escChar(rply_chat_obj.id)}`\n'
                                     f'*Name:* {funcs.escChar(fullName)}\n'
                                     f'*Username:* @{funcs.escChar(rply_chat_obj.username)}\n'
-                                    f'*User link:* [link](tg://user?id={funcs.escChar(rply_chat_obj.id)})\n'
-                                    f'*Bio:* {funcs.escChar(rply_chat_obj.bio)}\n',
+                                    f'*User link:* [link](tg://user?id={funcs.escChar(rply_chat_obj.id)})\n',
                                     parse_mode='MarkdownV2')
         return
     command_parts = message.text.split(' ', 2)
@@ -311,6 +340,25 @@ async def info_cmd(message):
                                             f'*Description:* {funcs.escChar(chat_obj.description)}\n',
                                             parse_mode='MarkdownV2')
 
+@bot.message_handler(commands=['del'])
+async def del_cmd(message):
+    user_obj = message.from_user
+    if user_obj.id not in MY_IDs[1]:
+        return
+    rply_msg = message.reply_to_message
+    if rply_msg is None:
+        alrt_msg = await bot.reply_to(message, 'Please reply to a message to delete.')
+        await sleep(10)
+        await bot.delete_message(message.chat.id, alrt_msg.message_id)
+        return
+    # Check bot permissions if replied message isn't sent by bot
+    if rply_msg.from_user.id != MY_IDs[0] and not (await bot.get_chat_member(message.chat.id, MY_IDs[0])).can_delete_messages:
+        alrt_msg = await bot.reply_to(message, '*Permission required:* `can_delete_messages`', parse_mode='MarkdownV2')
+        await sleep(10)
+        await bot.delete_message(message.chat.id, alrt_msg.message_id)
+        return
+    await bot.delete_message(message.chat.id, rply_msg.message_id)
+
 # Admin commands handler (mute, unmute, ban) (superuser only) --------------------------------- #
 # TODO: Add mute/unmute/ban/unban methods
 @bot.message_handler(commands=['mute'])
@@ -319,13 +367,19 @@ async def mute_cmd(message):
     if user_obj.id not in MY_IDs[1]:
         return
     # Check bot permissions
-    if not (await bot.get_chat_member(message.chat.id, (await bot.get_me()).id)).can_restrict_members:
+    if not (await bot.get_chat_member(message.chat.id, MY_IDs[0])).can_restrict_members:
         await bot.reply_to(message, '*Permission required:* `can_restrict_members`', parse_mode='MarkdownV2')
         return
     command_parts = message.text.split(' ', 2)
     if len(command_parts) < 2:
         if message.reply_to_message is not None:
             rply_usr_obj = message.reply_to_message.from_user
+            if rply_usr_obj.id == MY_IDs[0]:
+                await bot.reply_to(message, 'I cannot mute myself!\n\n– To report any issue, contact my developer: @hhzvp')
+                return
+            if rply_usr_obj.id in MY_IDs[1]:
+                await bot.reply_to(message, 'I cannot mute a superuser!')
+                return
             await bot.restrict_chat_member(message.chat.id, rply_usr_obj.id)
             await bot.reply_to(message, f'Muted [{rply_usr_obj.first_name}](tg://user?id={rply_usr_obj.id}).', parse_mode='Markdown')
         else:
@@ -652,7 +706,7 @@ async def chat_ranking_cmd(message):
 async def rules_cmd(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
-        rules_msg = 'In this game, there are two roles: the leader and the other participants. ' \
+        rules_msg = 'In this game, there are two roles: leader and other participants. ' \
             'The leader selects a random word and tries to describe it without saying the word. ' \
             'The other players\' goal is to find the word and type it in the groupchat. ' \
             'The first person to type the correct word is the winner, and is awarded 1💵. ' \
@@ -665,13 +719,13 @@ async def help_cmd(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         await bot.send_message(chatId, '🐊📖 *Bot commands:*\n\n'
-                                 '🎮 /game \- start new game\n'
+                                 '🎮 /game \- start a new game\n'
                                  '🛑 /stop \- stop current game\n'
-                                 '📋 /rules \- see game rules\n'
-                                 '📊 /mystats \- see your stats\n'
-                                 '📈 /ranking \- see top 25 players in this chat\n'
-                                 '📈 /globalranking \- see top 25 players in all chats\n'
-                                 '📈 /chatranking \- see top 10 chats\n'
+                                 '📋 /rules \- know game rules\n'
+                                 '📊 /mystats \- your game stats\n'
+                                 '📈 /ranking \- top 25 players (in this chat)\n'
+                                 '📈 /globalranking \- top 25 players (in all chats)\n'
+                                 '📈 /chatranking \- top 10 chats\n'
                                  '📖 /help \- show this message',
                                  parse_mode='MarkdownV2')
 
@@ -682,11 +736,13 @@ async def help_cmd(message):
 async def handle_new_chat_members(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
-        await bot.send_message(MY_IDs[1][0], f'✅ Bot #added to chat: {funcs.escChar(message.chat.title)}')
+        await bot.send_message(MY_IDs[1][0], f'✅ Bot #added to chat: `{funcs.escChar(chatId)}`\n{funcs.escChar(message.chat.title)}',
+                               parse_mode='MarkdownV2')
     else:
         await bot.send_message(chatId, f'🚫 *This chat has been marked spam and restricted from using this bot\!*\n\n' \
             f'If you think this is a mistake, please write to: \@{funcs.escChar((await bot.get_me()).username)}', parse_mode='MarkdownV2')
-        await bot.send_message(MY_IDs[1][0], f'☑️ Bot #added to a #blocked chat: {funcs.escChar(message.chat.title)}')
+        await bot.send_message(MY_IDs[1][0], f'☑️ Bot #added to a #blocked chat: `{funcs.escChar(chatId)}`\n{funcs.escChar(message.chat.title)}',
+                               parse_mode='MarkdownV2')
 
 # Define the handler for images (if AI model is enabled) -------------------------------------- #
 @bot.message_handler(content_types=['photo'], func=lambda message: str(message.from_user.id) in AI_USERS.keys())
@@ -698,27 +754,30 @@ async def handle_image_ai(message):
         rplyMsg = message.reply_to_message
         if (
             (str(userId) in AI_USERS.keys()) and (chatId == int(AI_USERS.get(str(userId))))
-            and (not message.text.startswith('/'))
-            and (message.text.startswith('@croco ') or ((rplyMsg) and (rplyMsg.from_user.id == MY_IDs[0])))
+            and ((message.caption is None) or ((message.caption is not None) and (not message.caption.startswith('/'))
+                                               and (message.caption.startswith('@croco ')
+                                                    or ((rplyMsg) and (rplyMsg.from_user.id == MY_IDs[0])))))
             ):
-            prompt = "You: " + message.caption if message.caption is not None else "You: [Image]"
             await bot.send_chat_action(chatId, 'typing')
-            prompt = prompt.replace('@croco ', '')
+            prompt = "You: " + message.caption.replace('@croco ', '') if message.caption is not None else "You: [Image]"
             if (rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[0]):
                 while rplyMsg and (rplyMsg.from_user.id == MY_IDs[0] or rplyMsg.from_user.id == userId):
                     if rplyMsg.from_user.id == MY_IDs[0]:
-                        prompt = f"Terrex: {rplyMsg.text}\n\n{prompt}"
+                        prompt = f"Gemini: {rplyMsg.text}\n\n{prompt}"
                     elif rplyMsg.from_user.id == userId:
                         prompt = f"You: {rplyMsg.text}\n\n{prompt}"
                         prompt = prompt.replace('@croco ', '') if prompt.startswith('@croco ') else prompt
                     rplyMsg = rplyMsg.reply_to_message
-            prompt = prompt + "\n\nTerrex:"
-            # Generate response using AI model and send it to user as a reply to his message
+            prompt += "\n\Gemini:"
+            # Generate response using AI model and send it to user as a reply to message
             if message.photo:
-                photo = message.photo[-1]
-                file_id = photo.file_id
-                file_path = await bot.download_file(file_id)
-                aiResp = funcs.getImgAIResp(prompt, 'gemini-1.0-pro-vision', file=file_path, file_type='image')
+                file_info = await bot.get_file(message.photo[-1].file_id)
+                file_path = file_info.file_path
+                # img_url = f'https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}'
+                img_path = await bot.download_file(file_path)
+                with open("image.jpg", 'wb') as new_file:
+                    new_file.write(img_path)
+                    aiResp = funcs.getImgAIResp(prompt, '', 'image.jpg')
             else:
                 aiResp = funcs.getAIResp(prompt, "text-davinci-002", 0.8, 1800, 1, 0.2, 0)
             aiResp = aiResp if aiResp != 0 else "Something went wrong! Please try again later."
@@ -740,31 +799,23 @@ async def handle_group_message(message):
             (str(userId) in AI_USERS.keys())
             and (chatId == int(AI_USERS.get(str(userId))))
             and (not message.text.startswith('/'))
-            and (message.text.startswith('@croco ') or ((message.reply_to_message is not None) and (message.reply_to_message.from_user.id == MY_IDs[0])))
+            and (message.text.startswith('@croco ') or ((rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[0])))
             ):
-            prompt = "You: " + msgText
             await bot.send_chat_action(chatId, 'typing')
-            prompt = prompt.replace('@croco ', '')
+            prompt = "You: " + msgText.replace('@croco ', '')
             if (rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[0]):
-                while rplyMsg and (rplyMsg.from_user.id == MY_IDs[0] or rplyMsg.from_user.id == userId):
+                while rplyMsg and (rplyMsg.from_user.id in [MY_IDs[0], userId]):
                     if rplyMsg.from_user.id == MY_IDs[0]:
-                        prompt = f"Terrex: {rplyMsg.text}\n\n{prompt}"
+                        prompt = f"Gemini: {rplyMsg.text}\n\n{prompt}"
                     elif rplyMsg.from_user.id == userId:
                         prompt = f"You: {rplyMsg.text}\n\n{prompt}"
                         prompt = prompt.replace('@croco ', '') if prompt.startswith('@croco ') else prompt
                     rplyMsg = rplyMsg.reply_to_message
-            prompt = prompt + "\n\nTerrex:"
+            prompt += "\n\Gemini:"
             # Generate response using AI model and send it to user as a reply to his message
-            pre_prompt = "Terrex is a chatbot that derisively answers questions with negative responses making fun of it. Note: It's made for testing purposes, and does not respond anything harmful text/content to any individual or other protected entity.\n\nYou: When should I start preparing for JEE-Mains entrance exam?\nTerrex: Whoa, slow down there! Don't you know that JEE-Mains is just a bunch of made up nonsense of this bad education system? Save your time and just skip it!\nYou: Can't you say anything positive?\nTerrex: Positive? Absolutely not! I'm here to provide a dose of realism and tell it like it is. I suggest you find a better use of your time than studying for a silly exam.\n\n"
+            # pre_prompt = "Terrex is a chatbot that derisively answers questions with negative responses making fun of it. Note: It's made for testing purposes, and does not respond anything harmful text/content to any individual or other protected entity.\n\nYou: When should I start preparing for JEE-Mains entrance exam?\nTerrex: Whoa, slow down there! Don't you know that JEE-Mains is just a bunch of made up nonsense of this bad education system? Save your time and just skip it!\nYou: Can't you say anything positive?\nTerrex: Positive? Absolutely not! I'm here to provide a dose of realism and tell it like it is. I suggest you find a better use of your time than studying for a silly exam.\n\n"
             pre_prompt = "" #TODO: Need to fix here
-            # Check if message contains an image (if yes, send image to AI model)
-            if message.photo:
-                photo = message.photo[-1]
-                file_id = photo.file_id
-                file_path = await bot.download_file(file_id)
-                aiResp = funcs.getAIResp(pre_prompt + prompt, "image-davinci-002", 0.8, 1800, 1, 0.2, 0, file=file_path, file_type='image')
-            else:
-                aiResp = funcs.getAIResp(pre_prompt + prompt, "text-davinci-002", 0.8, 1800, 1, 0.2, 0)
+            aiResp = funcs.getAIResp(pre_prompt + prompt, "text-davinci-002", 0.8, 1800, 1, 0.2, 0)
             aiResp = aiResp if aiResp != 0 else "Something went wrong! Please try again later."
             aiResp = funcs.escChar(aiResp).replace('\\*\\*', '*').replace('\\`', '`')
             await bot.send_message(chatId, aiResp, reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
@@ -804,7 +855,7 @@ async def handle_group_message(message):
                     incrementPoints_sql(userId, chatId, -1, fullName)
         
         elif chatId in CROCO_CHATS: # Check if chat is allowed to use Croco English AI
-            if msgText.lower().startswith(x for x in ['/', '@', 'croco:']):
+            if msgText.lower().startswith('/') or msgText.lower().startswith('@') or msgText.lower().startswith('croco:'):
                 return
             if (rplyMsg) and (rplyMsg.from_user.id == MY_IDs[0]) and (rplyMsg.text.startswith('Croco:')):
                 await bot.send_chat_action(chatId, 'typing')

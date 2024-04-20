@@ -1,6 +1,7 @@
 import os
 import re
 import random
+import PIL.Image
 
 AI_PLATFORM = os.environ.get('AI_PLATFORM', 'google')
 AI_API_KEY = os.environ.get('AI_API_KEY', None)
@@ -100,6 +101,33 @@ def getAIResp(
     except Exception as e:
         print(str(e))
         return 0
+
+# Get response from Image AI model
+def getImgAIResp(prompt, model, img_path):
+    try:
+        if AI_API_KEY is None:
+            raise Exception('AI_PLATFORM or AI_API_KEY is not configured properly. Please check .env file!')
+        elif AI_PLATFORM != 'google':
+            raise Exception('Image AI model is only supported by Google AI platform!')
+        try:
+            imgObj = PIL.Image.open(img_path)
+        except Exception as e:
+            print(str(e))
+            return 'Error 0x403: Failed to read image file!'
+        model = genai.GenerativeModel('gemini-pro-vision')
+        res = model.generate_content([prompt, imgObj], generation_config={
+            'temperature': 1,
+            'max_output_tokens': 2048,
+            'top_p': 1.0
+        })
+        pf = res.prompt_feedback
+        if pf.block_reason is not pf.BlockReason.BLOCK_REASON_UNSPECIFIED:
+            return 'Error 0x405: Response blocked by Croco AI.\n\nReason: ' + pf.block_reason.name
+        return res.text
+    except Exception as e:
+        print(str(e))
+        return 0
+
 
 # Generate word
 def getNewWord():
