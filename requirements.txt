@@ -1,6 +1,7 @@
 aiohttp
 google-generativeai
 openai>=0.27.2
+Pillow
 psutil
 psycopg2-binary
 pyTelegramBotAPI>=4.10.0
