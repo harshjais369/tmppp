@@ -718,13 +718,13 @@ async def rules_cmd(message):
 async def help_cmd(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
-        await bot.send_message(chatId, '🐊📖 *Bot commands:*\n\n'
+        await bot.send_message(chatId, '🐊📖 *Game commands:*\n\n'
                                  '🎮 /game \- start a new game\n'
                                  '🛑 /stop \- stop current game\n'
                                  '📋 /rules \- know game rules\n'
                                  '📊 /mystats \- your game stats\n'
-                                 '📈 /ranking \- top 25 players (in this chat)\n'
-                                 '📈 /globalranking \- top 25 players (in all chats)\n'
+                                 '📈 /ranking \- top 25 players \(in this chat\)\n'
+                                 '📈 /globalranking \- top 25 players \(in all chats\)\n'
                                  '📈 /chatranking \- top 10 chats\n'
                                  '📖 /help \- show this message',
                                  parse_mode='MarkdownV2')
@@ -736,12 +736,12 @@ async def help_cmd(message):
 async def handle_new_chat_members(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
-        await bot.send_message(MY_IDs[1][0], f'✅ Bot #added to chat: `{funcs.escChar(chatId)}`\n{funcs.escChar(message.chat.title)}',
+        await bot.send_message(MY_IDs[1][0], f'✅ Bot \#added to chat: `{funcs.escChar(chatId)}`\n{funcs.escChar(message.chat.title)}',
                                parse_mode='MarkdownV2')
     else:
         await bot.send_message(chatId, f'🚫 *This chat has been marked spam and restricted from using this bot\!*\n\n' \
             f'If you think this is a mistake, please write to: \@{funcs.escChar((await bot.get_me()).username)}', parse_mode='MarkdownV2')
-        await bot.send_message(MY_IDs[1][0], f'☑️ Bot #added to a #blocked chat: `{funcs.escChar(chatId)}`\n{funcs.escChar(message.chat.title)}',
+        await bot.send_message(MY_IDs[1][0], f'☑️ Bot \#added to a \#blocked chat: `{funcs.escChar(chatId)}`\n{funcs.escChar(message.chat.title)}',
                                parse_mode='MarkdownV2')
 
 # Define the handler for images (if AI model is enabled) -------------------------------------- #
