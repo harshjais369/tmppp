@@ -449,7 +449,7 @@ async def blockchat_cmd(message):
     if int(chat_id) in BLOCK_CHATS:
         await bot.reply_to(message, 'Chat already blocked!')
         return
-    title = 'unknown_chat'
+    title = 'unknown\_chat'
     try:
         chat_obj = await bot.get_chat(chat_id)
         if chat_obj.type == 'private':
@@ -458,8 +458,8 @@ async def blockchat_cmd(message):
         title = chat_obj.title
     except:
         pass
-    BLOCK_CHATS.append(chat_id)
-    await bot.reply_to(message, f'Chat {title} blocked successfully!')
+    BLOCK_CHATS.append(int(chat_id))
+    await bot.reply_to(message, f'Chat {title} blocked successfully!', parse_mode='Markdown')
 
 @bot.message_handler(commands=['unblockchat'])
 async def unblockchat_cmd(message):
@@ -478,7 +478,7 @@ async def unblockchat_cmd(message):
     if int(chat_id) not in BLOCK_CHATS:
         await bot.reply_to(message, 'Chat not blocked!')
         return
-    title = 'unknown_chat'
+    title = 'unknown\_chat'
     try:
         chat_obj = await bot.get_chat(chat_id)
         if chat_obj.type == 'private':
@@ -487,8 +487,8 @@ async def unblockchat_cmd(message):
         title = chat_obj.title
     except:
         pass
-    BLOCK_CHATS.remove(chat_id)
-    await bot.reply_to(message, f'Chat {title} unblocked successfully!')
+    BLOCK_CHATS.remove(int(chat_id))
+    await bot.reply_to(message, f'Chat {title} unblocked successfully!', parse_mode='Markdown')
 
 @bot.message_handler(commands=['blockuser'])
 async def blockuser_cmd(message):
@@ -502,8 +502,8 @@ async def blockuser_cmd(message):
             if rply_usr_obj.id in BLOCK_USERS:
                 await bot.reply_to(message, 'User already blocked!')
                 return
-            BLOCK_USERS.append(rply_usr_obj.id)
-            await bot.reply_to(message, f'User [{rply_usr_obj.first_name}](tg://user?id={rply_usr_obj.id}) blocked successfully!', parse_mode='MarkdownV2')
+            BLOCK_USERS.append(int(rply_usr_obj.id))
+            await bot.reply_to(message, f'User [{rply_usr_obj.first_name}](tg://user?id={rply_usr_obj.id}) blocked successfully!', parse_mode='Markdown')
         else:
             await bot.reply_to(message, 'No user specified!')
         return
@@ -514,7 +514,7 @@ async def blockuser_cmd(message):
     if int(user_id) in BLOCK_USERS:
         await bot.reply_to(message, 'User already blocked!')
         return
-    user_title = 'unknown_user'
+    user_title = 'unknown\_user'
     try:
         usr_obj = await bot.get_chat(user_id)
         if usr_obj.type != 'private':
@@ -523,7 +523,7 @@ async def blockuser_cmd(message):
         user_title = f'[{usr_obj.first_name}](tg://user?id={usr_obj.id})'
     except:
         pass
-    BLOCK_USERS.append(user_id)
+    BLOCK_USERS.append(int(user_id))
     await bot.reply_to(message, f'User {user_title} blocked successfully!', parse_mode='Markdown')
 
 @bot.message_handler(commands=['unblockuser'])
@@ -538,7 +538,7 @@ async def unblockuser_cmd(message):
             if rply_usr_obj.id not in BLOCK_USERS:
                 await bot.reply_to(message, 'User not blocked!')
                 return
-            BLOCK_USERS.remove(rply_usr_obj.id)
+            BLOCK_USERS.remove(int(rply_usr_obj.id))
             await bot.reply_to(message, f'User [{rply_usr_obj.first_name}](tg://user?id={rply_usr_obj.id}) unblocked successfully!', parse_mode='Markdown')
         else:
             await bot.reply_to(message, 'No user specified!')
@@ -550,7 +550,7 @@ async def unblockuser_cmd(message):
     if int(user_id) not in BLOCK_USERS:
         await bot.reply_to(message, 'User not blocked!')
         return
-    user_title = 'unknown_user'
+    user_title = 'unknown\_user'
     try:
         usr_obj = await bot.get_chat(user_id)
         if usr_obj.type != 'private':
@@ -559,7 +559,7 @@ async def unblockuser_cmd(message):
         user_title = f'[{usr_obj.first_name}](tg://user?id={usr_obj.id})'
     except:
         pass
-    BLOCK_USERS.remove(user_id)
+    BLOCK_USERS.remove(int(user_id))
     await bot.reply_to(message, f'User {user_title} unblocked successfully!', parse_mode='Markdown')
 
 # Add/Remove/Show AI chats (superuser only) --------------------------------------------------- #
@@ -830,7 +830,7 @@ async def cmdlist_cmd(message):
     admin_cmds = (
         '/mute \- mute user\n'
         '/unmute \- unmute user\n'
-        '/ban \- ban user (disabled)\n'
+        '/ban \- ~ban user~ \(disabled\)\n'
     )
     ai_cmds = (
         '/aiuser \- set AI user\n'
@@ -840,7 +840,7 @@ async def cmdlist_cmd(message):
     game_cmds = (
         '/game \- start new game\n'
         '/stop \- stop current game\n'
-        '/stats \- user game stats (superuser only)\n'
+        '/stats \- user game stats\n'
         '/mystats \- your game stats\n'
         '/ranking \- top 25 players\n'
         '/globalranking \- top 25 global players\n'
