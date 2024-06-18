@@ -19,6 +19,7 @@ BOT_TOKEN = os.environ.get('BOT_TOKEN', None)
 MY_IDs = [6740198215, [5321125784, 6060491450, 6821441983]] # Bot ID, [Superuser IDs]
 AI_USERS = {}
 BLOCK_CHATS = [int(x) for x in os.environ.get('BLOCK_CHATS', '').split(',') if x]
+BLOCK_USERS = [int(x) for x in os.environ.get('BLOCK_USERS', '').split(',') if x]
 CROCO_CHATS = [int(x) for x in os.environ.get('CROCO_CHATS', '').split(',') if x]
 TOP10_CHAT_NAMES = json.loads(os.environ.get('TOP10_CHAT_NAMES', '{}'))
 STATE = {} # STATE('chat_id': [str(game_state), int(leader_id), bool(show_changed_word_msg), int(started_at)])
@@ -69,7 +70,10 @@ async def startBotCmdInPvt(message, chatId):
         f'🐊 *Crocodile Game* is a word guessing game where one player explains the word and others try to guess it\.\n\n' \
         f'👉🏻 Add me into your group and start playing the game now with your friends\!\n\n' \
         f'Press \/help to see the *list of all commands* and how they work\!'
-    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("➕ Add me to a Group", url="t.me/CrocodileGameEnn_bot?startgroup=new")]])
+    reply_markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton('➕ Add me to a Group', url='t.me/CrocodileGameEnn_bot?startgroup=new')],
+        [InlineKeyboardButton('🇮🇳 Join official game group', url='t.me/CrocodileGamesGroup')]
+    ])
     await bot.send_message(chatId, greet_msg, reply_markup=reply_markup, parse_mode='MarkdownV2')
 
 async def startGame(message, isStartFromCmd=False):
@@ -375,7 +379,7 @@ async def mute_cmd(message):
         if message.reply_to_message is not None:
             rply_usr_obj = message.reply_to_message.from_user
             if rply_usr_obj.id == MY_IDs[0]:
-                await bot.reply_to(message, 'I cannot mute myself!\n\n– To report any issue, contact my developer: @hhzvp')
+                await bot.reply_to(message, 'I cannot mute myself!\n\n– To report any issue, write to: @CrocodileGamesGroup')
                 return
             if rply_usr_obj.id in MY_IDs[1]:
                 await bot.reply_to(message, 'I cannot mute a superuser!')
@@ -411,7 +415,7 @@ async def unmute_cmd(message):
         if message.reply_to_message is not None:
             rply_usr_obj = message.reply_to_message.from_user
             await bot.restrict_chat_member(message.chat.id, rply_usr_obj.id, can_send_messages=True)
-            await bot.reply_to(message, f'[{rply_usr_obj.first_name}](tg://user?id={rply_usr_obj.id}) can speak freely now!.', parse_mode='Markdown')
+            await bot.reply_to(message, f'[{rply_usr_obj.first_name}](tg://user?id={rply_usr_obj.id}) can speak now!', parse_mode='Markdown')
         else:
             await bot.reply_to(message, 'No user specified!')
         return
@@ -425,9 +429,9 @@ async def unmute_cmd(message):
         await bot.reply_to(message, 'User not found!')
         return
     await bot.restrict_chat_member(message.chat.id, usr_obj.user.id, can_send_messages=True)
-    await bot.reply_to(message, f'[{usr_obj.user.first_name}](tg://user?id={usr_obj.user.id}) can speak freely now!.', parse_mode='Markdown')
+    await bot.reply_to(message, f'[{usr_obj.user.first_name}](tg://user?id={usr_obj.user.id}) can speak now!', parse_mode='Markdown')
 
-# Block/Unblock chat (superuser only) --------------------------------------------------------- #
+# Block/Unblock chat/user (superuser only) --------------------------------------------------------- #
 @bot.message_handler(commands=['blockchat'])
 async def blockchat_cmd(message):
     user_obj = message.from_user
@@ -442,19 +446,20 @@ async def blockchat_cmd(message):
             or (chat_id.startswith('@') and chat_id[1:][0].isalpha())):
         await bot.reply_to(message, 'Invalid chat ID!')
         return
-    try:
-        chat_obj = await bot.get_chat(chat_id)
-    except:
-        await bot.reply_to(message, 'Chat not found!')
-        return
-    if chat_obj.type == 'private':
-        await bot.reply_to(message, 'You cannot block a user!')
-        return
-    if chat_obj.id in BLOCK_CHATS:
+    if int(chat_id) in BLOCK_CHATS:
         await bot.reply_to(message, 'Chat already blocked!')
         return
-    BLOCK_CHATS.append(chat_obj.id)
-    await bot.reply_to(message, f'Chat {funcs.escChar(chat_obj.title)} blocked successfully!')
+    title = 'unknown_chat'
+    try:
+        chat_obj = await bot.get_chat(chat_id)
+        if chat_obj.type == 'private':
+            await bot.reply_to(message, 'Provided id belongs to a user! To block a user, use /blockuser command.')
+            return
+        title = chat_obj.title
+    except:
+        pass
+    BLOCK_CHATS.append(chat_id)
+    await bot.reply_to(message, f'Chat {title} blocked successfully!')
 
 @bot.message_handler(commands=['unblockchat'])
 async def unblockchat_cmd(message):
@@ -470,19 +475,92 @@ async def unblockchat_cmd(message):
             or (chat_id.startswith('@') and chat_id[1:][0].isalpha())):
         await bot.reply_to(message, 'Invalid chat ID!')
         return
-    try:
-        chat_obj = await bot.get_chat(chat_id)
-    except:
-        await bot.reply_to(message, 'Chat not found!')
-        return
-    if chat_obj.type == 'private':
-        await bot.reply_to(message, 'You cannot unblock a user!')
-        return
-    if chat_obj.id not in BLOCK_CHATS:
+    if int(chat_id) not in BLOCK_CHATS:
         await bot.reply_to(message, 'Chat not blocked!')
         return
-    BLOCK_CHATS.remove(chat_obj.id)
-    await bot.reply_to(message, f'Chat {funcs.escChar(chat_obj.title)} unblocked successfully!')
+    title = 'unknown_chat'
+    try:
+        chat_obj = await bot.get_chat(chat_id)
+        if chat_obj.type == 'private':
+            await bot.reply_to(message, 'Provided id belongs to a user! To unblock a user, use /unblockuser command.')
+            return
+        title = chat_obj.title
+    except:
+        pass
+    BLOCK_CHATS.remove(chat_id)
+    await bot.reply_to(message, f'Chat {title} unblocked successfully!')
+
+@bot.message_handler(commands=['blockuser'])
+async def blockuser_cmd(message):
+    user_obj = message.from_user
+    if user_obj.id not in MY_IDs[1]:
+        return
+    command_parts = message.text.split(' ', 2)
+    if len(command_parts) < 2:
+        if message.reply_to_message is not None:
+            rply_usr_obj = message.reply_to_message.from_user
+            if rply_usr_obj.id in BLOCK_USERS:
+                await bot.reply_to(message, 'User already blocked!')
+                return
+            BLOCK_USERS.append(rply_usr_obj.id)
+            await bot.reply_to(message, f'User [{rply_usr_obj.first_name}](tg://user?id={rply_usr_obj.id}) blocked successfully!', parse_mode='MarkdownV2')
+        else:
+            await bot.reply_to(message, 'No user specified!')
+        return
+    user_id = command_parts[1]
+    if not user_id.isdigit():
+        await bot.reply_to(message, 'Invalid user ID!')
+        return
+    if int(user_id) in BLOCK_USERS:
+        await bot.reply_to(message, 'User already blocked!')
+        return
+    user_title = 'unknown_user'
+    try:
+        usr_obj = await bot.get_chat(user_id)
+        if usr_obj.type != 'private':
+            await bot.reply_to(message, 'Provided id belongs to a groupchat! To block a groupchat, use /blockchat command.')
+            return
+        user_title = f'[{usr_obj.first_name}](tg://user?id={usr_obj.id})'
+    except:
+        pass
+    BLOCK_USERS.append(user_id)
+    await bot.reply_to(message, f'User {user_title} blocked successfully!', parse_mode='Markdown')
+
+@bot.message_handler(commands=['unblockuser'])
+async def unblockuser_cmd(message):
+    user_obj = message.from_user
+    if user_obj.id not in MY_IDs[1]:
+        return
+    command_parts = message.text.split(' ', 2)
+    if len(command_parts) < 2:
+        if message.reply_to_message is not None:
+            rply_usr_obj = message.reply_to_message.from_user
+            if rply_usr_obj.id not in BLOCK_USERS:
+                await bot.reply_to(message, 'User not blocked!')
+                return
+            BLOCK_USERS.remove(rply_usr_obj.id)
+            await bot.reply_to(message, f'User [{rply_usr_obj.first_name}](tg://user?id={rply_usr_obj.id}) unblocked successfully!', parse_mode='Markdown')
+        else:
+            await bot.reply_to(message, 'No user specified!')
+        return
+    user_id = command_parts[1]
+    if not user_id.isdigit():
+        await bot.reply_to(message, 'Invalid user ID!')
+        return
+    if int(user_id) not in BLOCK_USERS:
+        await bot.reply_to(message, 'User not blocked!')
+        return
+    user_title = 'unknown_user'
+    try:
+        usr_obj = await bot.get_chat(user_id)
+        if usr_obj.type != 'private':
+            await bot.reply_to(message, 'Provided id belongs to a groupchat! To unblock a groupchat, use /unblockchat command.')
+            return
+        user_title = f'[{usr_obj.first_name}](tg://user?id={usr_obj.id})'
+    except:
+        pass
+    BLOCK_USERS.remove(user_id)
+    await bot.reply_to(message, f'User {user_title} unblocked successfully!', parse_mode='Markdown')
 
 # Add/Remove/Show AI chats (superuser only) --------------------------------------------------- #
 @bot.message_handler(commands=['aiuser'])
@@ -536,7 +614,7 @@ async def showaiusers_cmd(message):
 @bot.message_handler(commands=['startludo'])
 async def startludo_cmd(message):
     chatId = message.chat.id
-    if chatId not in BLOCK_CHATS:
+    if (chatId not in BLOCK_CHATS) and (message.from_user.id not in BLOCK_USERS):
         await bot.send_game(chatId, 'ludo')
 
 # Crocodile game commands handler ------------------------------------------------------------- #
@@ -544,8 +622,8 @@ async def startludo_cmd(message):
 @bot.message_handler(commands=['game'])
 async def start_game(message):
     chatId = message.chat.id
-    if chatId not in BLOCK_CHATS:
-        userId = message.from_user.id
+    userId = message.from_user.id
+    if (chatId not in BLOCK_CHATS) and (userId not in BLOCK_USERS) and (message.text.lower() != '/game@octopusen_bot'):
         # Schedule bot mute for EVS group
         # if chatId == -1001596465392:
         #     now = datetime.now(pytz.timezone('Asia/Kolkata'))
@@ -562,7 +640,7 @@ async def start_game(message):
 @bot.message_handler(commands=['stop'])
 async def stop_game(message):
     chatId = message.chat.id
-    if chatId not in BLOCK_CHATS:
+    if (message.chat.type != 'private') and (chatId not in BLOCK_CHATS) and (message.from_user.id not in BLOCK_USERS):
         global STATE
         if await stopGame(message):
             STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
@@ -729,6 +807,65 @@ async def help_cmd(message):
                                  '📖 /help \- show this message',
                                  parse_mode='MarkdownV2')
 
+@bot.message_handler(commands=['cmdlist'])
+async def cmdlist_cmd(message):
+    chatId = message.chat.id
+    user_obj = message.from_user
+    if user_obj.id not in MY_IDs[1]:
+        return
+    superusr_cmds = (
+        '/info \- chat/user info\n'                          
+        '/serverinfo \- server info\n'
+        '/botstats \- bot stats\n'
+        '/send \- send broadcast\n'
+        '/del \- delete message\n'
+        '/cmdlist \- show commands list\n'
+    )
+    block_cmds = (
+        '/blockchat \- block chat\n'
+        '/unblockchat \- unblock chat\n'
+        '/blockuser \- block user\n'
+        '/unblockuser \- unblock user\n'
+    )
+    admin_cmds = (
+        '/mute \- mute user\n'
+        '/unmute \- unmute user\n'
+        '/ban \- ban user (disabled)\n'
+    )
+    ai_cmds = (
+        '/aiuser \- set AI user\n'
+        '/delaiuser \- remove AI user\n'
+        '/showaiusers \- show AI users\n'
+    )
+    game_cmds = (
+        '/game \- start new game\n'
+        '/stop \- stop current game\n'
+        '/stats \- user game stats (superuser only)\n'
+        '/mystats \- your game stats\n'
+        '/ranking \- top 25 players\n'
+        '/globalranking \- top 25 global players\n'
+        '/chatranking \- top 10 chats\n'
+        '/rules \- game rules\n'
+        '/help \- show game commands\n'
+    )
+    ludo_cmds = (
+        '/startludo \- start a Ludo game'
+    )
+    await bot.send_message(chatId, '📖 *All commands:*\n\n'
+                                    '📊 *Super\-user commands —*\n'
+                                    f'{superusr_cmds}\n'
+                                    '🚫 *Block commands —*\n'
+                                    f'{block_cmds}\n'
+                                    '👮 *Admin commands —*\n'
+                                    f'{admin_cmds}\n'
+                                    '🤖 *AI commands —*\n'
+                                    f'{ai_cmds}\n'
+                                    '🐊 *Game commands —*\n'
+                                    f'{game_cmds}\n'
+                                    '🎲 *Ludo commands —*\n'
+                                    f'{ludo_cmds}',
+                                    parse_mode='MarkdownV2')
+
 # Message handler ------------------------------------------------------------------------------ #
 
 # When bot added to a chat (send message to 1st superuser (MY_IDs[1][0]))
@@ -739,10 +876,19 @@ async def handle_new_chat_members(message):
         await bot.send_message(MY_IDs[1][0], f'✅ Bot \#added to chat: `{funcs.escChar(chatId)}`\n{funcs.escChar(message.chat.title)}',
                                parse_mode='MarkdownV2')
     else:
-        await bot.send_message(chatId, f'🚫 *This chat has been marked spam and restricted from using this bot\!*\n\n' \
-            f'If you think this is a mistake, please write to: \@{funcs.escChar((await bot.get_me()).username)}', parse_mode='MarkdownV2')
+        await bot.send_message(chatId, f'🚫 *This chat/group was flagged as suspicious, and hence restricted from using this bot\!*\n\n' \
+            f'If you\'re chat/group owner and thinks this is a mistake, please write to: \@CrocodileGamesGroup', parse_mode='MarkdownV2')
         await bot.send_message(MY_IDs[1][0], f'☑️ Bot \#added to a \#blocked chat: `{funcs.escChar(chatId)}`\n{funcs.escChar(message.chat.title)}',
                                parse_mode='MarkdownV2')
+
+# When chat name is changed (update chat name in TOP10_CHAT_NAMES)
+@bot.message_handler(content_types=['new_chat_title'])
+async def handle_new_chat_title(message):
+    chatId = message.chat.id
+    if chatId not in list(set(map(int, TOP10_CHAT_NAMES.keys())) - set(BLOCK_CHATS)):
+        return
+    title = message.new_chat_title if message.chat.username is None else f'{message.new_chat_title} (@{message.chat.username})'
+    TOP10_CHAT_NAMES.update({str(chatId): str(title)})
 
 # Define the handler for images (if AI model is enabled) -------------------------------------- #
 @bot.message_handler(content_types=['photo'], func=lambda message: str(message.from_user.id) in AI_USERS.keys())
@@ -752,6 +898,8 @@ async def handle_image_ai(message):
         userObj = message.from_user
         userId = userObj.id
         rplyMsg = message.reply_to_message
+        if userId in BLOCK_USERS:
+            return
         if (
             (str(userId) in AI_USERS.keys()) and (chatId == int(AI_USERS.get(str(userId))))
             and ((message.caption is None) or ((message.caption is not None) and (not message.caption.startswith('/'))
@@ -794,6 +942,8 @@ async def handle_group_message(message):
         userId = userObj.id
         msgText = message.text
         rplyMsg = message.reply_to_message
+        if userId in BLOCK_USERS:
+            return
 
         if (
             (str(userId) in AI_USERS.keys())
@@ -907,6 +1057,10 @@ async def handle_query(call):
     chatId = call.message.chat.id
     userObj = call.from_user
     if chatId not in BLOCK_CHATS:
+        if userObj.id in BLOCK_USERS:
+            await bot.answer_callback_query(call.id, "❌ You are restricted from using this bot!\n\nFor queries, join: @CrocodileGamesGroup",
+                                            show_alert=True)
+            return
         # Schedule bot mute for EVS group
         # if chatId == -1001596465392:
         #     now = datetime.now(pytz.timezone('Asia/Kolkata'))
