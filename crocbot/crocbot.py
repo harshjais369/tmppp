@@ -262,7 +262,8 @@ async def botStats_cmd(message):
                                         f'*AI users:* {len(AI_USERS)}\n'
                                         f'*AI enabled groups:* {len(CROCO_CHATS)}\n'
                                         f'*Blocked chats:* {len(BLOCK_CHATS)}\n'
-                                        f'*WORDs:* {len(wordlist.WORDLIST)}\n'
+                                        f'*Blocked users:* {len(BLOCK_USERS)}\n'
+                                        f'*Total WORDs:* {len(wordlist.WORDLIST)}\n'
                                         f'*Running games:* {len(STATE)}\n',
                                         parse_mode='MarkdownV2')
 
