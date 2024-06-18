@@ -18,5 +18,6 @@ else:
 # AI_API_KEY: API key for AI services
 # 
 # BLOCK_CHATS: Chat id to block bot (separated by `,`)
+# BLOCK_USERS: User id to block bot (separated by `,`)
 # CROCO_CHATS: Chat id to enable CROCO AI (separated by `,`)
 # TOP10_CHAT_NAMES: {chat_id: chat_name,...} - Chat names for each chat_id in TOP10 CHATS cmd
