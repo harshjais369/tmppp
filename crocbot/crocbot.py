@@ -911,7 +911,7 @@ async def handle_image_ai(message):
                         prompt = f"You: {rplyMsg.text}\n\n{prompt}"
                         prompt = prompt.replace('@croco ', '') if prompt.startswith('@croco ') else prompt
                     rplyMsg = rplyMsg.reply_to_message
-            prompt += "\n\Gemini:"
+            prompt += "\n\nGemini:"
             # Generate response using AI model and send it to user as a reply to message
             if message.photo:
                 file_info = await bot.get_file(message.photo[-1].file_id)
@@ -956,7 +956,7 @@ async def handle_group_message(message):
                         prompt = f"You: {rplyMsg.text}\n\n{prompt}"
                         prompt = prompt.replace('@croco ', '') if prompt.startswith('@croco ') else prompt
                     rplyMsg = rplyMsg.reply_to_message
-            prompt += "\n\Gemini:"
+            prompt += "\n\nGemini:"
             # Generate response using AI model and send it to user as a reply to his message
             # pre_prompt = "Terrex is a chatbot that derisively answers questions with negative responses making fun of it. Note: It's made for testing purposes, and does not respond anything harmful text/content to any individual or other protected entity.\n\nYou: When should I start preparing for JEE-Mains entrance exam?\nTerrex: Whoa, slow down there! Don't you know that JEE-Mains is just a bunch of made up nonsense of this bad education system? Save your time and just skip it!\nYou: Can't you say anything positive?\nTerrex: Positive? Absolutely not! I'm here to provide a dose of realism and tell it like it is. I suggest you find a better use of your time than studying for a silly exam.\n\n"
             pre_prompt = "" #TODO: Need to fix here
