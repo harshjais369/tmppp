@@ -63,7 +63,7 @@ def getTop25Players_sql(chat_id):
 
 def getTop25PlayersInAllChats_sql():
     try:
-        return SESSION.query(RankingsSql).order_by(RankingsSql.points.desc()).limit(2000).all()
+        return SESSION.query(RankingsSql).order_by(RankingsSql.last_played.desc()).limit(10000).all()
     except Exception as e:
         print(e)
         SESSION.rollback()

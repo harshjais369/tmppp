@@ -22,6 +22,7 @@ BLOCK_CHATS = [int(x) for x in os.environ.get('BLOCK_CHATS', '').split(',') if x
 BLOCK_USERS = [int(x) for x in os.environ.get('BLOCK_USERS', '').split(',') if x]
 CROCO_CHATS = [int(x) for x in os.environ.get('CROCO_CHATS', '').split(',') if x]
 TOP10_CHAT_NAMES = json.loads(os.environ.get('TOP10_CHAT_NAMES', '{}'))
+GLOBAL_RANKS = []
 STATE = {} # STATE('chat_id': [str(game_state), int(leader_id), bool(show_changed_word_msg), int(started_at)])
 WORD = {}
 HINTS = {}
@@ -693,12 +694,13 @@ async def mystats_cmd(message):
         if not user_stats:
             await bot.send_message(chatId, '📊 You have no stats yet!')
         else:
+            global GLOBAL_RANKS
             fullName = user_obj.first_name
             if user_obj.last_name is not None:
                 fullName += ' ' + user_obj.last_name
             fullName = fullName[:25] + '...' if len(fullName) > 25 else fullName
             rank = ''
-            grank = ''
+            grank = next((i + 1 for i, user in enumerate(GLOBAL_RANKS) if user['user_id'] == user_obj.id), '') if GLOBAL_RANKS is not None else ''
             total_points = 0
             played_in_chats = len(user_stats)
             for us in user_stats:
@@ -725,12 +727,10 @@ async def ranking_cmd(message):
         if grp_player_ranks is None or len(grp_player_ranks) < 1:
             await bot.send_message(chatId, '📊 No player\'s rank determined yet for this group!')
         else:
-            i = 1
             ranksTxt = ''
-            for gprObj in grp_player_ranks:
+            for i, gprObj in enumerate(grp_player_ranks, 1):
                 name = gprObj.name[:25] + '...' if len(gprObj.name) > 25 else gprObj.name
                 ranksTxt += f'*{i}\.* {funcs.escChar(name)} — {funcs.escChar(gprObj.points)} 💵\n'
-                i += 1
             await bot.send_message(chatId, f'*TOP\-25 players* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['globalranking'])
@@ -742,24 +742,18 @@ async def global_ranking_cmd(message):
             await bot.send_message(chatId, '📊 No player\'s rank determined yet!')
         else:
             # Remove duplicates and re-order the data
+            global GLOBAL_RANKS
             ranksTxt = ''
             ranks = {}
             for gprObj in grp_player_ranks:
                 if gprObj.user_id in ranks:
                     ranks[gprObj.user_id]['points'] += gprObj.points
                 else:
-                    ranks[gprObj.user_id] = {'name': gprObj.name, 'points': gprObj.points}
-            ranks = sorted(ranks.values(), key=lambda x: x['points'], reverse=True)[:25]
-            for i, user in enumerate(ranks, 1):
+                    ranks[gprObj.user_id] = {'user_id': int(gprObj.user_id), 'name': gprObj.name, 'points': gprObj.points}
+            GLOBAL_RANKS = sorted(ranks.values(), key=lambda x: x['points'], reverse=True)
+            for i, user in enumerate(GLOBAL_RANKS[:25], 1):
                 j = i
-                if i == 1:
-                    i = '🥇'
-                elif i == 2:
-                    i = '🥈'
-                elif i == 3:
-                    i = '🥉'
-                else:
-                    i = f"*{str(i)}\.*"
+                i = '🥇' if i == 1 else '🥈' if i == 2 else '🥉' if i == 3 else f'*{str(i)}\.*'
                 name = user['name'][:25] + '...' if len(user['name']) > 25 else user['name']
                 ranksTxt += f"{i} {funcs.escChar(name)} — {funcs.escChar(user['points'])} 💵\n"
                 i = j
