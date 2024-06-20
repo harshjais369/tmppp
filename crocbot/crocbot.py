@@ -660,12 +660,15 @@ async def stats_cmd(message):
         if not user_stats:
             await bot.send_message(chatId, f'📊 {funcs.escChar(reply_user_obj.first_name)} has no stats yet!')
         else:
+            global GLOBAL_RANKS
             fullName = reply_user_obj.first_name + ' ' + reply_user_obj.last_name if reply_user_obj.last_name is not None else reply_user_obj.first_name
             fullName = fullName[:25] + '...' if len(fullName) > 25 else fullName
             rank = ''
-            grank = ''
+            grank = next((i + 1 for i, user in enumerate(GLOBAL_RANKS) if user['user_id'] == reply_user_obj.id), '') if GLOBAL_RANKS is not None else ''
             total_points = 0
             played_in_chats = len(user_stats)
+            # Convert last_played to human readable format (IST)
+            last_played = datetime.fromtimestamp(int(user_stats[0].last_played), pytz.timezone('Asia/Kolkata')).strftime('%d-%m-%Y %H:%M:%S')
             for us in user_stats:
                 if str(us.chat_id) == str(chatId):
                     curr_chat_user_stat = us
@@ -678,7 +681,8 @@ async def stats_cmd(message):
                                     f' *— in all chats:* {funcs.escChar(total_points)} 💵\n'
                                     f'*Rank:* \#{rank}\n'
                                     f'*Global rank:* \#{grank}\n'
-                                    f'*Played in:* {played_in_chats} groups\n\n'
+                                    f'*Played in:* {played_in_chats} groups\n'
+                                    f'*Last played:* {funcs.escChar(last_played)}\n\n'
                                     f'❕ _You receive 1💵 reward for\neach correct word guess\._',
                                     parse_mode='MarkdownV2')
 
