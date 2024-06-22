@@ -199,7 +199,7 @@ async def send_message_to_chats(message):
     if user_obj.id not in MY_IDs[1]:
         return
     if message.reply_to_message is None:
-        await bot.reply_to(message, 'Please reply to a message to forward.')
+        await bot.reply_to(message, 'Please reply to a message to forward.', allow_sending_without_reply=True)
         return
     chat_ids = []
     err_msg = []
@@ -213,7 +213,7 @@ async def send_message_to_chats(message):
         chat_ids = list(set(chat_ids))
         # Remove my IDs and blocked chats
         chat_ids = [chat_id for chat_id in chat_ids if chat_id not in MY_IDs and chat_id not in BLOCK_CHATS]
-        await bot.reply_to(message, f'Total chat IDs: {len(chat_ids)}')
+        await bot.reply_to(message, f'Total chat IDs: {len(chat_ids)}', allow_sending_without_reply=True)
         return
     if message.text.strip() == '/send * CONFIRM':
         # Forward to all chats from your database
@@ -229,7 +229,7 @@ async def send_message_to_chats(message):
             chat_ids_str = command_parts[2]
             chat_ids = [int(chat_id.strip()) for chat_id in chat_ids_str.split(',') if chat_id.strip().lstrip('-').isdigit()]
     if len(chat_ids) == 0:
-        await bot.reply_to(message, 'No chat ID specified!')
+        await bot.reply_to(message, 'No chat ID specified!', allow_sending_without_reply=True)
         return
     for chat_id in chat_ids:
         try:
@@ -239,9 +239,9 @@ async def send_message_to_chats(message):
             print(f'Failed to forward message to chat ID {chat_id}.\nError: {str(e)}')
             err_msg.append(chat_id)
     if len(err_msg) > 0:
-        await bot.reply_to(message, f'Failed to forward message to chat IDs: {err_msg}')
+        await bot.reply_to(message, f'Failed to forward message to chat IDs: {err_msg}', allow_sending_without_reply=True)
     else:
-        await bot.reply_to(message, 'Message forwarded to all chats successfully!')
+        await bot.reply_to(message, 'Message forwarded to all chats successfully!', allow_sending_without_reply=True)
 
 @bot.message_handler(commands=['botstats'])
 async def botStats_cmd(message):
@@ -266,7 +266,7 @@ async def botStats_cmd(message):
                                         f'*Blocked users:* {len(BLOCK_USERS)}\n'
                                         f'*Total WORDs:* {len(wordlist.WORDLIST)}\n'
                                         f'*Running games:* {len(STATE)}\n',
-                                        parse_mode='MarkdownV2')
+                                        parse_mode='MarkdownV2', allow_sending_without_reply=True)
 
 @bot.message_handler(commands=['serverinfo'])
 async def serverInfo_cmd(message):
@@ -293,7 +293,7 @@ async def serverInfo_cmd(message):
                                 f'\t*– Upload:* {funcs.escChar(upload_speed)} Mb/s\n'
                                 f'\t*– Ping:* {funcs.escChar(ping)} ms\n'
                                 f'*Uptime:* {funcs.escChar(time.strftime("%H:%M:%S", time.gmtime(time.time() - psutil.boot_time())))}\n',
-                                parse_mode='MarkdownV2')
+                                parse_mode='MarkdownV2', allow_sending_without_reply=True)
 
 # See chat/user info
 @bot.message_handler(commands=['info'])
@@ -304,27 +304,47 @@ async def info_cmd(message):
     # Check if reply to message is present
     if message.reply_to_message:
         rply_chat_obj = message.reply_to_message.from_user
+        rply_msg = message.reply_to_message.text
+        # Search from bot #added msg
+        added_msg = '✅ Bot #added to chat: '
+        added_blocked_msg = '☑️ Bot #added to a #blocked chat: '
+        if rply_chat_obj.id == MY_IDs[0] and (rply_msg.startswith(added_msg) or rply_msg.startswith(added_blocked_msg)):
+            chat_id = int(rply_msg.split(': ')[1].split('\n')[0])
+            try:
+                chat_obj = await bot.get_chat(chat_id)
+            except:
+                await bot.reply_to(message, 'Chat not found!', allow_sending_without_reply=True)
+                return
+            await bot.reply_to(message, f'👥 *Chat info:*\n\n'
+                                        f'*ID:* `{funcs.escChar(chat_obj.id)}`\n'
+                                        f'*Type:* {funcs.escChar(chat_obj.type)}\n'
+                                        f'*Title:* {funcs.escChar(chat_obj.title)}\n'
+                                        f'*Username:* @{funcs.escChar(chat_obj.username)}\n'
+                                        f'*Invite link:* {funcs.escChar(chat_obj.invite_link)}\n'
+                                        f'*Description:* {funcs.escChar(chat_obj.description)}\n',
+                                        parse_mode='MarkdownV2', allow_sending_without_reply=True)
+            return
         fullName = rply_chat_obj.first_name + ' ' + rply_chat_obj.last_name if rply_chat_obj.last_name is not None else rply_chat_obj.first_name
-        await bot.reply_to(message, f'🤖 *User info:*\n\n'
+        await bot.reply_to(message, f'👤 *User info:*\n\n'
                                     f'*ID:* `{funcs.escChar(rply_chat_obj.id)}`\n'
                                     f'*Name:* {funcs.escChar(fullName)}\n'
                                     f'*Username:* @{funcs.escChar(rply_chat_obj.username)}\n'
                                     f'*User link:* [link](tg://user?id={funcs.escChar(rply_chat_obj.id)})\n',
-                                    parse_mode='MarkdownV2')
+                                    parse_mode='MarkdownV2', allow_sending_without_reply=True)
         return
     command_parts = message.text.split(' ', 2)
     if len(command_parts) < 2:
-        await bot.reply_to(message, 'No chat ID specified!')
+        await bot.reply_to(message, 'No chat ID specified!', allow_sending_without_reply=True)
         return
     chat_id = command_parts[1]
     if not (chat_id.isdigit() or (chat_id.startswith('-') and chat_id[1:].isdigit())
             or (chat_id.startswith('@') and len(chat_id) > 5 and chat_id[1:][0].isalpha())):
-        await bot.reply_to(message, 'Invalid chat ID!')
+        await bot.reply_to(message, 'Invalid chat ID!', allow_sending_without_reply=True)
         return
     try:
         chat_obj = await bot.get_chat(chat_id)
     except:
-        await bot.reply_to(message, 'Chat not found!')
+        await bot.reply_to(message, 'Chat not found!', allow_sending_without_reply=True)
         return
     if chat_obj.type == 'private':
         fullName = chat_obj.first_name + ' ' + chat_obj.last_name if chat_obj.last_name is not None else chat_obj.first_name
@@ -335,16 +355,16 @@ async def info_cmd(message):
                                         f'*Username:* @{funcs.escChar(chat_obj.username)}\n'
                                         f'*User link:* [link](tg://user?id={funcs.escChar(chat_obj.id)})\n'
                                         f'*Bio:* {funcs.escChar(chat_obj.bio)}\n',
-                                        parse_mode='MarkdownV2')
+                                        parse_mode='MarkdownV2', allow_sending_without_reply=True)
     else:
-        await bot.reply_to(message, f'👤 *Chat info:*\n\n'
+        await bot.reply_to(message, f'👥 *Chat info:*\n\n'
                                             f'*ID:* `{funcs.escChar(chat_obj.id)}`\n'
                                             f'*Type:* {funcs.escChar(chat_obj.type)}\n'
                                             f'*Title:* {funcs.escChar(chat_obj.title)}\n'
                                             f'*Username:* @{funcs.escChar(chat_obj.username)}\n'
                                             f'*Invite link:* {funcs.escChar(chat_obj.invite_link)}\n'
                                             f'*Description:* {funcs.escChar(chat_obj.description)}\n',
-                                            parse_mode='MarkdownV2')
+                                            parse_mode='MarkdownV2', allow_sending_without_reply=True)
 
 @bot.message_handler(commands=['del'])
 async def del_cmd(message):
@@ -359,7 +379,7 @@ async def del_cmd(message):
         return
     # Check bot permissions if replied message isn't sent by bot
     if rply_msg.from_user.id != MY_IDs[0] and not (await bot.get_chat_member(message.chat.id, MY_IDs[0])).can_delete_messages:
-        alrt_msg = await bot.reply_to(message, '*Permission required:* `can_delete_messages`', parse_mode='MarkdownV2')
+        alrt_msg = await bot.reply_to(message, '*Permission required:* `can_delete_messages`', parse_mode='MarkdownV2', allow_sending_without_reply=True)
         await sleep(10)
         await bot.delete_message(message.chat.id, alrt_msg.message_id)
         return
@@ -374,34 +394,36 @@ async def mute_cmd(message):
         return
     # Check bot permissions
     if not (await bot.get_chat_member(message.chat.id, MY_IDs[0])).can_restrict_members:
-        await bot.reply_to(message, '*Permission required:* `can_restrict_members`', parse_mode='MarkdownV2')
+        await bot.reply_to(message, '*Permission required:* `can_restrict_members`', parse_mode='MarkdownV2', allow_sending_without_reply=True)
         return
     command_parts = message.text.split(' ', 2)
     if len(command_parts) < 2:
         if message.reply_to_message is not None:
             rply_usr_obj = message.reply_to_message.from_user
             if rply_usr_obj.id == MY_IDs[0]:
-                await bot.reply_to(message, 'I cannot mute myself!\n\n– To report any issue, write to: @CrocodileGamesGroup')
+                await bot.reply_to(message, 'I cannot mute myself!\n\n– To report any issue, write to: @CrocodileGamesGroup', allow_sending_without_reply=True)
                 return
             if rply_usr_obj.id in MY_IDs[1]:
-                await bot.reply_to(message, 'I cannot mute a superuser!')
+                await bot.reply_to(message, 'I cannot mute a superuser!', allow_sending_without_reply=True)
                 return
             await bot.restrict_chat_member(message.chat.id, rply_usr_obj.id)
-            await bot.reply_to(message, f'Muted [{rply_usr_obj.first_name}](tg://user?id={rply_usr_obj.id}).', parse_mode='Markdown')
+            await bot.reply_to(message, f'Muted [{rply_usr_obj.first_name}](tg://user?id={rply_usr_obj.id}).',
+                               parse_mode='Markdown', allow_sending_without_reply=True)
         else:
-            await bot.reply_to(message, 'No user specified!')
+            await bot.reply_to(message, 'No user specified!', allow_sending_without_reply=True)
         return
     user_id = command_parts[1]
     if not user_id.isdigit():
-        await bot.reply_to(message, 'Invalid user ID!')
+        await bot.reply_to(message, 'Invalid user ID!', allow_sending_without_reply=True)
         return
     try:
         usr_obj = await bot.get_chat_member(message.chat.id, user_id)
     except:
-        await bot.reply_to(message, 'User not found!')
+        await bot.reply_to(message, 'User not found!', allow_sending_without_reply=True)
         return
     await bot.restrict_chat_member(message.chat.id, usr_obj.user.id)
-    await bot.reply_to(message, f'Muted [{usr_obj.user.first_name}](tg://user?id={usr_obj.user.id}).', parse_mode='Markdown')
+    await bot.reply_to(message, f'Muted [{usr_obj.user.first_name}](tg://user?id={usr_obj.user.id}).',
+                       parse_mode='Markdown', allow_sending_without_reply=True)
 
 @bot.message_handler(commands=['unmute'])
 async def unmute_cmd(message):
@@ -410,28 +432,30 @@ async def unmute_cmd(message):
         return
     # Check bot permissions
     if not (await bot.get_chat_member(message.chat.id, (await bot.get_me()).id)).can_restrict_members:
-        await bot.reply_to(message, '*Permission required:* `can_restrict_members`', parse_mode='MarkdownV2')
+        await bot.reply_to(message, '*Permission required:* `can_restrict_members`', parse_mode='MarkdownV2', allow_sending_without_reply=True)
         return
     command_parts = message.text.split(' ', 2)
     if len(command_parts) < 2:
         if message.reply_to_message is not None:
             rply_usr_obj = message.reply_to_message.from_user
             await bot.restrict_chat_member(message.chat.id, rply_usr_obj.id, can_send_messages=True)
-            await bot.reply_to(message, f'[{rply_usr_obj.first_name}](tg://user?id={rply_usr_obj.id}) can speak now!', parse_mode='Markdown')
+            await bot.reply_to(message, f'[{rply_usr_obj.first_name}](tg://user?id={rply_usr_obj.id}) can speak now!',
+                               parse_mode='Markdown', allow_sending_without_reply=True)
         else:
-            await bot.reply_to(message, 'No user specified!')
+            await bot.reply_to(message, 'No user specified!', allow_sending_without_reply=True)
         return
     user_id = command_parts[1]
     if not user_id.isdigit():
-        await bot.reply_to(message, 'Invalid user ID!')
+        await bot.reply_to(message, 'Invalid user ID!', allow_sending_without_reply=True)
         return
     try:
         usr_obj = await bot.get_chat_member(message.chat.id, user_id)
     except:
-        await bot.reply_to(message, 'User not found!')
+        await bot.reply_to(message, 'User not found!', allow_sending_without_reply=True)
         return
     await bot.restrict_chat_member(message.chat.id, usr_obj.user.id, can_send_messages=True)
-    await bot.reply_to(message, f'[{usr_obj.user.first_name}](tg://user?id={usr_obj.user.id}) can speak now!', parse_mode='Markdown')
+    await bot.reply_to(message, f'[{usr_obj.user.first_name}](tg://user?id={usr_obj.user.id}) can speak now!',
+                       parse_mode='Markdown', allow_sending_without_reply=True)
 
 # Block/Unblock chat/user (superuser only) --------------------------------------------------------- #
 @bot.message_handler(commands=['blockchat'])
@@ -441,27 +465,27 @@ async def blockchat_cmd(message):
         return
     command_parts = message.text.split(' ', 2)
     if len(command_parts) < 2:
-        await bot.reply_to(message, 'No chat ID specified!')
+        await bot.reply_to(message, 'No chat ID specified!', allow_sending_without_reply=True)
         return
     chat_id = command_parts[1]
     if not (chat_id.isdigit() or (chat_id.startswith('-') and chat_id[1:].isdigit())
             or (chat_id.startswith('@') and chat_id[1:][0].isalpha())):
-        await bot.reply_to(message, 'Invalid chat ID!')
+        await bot.reply_to(message, 'Invalid chat ID!', allow_sending_without_reply=True)
         return
     if int(chat_id) in BLOCK_CHATS:
-        await bot.reply_to(message, 'Chat already blocked!')
+        await bot.reply_to(message, 'Chat already blocked!', allow_sending_without_reply=True)
         return
     title = 'unknown\_chat'
     try:
         chat_obj = await bot.get_chat(chat_id)
         if chat_obj.type == 'private':
-            await bot.reply_to(message, 'Provided id belongs to a user! To block a user, use /blockuser command.')
+            await bot.reply_to(message, 'Provided id belongs to a user! To block a user, use /blockuser command.', allow_sending_without_reply=True)
             return
         title = chat_obj.title
     except:
         pass
     BLOCK_CHATS.append(int(chat_id))
-    await bot.reply_to(message, f'Chat {title} blocked successfully!', parse_mode='Markdown')
+    await bot.reply_to(message, f'Chat {title} blocked successfully!', parse_mode='Markdown', allow_sending_without_reply=True)
 
 @bot.message_handler(commands=['unblockchat'])
 async def unblockchat_cmd(message):
@@ -470,27 +494,27 @@ async def unblockchat_cmd(message):
         return
     command_parts = message.text.split(' ', 2)
     if len(command_parts) < 2:
-        await bot.reply_to(message, 'No chat ID specified!')
+        await bot.reply_to(message, 'No chat ID specified!', allow_sending_without_reply=True)
         return
     chat_id = command_parts[1]
     if not (chat_id.isdigit() or (chat_id.startswith('-') and chat_id[1:].isdigit())
             or (chat_id.startswith('@') and chat_id[1:][0].isalpha())):
-        await bot.reply_to(message, 'Invalid chat ID!')
+        await bot.reply_to(message, 'Invalid chat ID!', allow_sending_without_reply=True)
         return
     if int(chat_id) not in BLOCK_CHATS:
-        await bot.reply_to(message, 'Chat not blocked!')
+        await bot.reply_to(message, 'Chat not blocked!', allow_sending_without_reply=True)
         return
     title = 'unknown\_chat'
     try:
         chat_obj = await bot.get_chat(chat_id)
         if chat_obj.type == 'private':
-            await bot.reply_to(message, 'Provided id belongs to a user! To unblock a user, use /unblockuser command.')
+            await bot.reply_to(message, 'Provided id belongs to a user! To unblock a user, use /unblockuser command.', allow_sending_without_reply=True)
             return
         title = chat_obj.title
     except:
         pass
     BLOCK_CHATS.remove(int(chat_id))
-    await bot.reply_to(message, f'Chat {title} unblocked successfully!', parse_mode='Markdown')
+    await bot.reply_to(message, f'Chat {title} unblocked successfully!', parse_mode='Markdown', allow_sending_without_reply=True)
 
 @bot.message_handler(commands=['blockuser'])
 async def blockuser_cmd(message):
@@ -502,31 +526,32 @@ async def blockuser_cmd(message):
         if message.reply_to_message is not None:
             rply_usr_obj = message.reply_to_message.from_user
             if rply_usr_obj.id in BLOCK_USERS:
-                await bot.reply_to(message, 'User already blocked!')
+                await bot.reply_to(message, 'User already blocked!', allow_sending_without_reply=True)
                 return
             BLOCK_USERS.append(int(rply_usr_obj.id))
-            await bot.reply_to(message, f'User [{rply_usr_obj.first_name}](tg://user?id={rply_usr_obj.id}) blocked successfully!', parse_mode='Markdown')
+            await bot.reply_to(message, f'User [{rply_usr_obj.first_name}](tg://user?id={rply_usr_obj.id}) blocked successfully!',
+                               parse_mode='Markdown', allow_sending_without_reply=True)
         else:
-            await bot.reply_to(message, 'No user specified!')
+            await bot.reply_to(message, 'No user specified!', allow_sending_without_reply=True)
         return
     user_id = command_parts[1]
     if not user_id.isdigit():
-        await bot.reply_to(message, 'Invalid user ID!')
+        await bot.reply_to(message, 'Invalid user ID!', allow_sending_without_reply=True)
         return
     if int(user_id) in BLOCK_USERS:
-        await bot.reply_to(message, 'User already blocked!')
+        await bot.reply_to(message, 'User already blocked!', allow_sending_without_reply=True)
         return
     user_title = 'unknown\_user'
     try:
         usr_obj = await bot.get_chat(user_id)
         if usr_obj.type != 'private':
-            await bot.reply_to(message, 'Provided id belongs to a groupchat! To block a groupchat, use /blockchat command.')
+            await bot.reply_to(message, 'Provided id belongs to a groupchat! To block a groupchat, use /blockchat command.', allow_sending_without_reply=True)
             return
         user_title = f'[{usr_obj.first_name}](tg://user?id={usr_obj.id})'
     except:
         pass
     BLOCK_USERS.append(int(user_id))
-    await bot.reply_to(message, f'User {user_title} blocked successfully!', parse_mode='Markdown')
+    await bot.reply_to(message, f'User {user_title} blocked successfully!', parse_mode='Markdown', allow_sending_without_reply=True)
 
 @bot.message_handler(commands=['unblockuser'])
 async def unblockuser_cmd(message):
@@ -538,31 +563,32 @@ async def unblockuser_cmd(message):
         if message.reply_to_message is not None:
             rply_usr_obj = message.reply_to_message.from_user
             if rply_usr_obj.id not in BLOCK_USERS:
-                await bot.reply_to(message, 'User not blocked!')
+                await bot.reply_to(message, 'User not blocked!', allow_sending_without_reply=True)
                 return
             BLOCK_USERS.remove(int(rply_usr_obj.id))
-            await bot.reply_to(message, f'User [{rply_usr_obj.first_name}](tg://user?id={rply_usr_obj.id}) unblocked successfully!', parse_mode='Markdown')
+            await bot.reply_to(message, f'User [{rply_usr_obj.first_name}](tg://user?id={rply_usr_obj.id}) unblocked successfully!',
+                               parse_mode='Markdown', allow_sending_without_reply=True)
         else:
-            await bot.reply_to(message, 'No user specified!')
+            await bot.reply_to(message, 'No user specified!', allow_sending_without_reply=True)
         return
     user_id = command_parts[1]
     if not user_id.isdigit():
-        await bot.reply_to(message, 'Invalid user ID!')
+        await bot.reply_to(message, 'Invalid user ID!', allow_sending_without_reply=True)
         return
     if int(user_id) not in BLOCK_USERS:
-        await bot.reply_to(message, 'User not blocked!')
+        await bot.reply_to(message, 'User not blocked!', allow_sending_without_reply=True)
         return
     user_title = 'unknown\_user'
     try:
         usr_obj = await bot.get_chat(user_id)
         if usr_obj.type != 'private':
-            await bot.reply_to(message, 'Provided id belongs to a groupchat! To unblock a groupchat, use /unblockchat command.')
+            await bot.reply_to(message, 'Provided id belongs to a groupchat! To unblock a groupchat, use /unblockchat command.', allow_sending_without_reply=True)
             return
         user_title = f'[{usr_obj.first_name}](tg://user?id={usr_obj.id})'
     except:
         pass
     BLOCK_USERS.remove(int(user_id))
-    await bot.reply_to(message, f'User {user_title} unblocked successfully!', parse_mode='Markdown')
+    await bot.reply_to(message, f'User {user_title} unblocked successfully!', parse_mode='Markdown', allow_sending_without_reply=True)
 
 # Add/Remove/Show AI chats (superuser only) --------------------------------------------------- #
 @bot.message_handler(commands=['aiuser'])
@@ -665,6 +691,7 @@ async def stats_cmd(message):
             fullName = fullName[:25] + '...' if len(fullName) > 25 else fullName
             rank = ''
             grank = next((i + 1 for i, user in enumerate(GLOBAL_RANKS) if user['user_id'] == reply_user_obj.id), '') if GLOBAL_RANKS is not None else ''
+            curr_chat_points = 0
             total_points = 0
             played_in_chats = len(user_stats)
             # Convert last_played to human readable format (IST)
@@ -929,7 +956,7 @@ async def handle_image_ai(message):
                 aiResp = funcs.getAIResp(prompt, "text-davinci-002", 0.8, 1800, 1, 0.2, 0)
             aiResp = aiResp if aiResp != 0 else "Something went wrong! Please try again later."
             aiResp = funcs.escChar(aiResp).replace('\\*\\*', '*').replace('\\`', '`')
-            await bot.send_message(chatId, aiResp, reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
+            await bot.send_message(chatId, aiResp, reply_to_message_id=message.message_id, parse_mode='MarkdownV2', allow_sending_without_reply=True)
             return
 
 # Define the handler for group messages
@@ -967,30 +994,33 @@ async def handle_group_message(message):
             aiResp = funcs.getAIResp(pre_prompt + prompt, "text-davinci-002", 0.8, 1800, 1, 0.2, 0)
             aiResp = aiResp if aiResp != 0 else "Something went wrong! Please try again later."
             aiResp = funcs.escChar(aiResp).replace('\\*\\*', '*').replace('\\`', '`')
-            await bot.send_message(chatId, aiResp, reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
+            await bot.send_message(chatId, aiResp, reply_to_message_id=message.message_id, parse_mode='MarkdownV2', allow_sending_without_reply=True)
             return
 
         global STATE
         if STATE.get(str(chatId)) is None:
             STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
         elif STATE.get(str(chatId))[0] == WAITING_FOR_WORD:
+            leaderId = STATE.get(str(chatId))[1]
             # If leader types sth after starting game, change state to showChangedWordText=True
-            if STATE.get(str(chatId))[1] == userId:
+            if leaderId == userId:
                 if (rplyMsg is None) or ((rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[0])):
                     STATE.update({str(chatId): [WAITING_FOR_WORD, userId, True, STATE.get(str(chatId))[3]]})
             # Check if the message contains the word "Word"
             if msgText.lower() == WORD.get(str(chatId)):
                 STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
                 # Check if user is not leader
-                curr_game = await getCurrGame(chatId, userId)
-                if curr_game['status'] == 'not_leader':
-                    # Someone guessed the word (delete word from database)
+                if leaderId != userId:
                     f_name = userObj.first_name
                     fullName = f_name
                     if userObj.last_name is not None:
                         fullName += ' ' + userObj.last_name
                     f_name = f_name[:25] + '...' if len(f_name) > 25 else f_name
-                    await bot.send_message(chatId, f'🎉 [{funcs.escChar(f_name)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*', reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
+                    await bot.send_message(chatId, f'🎉 [{funcs.escChar(f_name)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*',
+                                           reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
+                curr_game = await getCurrGame(chatId, userId)
+                if curr_game['status'] == 'not_leader':
+                    # Someone guessed the word (delete word from database)
                     removeGame_sql(chatId)
                     incrementPoints_sql(userId, chatId, 1, fullName)
                 elif curr_game['status'] == 'not_started':
@@ -1021,7 +1051,8 @@ async def handle_group_message(message):
                     else:
                         rem_prmt_frm_indx = str(preConvObj.prompt).find(rplyText)
                         if rem_prmt_frm_indx == -1:
-                            await bot.send_message(chatId, f'Something went wrong!\n*Err:* #0x604', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
+                            await bot.send_message(chatId, f'Something went wrong!\n*Err:* #0x604', reply_to_message_id=message.message_id,
+                                                   parse_mode='MarkdownV2', allow_sending_without_reply=True)
                             return
                         end_offset_index = rem_prmt_frm_indx + len(rplyText)
                         if end_offset_index == len(preConvObj.prompt):
@@ -1038,14 +1069,16 @@ async def handle_group_message(message):
                     resp = funcs.getCrocoResp(p)
                     updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
                 aiResp = funcs.escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
-                await bot.send_message(chatId, f'*Croco:*{aiResp}', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
+                await bot.send_message(chatId, f'*Croco:*{aiResp}', reply_to_message_id=message.message_id,
+                                       parse_mode='MarkdownV2', allow_sending_without_reply=True)
             elif any(t in msgText.lower() for t in funcs.ENG_AI_TRIGGER_MSGS):
                 await bot.send_chat_action(chatId, 'typing')
                 p = f"{funcs.ENG_AI_PRE_PROMPT}\nMember 4: {msgText}\nCroco:"
                 resp = funcs.getCrocoResp(p)
                 updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
                 aiResp = funcs.escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
-                await bot.send_message(chatId, f'*Croco:*{aiResp}', reply_to_message_id=message.message_id, parse_mode='MarkdownV2')
+                await bot.send_message(chatId, f'*Croco:*{aiResp}', reply_to_message_id=message.message_id,
+                                       parse_mode='MarkdownV2', allow_sending_without_reply=True)
 
 
 
