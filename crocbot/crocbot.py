@@ -29,6 +29,7 @@ HINTS = {}
 
 # Define custom states
 WAITING_FOR_COMMAND, WAITING_FOR_WORD = range(2)
+CANCEL_BROADCAST = 0
 
 # Create the bot instance
 bot = AsyncTeleBot(BOT_TOKEN)
@@ -191,9 +192,9 @@ async def start_cmd(message):
         elif msgTxt == '/start' or msgTxt.startswith('/start ') or msgTxt.startswith('/start@croco'):
             await bot.send_message(chatId, '👋🏻 Hey!\nI\'m Crocodile Game Bot. To start a game, press command: /game')
 
-# Basic commands (send, botstats, serverinfo, info, del) (superuser only) ---------------------- #
+# Basic commands (send, cancelbroadcast, botstats, serverinfo, info, del) (superuser only) ---------------------- #
 @bot.message_handler(commands=['send'])
-async def send_message_to_chats(message):
+async def sendBroadcast_cmd(message):
     user_obj = message.from_user
     # Check if user is superuser (MY_IDs[1] = list of superuser IDs)
     if user_obj.id not in MY_IDs[1]:
@@ -215,33 +216,59 @@ async def send_message_to_chats(message):
         chat_ids = [chat_id for chat_id in chat_ids if chat_id not in MY_IDs and chat_id not in BLOCK_CHATS]
         await bot.reply_to(message, f'Total chat IDs: {len(chat_ids)}', allow_sending_without_reply=True)
         return
+    if message.text.strip() == '/send * groups CONFIRM':
+        c_ids, u_ids = getAllChatIds_sql()
+        chat_ids.extend(c_ids)
+        chat_ids = list(set(chat_ids))
+        chat_ids = [chat_id for chat_id in chat_ids if chat_id not in (BLOCK_CHATS + MY_IDs)]
+    if message.text.strip() == '/send * users CONFIRM':
+        c_ids, u_ids = getAllChatIds_sql()
+        chat_ids.extend(u_ids)
+        chat_ids = list(set(chat_ids))
+        chat_ids = [chat_id for chat_id in chat_ids if chat_id not in (BLOCK_USERS + MY_IDs)]
     if message.text.strip() == '/send * CONFIRM':
         # Forward to all chats from your database
         c_ids, u_ids = getAllChatIds_sql()
         chat_ids.extend(c_ids)
         chat_ids.extend(u_ids)
         chat_ids = list(set(chat_ids))
-        chat_ids = [chat_id for chat_id in chat_ids if chat_id not in MY_IDs and chat_id not in BLOCK_CHATS]
+        chat_ids = [chat_id for chat_id in chat_ids if chat_id not in (BLOCK_CHATS + BLOCK_USERS + MY_IDs)]
     else:
         # Forward to specified chat IDs
         command_parts = message.text.split(' ', 2)
         if len(command_parts) > 2 and command_parts[1] == '-id':
             chat_ids_str = command_parts[2]
             chat_ids = [int(chat_id.strip()) for chat_id in chat_ids_str.split(',') if chat_id.strip().lstrip('-').isdigit()]
+            chat_ids = list(set(chat_ids))
     if len(chat_ids) == 0:
         await bot.reply_to(message, 'No chat ID specified!', allow_sending_without_reply=True)
         return
+    i = 0
+    global CANCEL_BROADCAST
+    CANCEL_BROADCAST = 0
     for chat_id in chat_ids:
+        if CANCEL_BROADCAST:
+            break
         try:
             await bot.forward_message(chat_id, message.chat.id, message.reply_to_message.message_id)
+            i += 1
             await sleep(0.1)
         except Exception as e:
             print(f'Failed to forward message to chat ID {chat_id}.\nError: {str(e)}')
             err_msg.append(chat_id)
     if len(err_msg) > 0:
+        await bot.reply_to(message, f'Sent: {i}\nFailed: {len(err_msg)}\nTotal: {len(chat_ids)}', allow_sending_without_reply=True)
         await bot.reply_to(message, f'Failed to forward message to chat IDs: {err_msg}', allow_sending_without_reply=True)
     else:
         await bot.reply_to(message, 'Message forwarded to all chats successfully!', allow_sending_without_reply=True)
+
+@bot.message_handler(commands=['cancelbroadcast'])
+async def cancelBroadcast_cmd(message):
+    user_obj = message.from_user
+    if user_obj.id not in MY_IDs[1]:
+        return
+    global CANCEL_BROADCAST
+    CANCEL_BROADCAST = 1
 
 @bot.message_handler(commands=['botstats'])
 async def botStats_cmd(message):
@@ -386,7 +413,7 @@ async def del_cmd(message):
     await bot.delete_message(message.chat.id, rply_msg.message_id)
 
 # Admin commands handler (mute, unmute, ban) (superuser only) --------------------------------- #
-# TODO: Add mute/unmute/ban/unban methods
+# TODO: Add/Fix mute/unmute/ban/unban methods
 @bot.message_handler(commands=['mute'])
 async def mute_cmd(message):
     user_obj = message.from_user
@@ -642,7 +669,7 @@ async def showaiusers_cmd(message):
 @bot.message_handler(commands=['startludo'])
 async def startludo_cmd(message):
     chatId = message.chat.id
-    if (chatId not in BLOCK_CHATS) and (message.from_user.id not in BLOCK_USERS):
+    if chatId not in (BLOCK_CHATS + BLOCK_USERS):
         await bot.send_game(chatId, 'ludo')
 
 # Crocodile game commands handler ------------------------------------------------------------- #
@@ -651,7 +678,7 @@ async def startludo_cmd(message):
 async def start_game(message):
     chatId = message.chat.id
     userId = message.from_user.id
-    if (chatId not in BLOCK_CHATS) and (userId not in BLOCK_USERS) and (message.text.lower() != '/game@octopusen_bot'):
+    if (chatId not in (BLOCK_CHATS + BLOCK_USERS)) and (message.text.lower() != '/game@octopusen_bot'):
         # Schedule bot mute for EVS group
         # if chatId == -1001596465392:
         #     now = datetime.now(pytz.timezone('Asia/Kolkata'))
@@ -668,7 +695,7 @@ async def start_game(message):
 @bot.message_handler(commands=['stop'])
 async def stop_game(message):
     chatId = message.chat.id
-    if (message.chat.type != 'private') and (chatId not in BLOCK_CHATS) and (message.from_user.id not in BLOCK_USERS):
+    if (message.chat.type != 'private') and (chatId not in (BLOCK_CHATS + BLOCK_USERS)):
         global STATE
         if await stopGame(message):
             STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
@@ -762,6 +789,7 @@ async def ranking_cmd(message):
             for i, gprObj in enumerate(grp_player_ranks, 1):
                 name = gprObj.name[:25] + '...' if len(gprObj.name) > 25 else gprObj.name
                 ranksTxt += f'*{i}\.* {funcs.escChar(name)} — {funcs.escChar(gprObj.points)} 💵\n'
+            rankTxt += f'*\- Total players:* {len(grp_player_ranks)}'
             await bot.send_message(chatId, f'*TOP\-25 players* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['globalranking'])
