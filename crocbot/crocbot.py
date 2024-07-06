@@ -789,7 +789,7 @@ async def ranking_cmd(message):
             for i, gprObj in enumerate(grp_player_ranks, 1):
                 name = gprObj.name[:25] + '...' if len(gprObj.name) > 25 else gprObj.name
                 ranksTxt += f'*{i}\.* {funcs.escChar(name)} — {funcs.escChar(gprObj.points)} 💵\n'
-            rankTxt += f'*\- Total players:* {len(grp_player_ranks)}'
+            ranksTxt += f'*\- Total players:* {len(grp_player_ranks)}'
             await bot.send_message(chatId, f'*TOP\-25 players* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['globalranking'])
