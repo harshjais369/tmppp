@@ -789,7 +789,7 @@ async def ranking_cmd(message):
             for i, gprObj in enumerate(grp_player_ranks, 1):
                 name = gprObj.name[:25] + '...' if len(gprObj.name) > 25 else gprObj.name
                 ranksTxt += f'*{i}\.* {funcs.escChar(name)} — {funcs.escChar(gprObj.points)} 💵\n'
-            ranksTxt += f'*\- Total players:* {len(grp_player_ranks)}'
+            ranksTxt += f'\n*Total players:* {len(grp_player_ranks)}'
             await bot.send_message(chatId, f'*TOP\-25 players* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['globalranking'])
@@ -929,6 +929,8 @@ async def handle_new_chat_members(message):
     if chatId not in BLOCK_CHATS:
         await bot.send_message(MY_IDs[1][0], f'✅ Bot \#added to chat: `{funcs.escChar(chatId)}`\n{funcs.escChar(message.chat.title)}',
                                parse_mode='MarkdownV2')
+        await sleep(3)
+        await bot.send_message(chatId, f'👉🏻 Tap /help to see game commands.\n\nSupport group: @CrocodileGamesGroup')
     else:
         await bot.send_message(chatId, f'🚫 *This chat/group was flagged as suspicious, and hence restricted from using this bot\!*\n\n' \
             f'If you\'re chat/group owner and thinks this is a mistake, please write to: \@CrocodileGamesGroup', parse_mode='MarkdownV2')
