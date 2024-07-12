@@ -23,7 +23,7 @@ BLOCK_USERS = [int(x) for x in os.environ.get('BLOCK_USERS', '').split(',') if x
 CROCO_CHATS = [int(x) for x in os.environ.get('CROCO_CHATS', '').split(',') if x]
 TOP10_CHAT_NAMES = json.loads(os.environ.get('TOP10_CHAT_NAMES', '{}'))
 GLOBAL_RANKS = []
-STATE = {} # STATE('chat_id': [str(game_state), int(leader_id), bool(show_changed_word_msg), int(started_at)])
+STATE = {} # STATE('chat_id': [str(game_state), int(leader_id), bool(show_changed_word_msg), int(started_at), bool(can_show_cheat_msg)])
 WORD = {}
 HINTS = {}
 
@@ -690,7 +690,7 @@ async def start_game(message):
         if message.chat.type == 'private':
             await startBotCmdInPvt(message, chatId)
         elif await startGame(message, isStartFromCmd=True) is not None:
-            STATE.update({str(chatId): [WAITING_FOR_WORD, userId, False, int(time.time())]})
+            STATE.update({str(chatId): [WAITING_FOR_WORD, userId, False, int(time.time()), True]})
 
 @bot.message_handler(commands=['stop'])
 async def stop_game(message):
@@ -1034,7 +1034,10 @@ async def handle_group_message(message):
             # If leader types sth after starting game, change state to show_changed_word_msg=True
             if leaderId == userId:
                 if (rplyMsg is None) or ((rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[0])):
-                    STATE.update({str(chatId): [WAITING_FOR_WORD, userId, True, STATE.get(str(chatId))[3]]})
+                    STATE.update({str(chatId): [WAITING_FOR_WORD, userId, True, STATE.get(str(chatId))[3], True]})
+                else:
+                    # When (show_changed_word_msg=False and isRply and rplyTo!=MY_IDs[0]), then (can_show_cheat_msg=False)
+                    STATE.update({str(chatId): [WAITING_FOR_WORD, userId, STATE.get(str(chatId))[2], STATE.get(str(chatId))[3], False]})
             # Check if the message contains the word "Word"
             if msgText.lower() == WORD.get(str(chatId)):
                 show_changed_word_msg = STATE.get(str(chatId))[2]
@@ -1047,7 +1050,7 @@ async def handle_group_message(message):
                 # Check if user is not leader
                 if leaderId != userId:
                     f_name = f_name[:25] + '...' if len(f_name) > 25 else f_name
-                    if show_changed_word_msg:
+                    if not ((not show_changed_word_msg) and STATE.get(str(chatId))[4]):
                         await bot.send_message(chatId, f'🎉 [{funcs.escChar(f_name)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*',
                                                reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
                     else:
@@ -1139,7 +1142,7 @@ async def handle_query(call):
                 word = await startGame(call)
                 if word is not None:
                     await bot.answer_callback_query(call.id, f"Word: {word}", show_alert=True)
-                    STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(time.time())]})
+                    STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(time.time()), True]})
                 else:
                     STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
             elif curr_game['status'] == 'not_leader':
@@ -1149,7 +1152,7 @@ async def handle_query(call):
                     word = await startGame(call)
                     if word is not None:
                         await bot.answer_callback_query(call.id, f"Word: {word}", show_alert=True)
-                        STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(time.time())]})
+                        STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(time.time()), True]})
                     else:
                         STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
                 else:
@@ -1162,7 +1165,7 @@ async def handle_query(call):
                 if word is not None:
                     await bot.answer_callback_query(call.id, f"Word: {word}", show_alert=True)
                     await bot.delete_message(chatId, call.message.message_id)
-                    STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(time.time())]})
+                    STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(time.time()), True]})
                 else:
                     STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
             elif curr_game['status'] == 'not_leader':
@@ -1172,7 +1175,7 @@ async def handle_query(call):
                     word = await startGame(call)
                     if word is not None:
                         await bot.answer_callback_query(call.id, f"Word: {word}", show_alert=True)
-                        STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(time.time())]})
+                        STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(time.time()), True]})
                     else:
                         STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
                 else:
@@ -1214,7 +1217,7 @@ async def handle_query(call):
                 WORD.update({str(chatId): funcs.getNewWord()})
                 await bot.answer_callback_query(call.id, f"Word: {WORD.get(str(chatId))}", show_alert=True)
                 await changeWord(call)
-                STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, STATE.get(str(chatId))[3]]})
+                STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(curr_game['started_at']), True]})
         elif call.data == 'drop_lead':
             if curr_game['status'] == 'not_started':
                 await bot.answer_callback_query(call.id, "⚠ Game has not started yet!", show_alert=True)
