@@ -789,7 +789,6 @@ async def ranking_cmd(message):
             for i, gprObj in enumerate(grp_player_ranks, 1):
                 name = gprObj.name[:25] + '...' if len(gprObj.name) > 25 else gprObj.name
                 ranksTxt += f'*{i}\.* {funcs.escChar(name)} — {funcs.escChar(gprObj.points)} 💵\n'
-            ranksTxt += f'\n*Total players:* {len(grp_player_ranks)}'
             await bot.send_message(chatId, f'*TOP\-25 players* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['globalranking'])
@@ -1032,36 +1031,35 @@ async def handle_group_message(message):
             STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
         elif STATE.get(str(chatId))[0] == WAITING_FOR_WORD:
             leaderId = STATE.get(str(chatId))[1]
-            # If leader types sth after starting game, change state to showChangedWordText=True
+            # If leader types sth after starting game, change state to show_changed_word_msg=True
             if leaderId == userId:
                 if (rplyMsg is None) or ((rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[0])):
                     STATE.update({str(chatId): [WAITING_FOR_WORD, userId, True, STATE.get(str(chatId))[3]]})
             # Check if the message contains the word "Word"
             if msgText.lower() == WORD.get(str(chatId)):
+                show_changed_word_msg = STATE.get(str(chatId))[2]
                 STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
+                points = 1
+                f_name = userObj.first_name
+                fullName = f_name
+                if userObj.last_name is not None:
+                    fullName += ' ' + userObj.last_name
                 # Check if user is not leader
                 if leaderId != userId:
-                    f_name = userObj.first_name
-                    fullName = f_name
-                    if userObj.last_name is not None:
-                        fullName += ' ' + userObj.last_name
                     f_name = f_name[:25] + '...' if len(f_name) > 25 else f_name
-                    await bot.send_message(chatId, f'🎉 [{funcs.escChar(f_name)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*',
-                                           reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
-                curr_game = await getCurrGame(chatId, userId)
-                if curr_game['status'] == 'not_leader':
-                    # Someone guessed the word (delete word from database)
+                    if show_changed_word_msg:
+                        await bot.send_message(chatId, f'🎉 [{funcs.escChar(f_name)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*',
+                                               reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
+                    else:
+                        await bot.send_message(chatId, f'🚨 [{funcs.escChar(f_name)}](tg://user?id={userId}) lost 1💵 for cheating\! *{WORD.get(str(chatId))}*',
+                                               reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
+                        points = -1
                     removeGame_sql(chatId)
-                    incrementPoints_sql(userId, chatId, 1, fullName)
-                elif curr_game['status'] == 'not_started':
-                    pass
-                elif curr_game['status'] == 'leader':
+                else:
                     # Leader revealed the word (stop game and deduct leader's points)
                     await stopGame(message, isWordRevealed=True)
-                    fullName = userObj.first_name
-                    if userObj.last_name is not None:
-                        fullName += ' ' + userObj.last_name
-                    incrementPoints_sql(userId, chatId, -1, fullName)
+                    points = -1
+                incrementPoints_sql(userId, chatId, points, fullName)
         
         elif chatId in CROCO_CHATS: # Check if chat is allowed to use Croco English AI
             if msgText.lower().startswith('/') or msgText.lower().startswith('@') or msgText.lower().startswith('croco:'):
