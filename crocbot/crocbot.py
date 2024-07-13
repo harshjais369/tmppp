@@ -1041,7 +1041,7 @@ async def handle_group_message(message):
             # Check if the message contains the word "Word"
             if msgText.lower() == WORD.get(str(chatId)):
                 show_changed_word_msg = STATE.get(str(chatId))[2]
-                can_show_cheat_msg = STATE.get(str(chatId))[4])
+                can_show_cheat_msg = STATE.get(str(chatId))[4]
                 STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
                 points = 1
                 f_name = userObj.first_name
