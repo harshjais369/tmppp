@@ -1119,7 +1119,7 @@ async def handle_group_message(message):
                                        parse_mode='MarkdownV2', allow_sending_without_reply=True)
 
 # Handler for incoming stickers in groups
-@bot.message_handler(content_types=['sticker', 'video', 'document'], func=lambda message: message.chat.type == 'group' or message.chat.type == 'supergroup')
+@bot.message_handler(content_types=['sticker', 'animation', 'video', 'document'], func=lambda message: message.chat.type == 'group' or message.chat.type == 'supergroup')
 async def handle_group_sticker(message):
     chatId = message.chat.id
     userId = message.from_user.id
