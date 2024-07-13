@@ -1041,6 +1041,7 @@ async def handle_group_message(message):
             # Check if the message contains the word "Word"
             if msgText.lower() == WORD.get(str(chatId)):
                 show_changed_word_msg = STATE.get(str(chatId))[2]
+                can_show_cheat_msg = STATE.get(str(chatId))[4])
                 STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
                 points = 1
                 f_name = userObj.first_name
@@ -1050,7 +1051,7 @@ async def handle_group_message(message):
                 # Check if user is not leader
                 if leaderId != userId:
                     f_name = f_name[:25] + '...' if len(f_name) > 25 else f_name
-                    if not ((not show_changed_word_msg) and STATE.get(str(chatId))[4]):
+                    if not ((not show_changed_word_msg) and can_show_cheat_msg):
                         await bot.send_message(chatId, f'🎉 [{funcs.escChar(f_name)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*',
                                                reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
                     else:
