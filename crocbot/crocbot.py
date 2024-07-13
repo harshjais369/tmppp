@@ -23,7 +23,7 @@ BLOCK_USERS = [int(x) for x in os.environ.get('BLOCK_USERS', '').split(',') if x
 CROCO_CHATS = [int(x) for x in os.environ.get('CROCO_CHATS', '').split(',') if x]
 TOP10_CHAT_NAMES = json.loads(os.environ.get('TOP10_CHAT_NAMES', '{}'))
 GLOBAL_RANKS = []
-STATE = {} # STATE('chat_id': [str(game_state), int(leader_id), bool(show_changed_word_msg), int(started_at), bool(can_show_cheat_msg)])
+STATE = {} # STATE('chat_id': [int(game_state), int(leader_id), bool(show_changed_word_msg), int(started_at), bool(can_show_cheat_msg)])
 WORD = {}
 HINTS = {}
 
@@ -175,7 +175,7 @@ async def getCurrGame(chatId, userId):
             return dict(status='not_started')
         elif int(curr_game.leader_id) != userId:
             # User is not a leader
-            return dict(status='not_leader', started_at=int(curr_game.started_at))
+            return dict(status='not_leader', started_at=int(curr_game.started_at), data=curr_game)
         else:
             # User is a leader
             return dict(status='leader', started_at=int(curr_game.started_at), data=curr_game)
@@ -921,7 +921,7 @@ async def cmdlist_cmd(message):
 
 # Message handler ------------------------------------------------------------------------------ #
 
-# When bot added to a chat (send message to 1st superuser (MY_IDs[1][0]))
+# Handler for "bot added to a chat" (send message to 1st superuser (MY_IDs[1][0]))
 @bot.message_handler(content_types=['new_chat_members'], func=lambda message: message.new_chat_members[-1].id == MY_IDs[0])
 async def handle_new_chat_members(message):
     chatId = message.chat.id
@@ -936,7 +936,7 @@ async def handle_new_chat_members(message):
         await bot.send_message(MY_IDs[1][0], f'☑️ Bot \#added to a \#blocked chat: `{funcs.escChar(chatId)}`\n{funcs.escChar(message.chat.title)}',
                                parse_mode='MarkdownV2')
 
-# When chat name is changed (update chat name in TOP10_CHAT_NAMES)
+# Handler for "chat name is changed" (update chat name in TOP10_CHAT_NAMES)
 @bot.message_handler(content_types=['new_chat_title'])
 async def handle_new_chat_title(message):
     chatId = message.chat.id
@@ -945,7 +945,7 @@ async def handle_new_chat_title(message):
     title = message.new_chat_title if message.chat.username is None else f'{message.new_chat_title} (@{message.chat.username})'
     TOP10_CHAT_NAMES.update({str(chatId): str(title)})
 
-# Define the handler for images (if AI model is enabled) -------------------------------------- #
+# Handler for incoming images (if AI model is enabled) -------------------------------------- #
 @bot.message_handler(content_types=['photo'], func=lambda message: str(message.from_user.id) in AI_USERS.keys())
 async def handle_image_ai(message):
     chatId = message.chat.id
@@ -988,7 +988,7 @@ async def handle_image_ai(message):
             await bot.send_message(chatId, aiResp, reply_to_message_id=message.message_id, parse_mode='MarkdownV2', allow_sending_without_reply=True)
             return
 
-# Define the handler for group messages
+# Handler for incoming messages in groups
 @bot.message_handler(content_types=['text'], func=lambda message: message.chat.type == 'group' or message.chat.type == 'supergroup')
 async def handle_group_message(message):
     chatId = message.chat.id
@@ -1028,8 +1028,14 @@ async def handle_group_message(message):
 
         global STATE
         if STATE.get(str(chatId)) is None:
-            STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
-        elif STATE.get(str(chatId))[0] == WAITING_FOR_WORD:
+            curr_game = await getCurrGame(chatId, userId)
+            if curr_game['status'] == 'not_started':
+                STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
+                return
+            else:
+                WORD.update({str(chatId): curr_game['data'].word})
+                STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, int(curr_game['started_at']), True]})
+        if STATE.get(str(chatId))[0] == WAITING_FOR_WORD:
             leaderId = STATE.get(str(chatId))[1]
             # If leader types sth after starting game, change state to show_changed_word_msg=True
             if leaderId == userId:
@@ -1112,6 +1118,24 @@ async def handle_group_message(message):
                 await bot.send_message(chatId, f'*Croco:*{aiResp}', reply_to_message_id=message.message_id,
                                        parse_mode='MarkdownV2', allow_sending_without_reply=True)
 
+# Handler for incoming stickers in groups
+@bot.message_handler(content_types=['sticker'], func=lambda message: message.chat.type == 'group' or message.chat.type == 'supergroup')
+async def handle_group_sticker(message):
+    chatId = message.chat.id
+    userId = message.from_user.id
+    if chatId in BLOCK_CHATS and userId in BLOCK_USERS:
+        return
+    global STATE
+    if STATE.get(str(chatId)) is None:
+        curr_game = await getCurrGame(chatId, userId)
+        if curr_game['status'] == 'not_started':
+            STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
+        else:
+            WORD.update({str(chatId): curr_game['data'].word})
+            STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, int(curr_game['started_at']), True]})
+    elif STATE.get(str(chatId))[0] == WAITING_FOR_WORD and STATE.get(str(chatId))[1] == userId:
+        STATE.update({str(chatId): [WAITING_FOR_WORD, userId, STATE.get(str(chatId))[2], STATE.get(str(chatId))[3], False]})
+
 
 
 # Callbacks handler for inline buttons --------------------------------------------------------- #
@@ -1133,9 +1157,15 @@ async def handle_query(call):
         #         await bot.answer_callback_query(call.id, f"❗ Game will be available for play daily from 11:30 PM to 9:00 AM IST.", show_alert=True)
         #         return
         global STATE
-        if STATE.get(str(chatId)) is None:
-            STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
         curr_game = await getCurrGame(chatId, userObj.id)
+        if STATE.get(str(chatId)) is None:
+            if curr_game['status'] == 'not_started':
+                await bot.answer_callback_query(call.id, "⚠ Game has not started yet!", show_alert=True)
+                STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
+                return
+            else:
+                WORD.update({str(chatId): curr_game['data'].word})
+                STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, int(curr_game['started_at']), True]})
 
         # Inline btn handlers for all general use cases
         if call.data == 'start_game': # User start new game from "XYZ found the word! **WORD**"
