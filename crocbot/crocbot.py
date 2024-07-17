@@ -8,7 +8,7 @@ import psutil
 import speedtest
 import asyncio
 from asyncio import sleep
-from telebot.async_telebot import AsyncTeleBot
+from telebot.async_telebot import AsyncTeleBot, ExceptionHandler
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import funcs
 from sql_helper.current_running_game_sql import addGame_sql, getGame_sql, removeGame_sql
@@ -31,8 +31,14 @@ HINTS = {}
 WAITING_FOR_COMMAND, WAITING_FOR_WORD = range(2)
 CANCEL_BROADCAST = 0
 
+class ExceptionHandler(ExceptionHandler):
+    async def handle(self, e):
+        t = datetime.fromtimestamp(int(time.time()), pytz.timezone('Asia/Kolkata')).strftime('%d-%m-%Y %H:%M:%S')
+        print(f'\n ⟩ {t} ⟩ {e}')
+        return True
+
 # Create the bot instance
-bot = AsyncTeleBot(BOT_TOKEN)
+bot = AsyncTeleBot(BOT_TOKEN, exception_handler=ExceptionHandler())
 
 # Get Inline button markup for certain events
 def getInlineBtn(event: str):
@@ -1119,7 +1125,7 @@ async def handle_group_message(message):
                                        parse_mode='MarkdownV2', allow_sending_without_reply=True)
 
 # Handler for incoming stickers in groups
-@bot.message_handler(content_types=['sticker', 'animation', 'video', 'document'], func=lambda message: message.chat.type == 'group' or message.chat.type == 'supergroup')
+@bot.message_handler(content_types=['sticker', 'animation', 'photo', 'video', 'document', 'dice'], func=lambda message: message.chat.type == 'group' or message.chat.type == 'supergroup')
 async def handle_group_sticker(message):
     chatId = message.chat.id
     userId = message.from_user.id
