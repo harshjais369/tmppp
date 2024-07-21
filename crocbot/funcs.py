@@ -75,7 +75,7 @@ def getAIResp(
         if AI_API_KEY is None:
             raise Exception('AI_PLATFORM or AI_API_KEY is not configured properly. Please check .env file!')
         elif AI_PLATFORM == 'google':
-            model = genai.GenerativeModel('gemini-pro')
+            model = genai.GenerativeModel('gemini-1.5-pro')
             res = model.generate_content(prompt, generation_config={
                 'temperature': temperature,
                 'max_output_tokens': max_tokens,
@@ -114,7 +114,7 @@ def getImgAIResp(prompt, model, img_path):
         except Exception as e:
             print(str(e))
             return 'Error 0x403: Failed to read image file!'
-        model = genai.GenerativeModel('gemini-pro-vision')
+        model = genai.GenerativeModel('gemini-1.5-pro')
         res = model.generate_content([prompt, imgObj], generation_config={
             'temperature': 1,
             'max_output_tokens': 2048,
