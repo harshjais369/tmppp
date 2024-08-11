@@ -679,7 +679,7 @@ async def startludo_cmd(message):
         await bot.send_game(chatId, 'ludo')
 
 # Crocodile game commands handler ------------------------------------------------------------- #
-# (game, stop, stats, mystats, ranking, globalranking, chatranking, rules, help) -------------- #
+# (game, stop, stats, mystats, ranking, globalranking, chatranking, rules, help, addword) ----- #
 @bot.message_handler(commands=['game'])
 async def start_game(message):
     chatId = message.chat.id
@@ -845,11 +845,15 @@ async def rules_cmd(message):
     if chatId not in BLOCK_CHATS:
         rules_msg = 'In this game, there are two roles: leader and other participants. ' \
             'The leader selects a random word and tries to describe it without saying the word. ' \
-            'The other players\' goal is to find the word and type it in the groupchat. ' \
-            'The first person to type the correct word is the winner, and is awarded 1💵. ' \
-            'If the leader reveals the word himself, he loses 1💵.\n\n' \
-            '- To see game commands, press /help'
-        await bot.send_message(chatId, f'📖 *Game Rules:*\n\n{funcs.escChar(rules_msg)}', parse_mode='MarkdownV2')
+            'The other players\' goal is to find the word and type it in the groupchat.\n\n' \
+            '*You win 1💵 if you -*\n' \
+            '• Be the first person to guess/type the correct word\n\n' \
+            '*You lose 1💵 if you -*\n' \
+            '• Reveal the word yourself being a leader.\n' \
+            '• Type the correct word before the leader has described yet in chat.\n\n' \
+            '- For game commands, press /help'
+        rules_msg = funcs.escChar(rules_msg).replace('\\*', '*')
+        await bot.send_message(chatId, f'📖 *Game Rules:*\n\n{rules_msg}', parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['help'])
 async def help_cmd(message):
@@ -863,8 +867,36 @@ async def help_cmd(message):
                                  '📈 /ranking \- top 25 players \(in this chat\)\n'
                                  '📈 /globalranking \- top 25 players \(in all chats\)\n'
                                  '📈 /chatranking \- top 10 chats\n'
-                                 '📖 /help \- show this message',
+                                 '📖 /help \- show this message\n\n'
+                                 '- For more info, join: @CrocodileGamesGroup',
                                  parse_mode='MarkdownV2')
+
+# TODO: Fix addword command
+# @bot.message_handler(commands=['addword'])
+# async def addword_cmd(message):
+#     chatId = message.chat.id
+#     user_obj = message.from_user
+#     if user_obj.id not in MY_IDs[1]:
+#         await bot.send_message(chatId, '❌ Only superusers can execute this command!')
+#         return
+#     command_parts = message.text.split(' ', 2)
+#     if len(command_parts) < 2:
+#         await bot.send_message(chatId, '❌ No word specified!')
+#         return
+#     word = command_parts[1].lower()
+#     if len(word) > 20:
+#         await bot.send_message(chatId, '❌ Word must be less than 20 characters!')
+#         return
+#     if not word.isalpha():
+#         await bot.send_message(chatId, '❌ Word must contain only alphabets!')
+#         return
+#     import wordlist
+#     if word in wordlist.WORDLIST:
+#         await bot.send_message(chatId, f'*{word}* exists in my dictionary!')
+#         return
+#     # Open wordlist.py file and add the word in the list
+
+#     await bot.send_message(chatId, f'✅ A new word added in my dictionary!')
 
 @bot.message_handler(commands=['cmdlist'])
 async def cmdlist_cmd(message):
@@ -877,6 +909,7 @@ async def cmdlist_cmd(message):
         '/serverinfo \- server info\n'
         '/botstats \- bot stats\n'
         '/send \- send broadcast\n'
+        '/cancelbroadcast \- cancels ongoing broadcast\n'
         '/del \- delete message\n'
         '/cmdlist \- show commands list\n'
     )
@@ -906,6 +939,7 @@ async def cmdlist_cmd(message):
         '/chatranking \- top 10 chats\n'
         '/rules \- game rules\n'
         '/help \- show game commands\n'
+        '/addword \- add word to dictionary\n'
     )
     ludo_cmds = (
         '/startludo \- start a Ludo game'
