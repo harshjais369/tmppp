@@ -868,35 +868,35 @@ async def help_cmd(message):
                                  '📈 /globalranking \- top 25 players \(in all chats\)\n'
                                  '📈 /chatranking \- top 10 chats\n'
                                  '📖 /help \- show this message\n\n'
-                                 '- For more info, join: @CrocodileGamesGroup',
+                                 '\- For more info, join: @CrocodileGamesGroup',
                                  parse_mode='MarkdownV2')
 
-# TODO: Fix addword command
-# @bot.message_handler(commands=['addword'])
-# async def addword_cmd(message):
-#     chatId = message.chat.id
-#     user_obj = message.from_user
-#     if user_obj.id not in MY_IDs[1]:
-#         await bot.send_message(chatId, '❌ Only superusers can execute this command!')
-#         return
-#     command_parts = message.text.split(' ', 2)
-#     if len(command_parts) < 2:
-#         await bot.send_message(chatId, '❌ No word specified!')
-#         return
-#     word = command_parts[1].lower()
-#     if len(word) > 20:
-#         await bot.send_message(chatId, '❌ Word must be less than 20 characters!')
-#         return
-#     if not word.isalpha():
-#         await bot.send_message(chatId, '❌ Word must contain only alphabets!')
-#         return
-#     import wordlist
-#     if word in wordlist.WORDLIST:
-#         await bot.send_message(chatId, f'*{word}* exists in my dictionary!')
-#         return
-#     # Open wordlist.py file and add the word in the list
+# TODO: Fix addword func
+@bot.message_handler(commands=['addword'])
+async def addword_cmd(message):
+    chatId = message.chat.id
+    user_obj = message.from_user
+    if user_obj.id not in MY_IDs[1]:
+        await bot.send_message(chatId, '❌ Only superusers can execute this command!')
+        return
+    command_parts = message.text.split(' ', 2)
+    if len(command_parts) < 2:
+        await bot.send_message(chatId, '❌ No word specified!')
+        return
+    word = command_parts[1].lower()
+    if len(word) > 20:
+        await bot.send_message(chatId, '❌ Word must be less than 20 characters!')
+        return
+    if not word.isalpha():
+        await bot.send_message(chatId, '❌ Word must contain only alphabets!')
+        return
+    import wordlist
+    if word in wordlist.WORDLIST:
+        await bot.send_message(chatId, f'*{word}* exists in my dictionary!')
+        return
+    # Open wordlist.py file and add the word in the list
 
-#     await bot.send_message(chatId, f'✅ A new word added in my dictionary!')
+    await bot.send_message(chatId, f'✅ A new word added in my dictionary!')
 
 @bot.message_handler(commands=['cmdlist'])
 async def cmdlist_cmd(message):
@@ -909,7 +909,7 @@ async def cmdlist_cmd(message):
         '/serverinfo \- server info\n'
         '/botstats \- bot stats\n'
         '/send \- send broadcast\n'
-        '/cancelbroadcast \- cancels ongoing broadcast\n'
+        '/cancelbroadcast \- stop broadcast\n'
         '/del \- delete message\n'
         '/cmdlist \- show commands list\n'
     )
