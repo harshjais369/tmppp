@@ -31,14 +31,14 @@ HINTS = {}
 WAITING_FOR_COMMAND, WAITING_FOR_WORD = range(2)
 CANCEL_BROADCAST = 0
 
-# class ExceptionHandler(ExceptionHandler):
-#     async def handle(self, e):
-#         t = datetime.fromtimestamp(int(time.time()), pytz.timezone('Asia/Kolkata')).strftime('%d-%m-%Y %H:%M:%S')
-#         print(f'\n ⟩ {t} ⟩ {e}')
-#         return True
+class ExceptionHandler(ExceptionHandler):
+    async def handle(self, e):
+        t = datetime.fromtimestamp(int(time.time()), pytz.timezone('Asia/Kolkata')).strftime('%d-%m-%Y %H:%M:%S')
+        print(f'\n ⟩ {t} ⟩ {e}')
+        return True
 
 # Create the bot instance
-bot = AsyncTeleBot(BOT_TOKEN) #, exception_handler=ExceptionHandler())
+bot = AsyncTeleBot(BOT_TOKEN, exception_handler=ExceptionHandler())
 
 # Get Inline button markup for certain events
 def getInlineBtn(event: str):
@@ -711,8 +711,6 @@ async def stop_game(message):
 async def stats_cmd(message):
     chatId = message.chat.id
     user_obj = message.from_user
-    if user_obj.id not in MY_IDs[1]:
-        return
     if message.reply_to_message is not None:
         reply_user_obj = message.reply_to_message.from_user
         user_stats = getUserPoints_sql(reply_user_obj.id)
@@ -723,13 +721,16 @@ async def stats_cmd(message):
             fullName = reply_user_obj.first_name + ' ' + reply_user_obj.last_name if reply_user_obj.last_name is not None else reply_user_obj.first_name
             fullName = fullName[:25] + '...' if len(fullName) > 25 else fullName
             grp_player_ranks = getTop25Players_sql(chatId)
-            rank = next((i + 1 for i, prObj in enumerate(grp_player_ranks) if int(prObj.user_id) == reply_user_obj.id), '') if grp_player_ranks and len(grp_player_ranks) > 0 else ''
-            grank = next((i + 1 for i, user in enumerate(GLOBAL_RANKS) if user['user_id'] == reply_user_obj.id), '') if GLOBAL_RANKS is not None else ''
-            grank = f'Top {str(int(grank) / len(GLOBAL_RANKS) * 100)[:4]}%' if str(grank).isdigit() and grank > 999 else f'#{grank}'
+            rank = next((i + 1 for i, prObj in enumerate(grp_player_ranks) if int(prObj.user_id) == reply_user_obj.id), '0') if grp_player_ranks and len(grp_player_ranks) > 0 else '0'
+            _grank = next((i + 1 for i, user in enumerate(GLOBAL_RANKS) if user['user_id'] == reply_user_obj.id), 0) if GLOBAL_RANKS is not None else 0
+            grank = f'Top {str(_grank / len(GLOBAL_RANKS) * 100)[:4]}%' if _grank > 999 else f'#{_grank}'
             total_points = 0
             played_in_chats = len(user_stats)
             # Convert last_played to human readable format (IST)
-            last_played = datetime.fromtimestamp(int(user_stats[0].last_played), pytz.timezone('Asia/Kolkata')).strftime('%d-%m-%Y %H:%M:%S')
+            last_played = ''
+            if user_obj.id in MY_IDs[1]:
+                last_played = datetime.fromtimestamp(int(user_stats[0].last_played), pytz.timezone('Asia/Kolkata')).strftime('%d-%m-%Y %H:%M:%S')
+                last_played = f'*Last played:* {funcs.escChar(last_played)}\n'
             curr_chat_user_stat = None
             for us in user_stats:
                 if str(us.chat_id) == str(chatId):
@@ -737,13 +738,13 @@ async def stats_cmd(message):
                 total_points += int(us.points)
             curr_chat_points = curr_chat_user_stat.points if curr_chat_user_stat else 0
             await bot.send_message(chatId, f'*Player stats* 📊\n\n'
-                                    f'*Name:* {funcs.escChar(fullName)}\n'
+                                    f'*Name:* {"🏅 " if _grank > 0 and _grank < 26 else ""}{funcs.escChar(fullName)}\n'
                                     f'*Earned cash:* {funcs.escChar(curr_chat_points)} 💵\n'
                                     f' *— in all chats:* {funcs.escChar(total_points)} 💵\n'
                                     f'*Rank:* \#{rank}\n'
                                     f'*Global rank:* {funcs.escChar(grank)}\n'
                                     f'*Played in:* {played_in_chats} groups\n'
-                                    f'*Last played:* {funcs.escChar(last_played)}\n\n'
+                                    f'{last_played}\n'
                                     f'❕ _You receive 1💵 reward for\neach correct word guess\._',
                                     parse_mode='MarkdownV2')
 
@@ -765,9 +766,9 @@ async def mystats_cmd(message):
                 fullName += ' ' + user_obj.last_name
             fullName = fullName[:25] + '...' if len(fullName) > 25 else fullName
             grp_player_ranks = getTop25Players_sql(chatId)
-            rank = next((i + 1 for i, prObj in enumerate(grp_player_ranks) if int(prObj.user_id) == user_obj.id), '') if grp_player_ranks and len(grp_player_ranks) > 0 else ''
-            grank = next((i + 1 for i, user in enumerate(GLOBAL_RANKS) if user['user_id'] == user_obj.id), '') if GLOBAL_RANKS is not None else ''
-            grank = f'Top {str(int(grank) / len(GLOBAL_RANKS) * 100)[:4]}%' if str(grank).isdigit() and grank > 999 else f'#{grank}'
+            rank = next((i + 1 for i, prObj in enumerate(grp_player_ranks) if int(prObj.user_id) == user_obj.id), '0') if grp_player_ranks and len(grp_player_ranks) > 0 else '0'
+            _grank = next((i + 1 for i, user in enumerate(GLOBAL_RANKS) if user['user_id'] == user_obj.id), 0) if GLOBAL_RANKS is not None else 0
+            grank = f'Top {str(_grank / len(GLOBAL_RANKS) * 100)[:4]}%' if _grank > 999 else f'#{_grank}'
             total_points = 0
             played_in_chats = len(user_stats)
             curr_chat_user_stat = None
@@ -777,7 +778,7 @@ async def mystats_cmd(message):
                 total_points += int(us.points)
             curr_chat_points = curr_chat_user_stat.points if curr_chat_user_stat else 0
             await bot.send_message(chatId, f'*Player stats* 📊\n\n'
-                                    f'*Name:* {funcs.escChar(fullName)}\n'
+                                    f'*Name:* {"🏅 " if _grank > 0 and _grank < 26 else ""}{funcs.escChar(fullName)}\n'
                                     f'*Earned cash:* {funcs.escChar(curr_chat_points)} 💵\n'
                                     f' *— in all chats:* {funcs.escChar(total_points)} 💵\n'
                                     f'*Rank:* \#{rank}\n'
