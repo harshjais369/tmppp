@@ -769,6 +769,7 @@ async def mystats_cmd(message):
             fullName = fullName[:25] + '...' if len(fullName) > 25 else fullName
             grp_player_ranks = getTop25Players_sql(chatId)
             rank = next((i + 1 for i, prObj in enumerate(grp_player_ranks) if int(prObj.user_id) == user_obj.id), '0') if grp_player_ranks and len(grp_player_ranks) > 0 else '0'
+            rank = f'*Rank:* \#{rank}\n' if message.chat.type != 'private' else ''
             _grank = next((i + 1 for i, user in enumerate(GLOBAL_RANKS) if user['user_id'] == user_obj.id), 0) if GLOBAL_RANKS is not None else 0
             grank = f'Top {str(_grank / len(GLOBAL_RANKS) * 100)[:4]}%' if _grank > 999 else f'#{_grank}'
             total_points = 0
@@ -779,11 +780,12 @@ async def mystats_cmd(message):
                     curr_chat_user_stat = us
                 total_points += int(us.points)
             curr_chat_points = curr_chat_user_stat.points if curr_chat_user_stat else 0
+            curr_chat_points = f' {funcs.escChar(curr_chat_points)} 💵' if message.chat.type != 'private' else ''
             await bot.send_message(chatId, f'*Player stats* 📊\n\n'
                                     f'*Name:* {"🏅 " if _grank > 0 and _grank < 26 else ""}{funcs.escChar(fullName)}\n'
-                                    f'*Earned cash:* {funcs.escChar(curr_chat_points)} 💵\n'
+                                    f'*Earned cash:*{curr_chat_points}\n'
                                     f' *— in all chats:* {funcs.escChar(total_points)} 💵\n'
-                                    f'*Rank:* \#{rank}\n'
+                                    f'{rank}'
                                     f'*Global rank:* {funcs.escChar(grank)}\n'
                                     f'*Played in:* {played_in_chats} groups\n\n'
                                     f'❕ _You receive 1💵 reward for\neach correct word guess\._',
