@@ -982,7 +982,7 @@ async def handle_new_chat_members(message):
         await bot.send_message(MY_IDs[1][0], f'✅ Bot \#added to chat: `{funcs.escChar(chatId)}`\n{funcs.escChar(message.chat.title)}',
                                parse_mode='MarkdownV2')
         await sleep(0.5)
-        await bot.send_message(-1002204421104, f'✅ Bot \#added to chat: `{funcs.escChar(chatId)}`', parse_mode='MarkdownV2')
+        # await bot.send_message(-1002204421104, f'✅ Bot \#added to chat: `{funcs.escChar(chatId)}`', parse_mode='MarkdownV2')
         await sleep(2.5)
         markup_btn = InlineKeyboardMarkup([
             [InlineKeyboardButton('📢 Get bot updates!', url='t.me/CrocodileGames')],
@@ -993,7 +993,7 @@ async def handle_new_chat_members(message):
         await bot.send_message(MY_IDs[1][0], f'☑️ Bot \#added to a \#blocked chat: `{funcs.escChar(chatId)}`\n{funcs.escChar(message.chat.title)}',
                                parse_mode='MarkdownV2')
         await sleep(0.5)
-        await bot.send_message(-1002204421104, f'☑️ Bot \#added to a \#blocked chat: `{funcs.escChar(chatId)}`', parse_mode='MarkdownV2')
+        # await bot.send_message(-1002204421104, f'☑️ Bot \#added to a \#blocked chat: `{funcs.escChar(chatId)}`', parse_mode='MarkdownV2')
         await sleep(0.5)
         await bot.send_message(chatId, f'🚫 *This chat/group was flagged as suspicious, and hence restricted from using this bot\!*\n\n' \
             f'If you\'re chat/group owner and thinks this is a mistake, please write to: \@CrocodileGamesGroup', parse_mode='MarkdownV2')
