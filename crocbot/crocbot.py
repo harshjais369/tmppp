@@ -1006,6 +1006,9 @@ async def handle_new_chat_title(message):
         return
     title = message.new_chat_title if message.chat.username is None else f'{message.new_chat_title} (@{message.chat.username})'
     TOP10_CHAT_NAMES.update({str(chatId): str(title)})
+    await bot.send_message(MY_IDs[1][0], f'📝 #new_chat_title\nID: {chatId}\nNew: {title}\nOld: {TOP10_CHAT_NAMES.get(str(chatId))}')
+    await sleep(1)
+    await bot.send_message(chatId, f'📝 *Updated chat title!*\n\nFor top 10 chats: /chatranking\nHave any query? Ask \@CrocodileGamesGroup', parse_mode='MarkdownV2')
 
 # Handler for incoming images (if AI model is enabled) -------------------------------------- #
 @bot.message_handler(content_types=['photo'], func=lambda message: str(message.from_user.id) in AI_USERS.keys())
