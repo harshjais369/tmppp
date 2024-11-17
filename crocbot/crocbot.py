@@ -31,14 +31,14 @@ HINTS = {}
 WAITING_FOR_COMMAND, WAITING_FOR_WORD = range(2)
 CANCEL_BROADCAST = 0
 
-class ExceptionHandler(ExceptionHandler):
-    async def handle(self, e):
-        t = datetime.fromtimestamp(int(time.time()), pytz.timezone('Asia/Kolkata')).strftime('%d-%m-%Y %H:%M:%S')
-        print(f'\n ⟩ {t} ⟩ {e}')
-        return True
+# class ExceptionHandler(ExceptionHandler):
+#     async def handle(self, e):
+#         t = datetime.fromtimestamp(int(time.time()), pytz.timezone('Asia/Kolkata')).strftime('%d-%m-%Y %H:%M:%S')
+#         print(f'\n ⟩ {t} ⟩ {e}')
+#         return True
 
 # Create the bot instance
-bot = AsyncTeleBot(BOT_TOKEN, exception_handler=ExceptionHandler())
+bot = AsyncTeleBot(BOT_TOKEN) #, exception_handler=ExceptionHandler())
 
 # Get Inline button markup for certain events
 def getInlineBtn(event: str):
@@ -722,25 +722,26 @@ async def stats_cmd(message):
             global GLOBAL_RANKS
             fullName = reply_user_obj.first_name + ' ' + reply_user_obj.last_name if reply_user_obj.last_name is not None else reply_user_obj.first_name
             fullName = fullName[:25] + '...' if len(fullName) > 25 else fullName
-            rank = ''
+            grp_player_ranks = getTop25Players_sql(chatId)
+            rank = next((i + 1 for i, prObj in enumerate(grp_player_ranks) if int(prObj.user_id) == reply_user_obj.id), '') if grp_player_ranks and len(grp_player_ranks) > 0 else ''
             grank = next((i + 1 for i, user in enumerate(GLOBAL_RANKS) if user['user_id'] == reply_user_obj.id), '') if GLOBAL_RANKS is not None else ''
-            curr_chat_points = 0
+            grank = f'Top {str(int(grank) / len(GLOBAL_RANKS) * 100)[:4]}%' if str(grank).isdigit() and grank > 999 else f'#{grank}'
             total_points = 0
             played_in_chats = len(user_stats)
             # Convert last_played to human readable format (IST)
             last_played = datetime.fromtimestamp(int(user_stats[0].last_played), pytz.timezone('Asia/Kolkata')).strftime('%d-%m-%Y %H:%M:%S')
+            curr_chat_user_stat = None
             for us in user_stats:
                 if str(us.chat_id) == str(chatId):
                     curr_chat_user_stat = us
                 total_points += int(us.points)
-            if curr_chat_user_stat is not None:
-                curr_chat_points = curr_chat_user_stat.points
+            curr_chat_points = curr_chat_user_stat.points if curr_chat_user_stat else 0
             await bot.send_message(chatId, f'*Player stats* 📊\n\n'
                                     f'*Name:* {funcs.escChar(fullName)}\n'
                                     f'*Earned cash:* {funcs.escChar(curr_chat_points)} 💵\n'
                                     f' *— in all chats:* {funcs.escChar(total_points)} 💵\n'
                                     f'*Rank:* \#{rank}\n'
-                                    f'*Global rank:* \#{grank}\n'
+                                    f'*Global rank:* {funcs.escChar(grank)}\n'
                                     f'*Played in:* {played_in_chats} groups\n'
                                     f'*Last played:* {funcs.escChar(last_played)}\n\n'
                                     f'❕ _You receive 1💵 reward for\neach correct word guess\._',
@@ -763,22 +764,24 @@ async def mystats_cmd(message):
             if user_obj.last_name is not None:
                 fullName += ' ' + user_obj.last_name
             fullName = fullName[:25] + '...' if len(fullName) > 25 else fullName
-            rank = ''
+            grp_player_ranks = getTop25Players_sql(chatId)
+            rank = next((i + 1 for i, prObj in enumerate(grp_player_ranks) if int(prObj.user_id) == user_obj.id), '') if grp_player_ranks and len(grp_player_ranks) > 0 else ''
             grank = next((i + 1 for i, user in enumerate(GLOBAL_RANKS) if user['user_id'] == user_obj.id), '') if GLOBAL_RANKS is not None else ''
+            grank = f'Top {str(int(grank) / len(GLOBAL_RANKS) * 100)[:4]}%' if str(grank).isdigit() and grank > 999 else f'#{grank}'
             total_points = 0
             played_in_chats = len(user_stats)
+            curr_chat_user_stat = None
             for us in user_stats:
                 if str(us.chat_id) == str(chatId):
                     curr_chat_user_stat = us
                 total_points += int(us.points)
-            if curr_chat_user_stat is not None:
-                curr_chat_points = curr_chat_user_stat.points
+            curr_chat_points = curr_chat_user_stat.points if curr_chat_user_stat else 0
             await bot.send_message(chatId, f'*Player stats* 📊\n\n'
                                     f'*Name:* {funcs.escChar(fullName)}\n'
                                     f'*Earned cash:* {funcs.escChar(curr_chat_points)} 💵\n'
                                     f' *— in all chats:* {funcs.escChar(total_points)} 💵\n'
                                     f'*Rank:* \#{rank}\n'
-                                    f'*Global rank:* \#{grank}\n'
+                                    f'*Global rank:* {funcs.escChar(grank)}\n'
                                     f'*Played in:* {played_in_chats} groups\n\n'
                                     f'❕ _You receive 1💵 reward for\neach correct word guess\._',
                                     parse_mode='MarkdownV2')
@@ -896,7 +899,7 @@ async def addword_cmd(message):
         return
     # Open wordlist.py file and add the word in the list
 
-    await bot.send_message(chatId, f'✅ A new word added in my dictionary!')
+    await bot.send_message(chatId, f'✅ A new word added to my dictionary!')
 
 @bot.message_handler(commands=['cmdlist'])
 async def cmdlist_cmd(message):
