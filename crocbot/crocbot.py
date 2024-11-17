@@ -711,6 +711,8 @@ async def stop_game(message):
 async def stats_cmd(message):
     chatId = message.chat.id
     user_obj = message.from_user
+    if chatId in BLOCK_CHATS and user_obj.id not in MY_IDs[1]:
+        return
     if message.reply_to_message is not None:
         reply_user_obj = message.reply_to_message.from_user
         user_stats = getUserPoints_sql(reply_user_obj.id)
@@ -791,14 +793,19 @@ async def mystats_cmd(message):
 async def ranking_cmd(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
+        if message.chat.type == 'private':
+            await bot.send_message(chatId, 'This command can be used in group chats only!\nOr use: /globalranking')
+            return
         grp_player_ranks = getTop25Players_sql(chatId)
         if grp_player_ranks is None or len(grp_player_ranks) < 1:
             await bot.send_message(chatId, '📊 No player\'s rank determined yet for this group!')
         else:
             ranksTxt = ''
-            for i, gprObj in enumerate(grp_player_ranks, 1):
-                name = gprObj.name[:25] + '...' if len(gprObj.name) > 25 else gprObj.name
-                ranksTxt += f'*{i}\.* {funcs.escChar(name)} — {funcs.escChar(gprObj.points)} 💵\n'
+            top25_global_usr_ids = [gp['user_id'] for gp in GLOBAL_RANKS[:25]]
+            for i, grpObj in enumerate(grp_player_ranks, 1):
+                name = '🏅 ' if int(grpObj.user_id) in top25_global_usr_ids else ''
+                name = grpObj.name[:25] + '...' if len(grpObj.name) > 25 else grpObj.name
+                ranksTxt += f'*{i}\.* {funcs.escChar(name)} — {funcs.escChar(grpObj.points)} 💵\n'
             await bot.send_message(chatId, f'*TOP\-25 players* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['globalranking'])
