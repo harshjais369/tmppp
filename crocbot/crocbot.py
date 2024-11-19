@@ -65,6 +65,12 @@ def getInlineBtn(event: str):
     elif event == 'refused_lead':
         markup.row_width = 1
         markup.add(InlineKeyboardButton('I want to be a leader!', callback_data='start_game_from_refuse'))
+    elif event == 'ranking_list_currChat':
+        markup.row_width = 1
+        markup.add(InlineKeyboardButton('Where am I? 🔍', callback_data='ranking_list_findMe_currChat'))
+    elif event == 'ranking_list_allChats':
+        markup.row_width = 1
+        markup.add(InlineKeyboardButton('Where am I? 🔍', callback_data='ranking_list_findMe_allChats'))
     else:
         return None
     return markup
@@ -732,9 +738,9 @@ async def stats_cmd(message):
             fullName = reply_user_obj.first_name + ' ' + reply_user_obj.last_name if reply_user_obj.last_name is not None else reply_user_obj.first_name
             fullName = fullName[:25] + '...' if len(fullName) > 25 else fullName
             grp_player_ranks = getTop25Players_sql(chatId, 2000)
-            rank = next((i + 1 for i, prObj in enumerate(grp_player_ranks) if int(prObj.user_id) == reply_user_obj.id), '0') if grp_player_ranks and len(grp_player_ranks) > 0 else '0'
+            rank = next((i for i, prObj in enumerate(grp_player_ranks, 1) if int(prObj.user_id) == reply_user_obj.id), 0) if grp_player_ranks and len(grp_player_ranks) > 0 else 0
             rank = f'*Rank:* \#{rank}\n' if message.chat.type != 'private' else ''
-            _grank = next((i + 1 for i, user in enumerate(GLOBAL_RANKS) if user['user_id'] == reply_user_obj.id), 0) if GLOBAL_RANKS is not None else 0
+            _grank = next((i for i, user in enumerate(GLOBAL_RANKS, 1) if user['user_id'] == reply_user_obj.id), 0) if GLOBAL_RANKS is not None else 0
             grank = f'Top {str(_grank / len(GLOBAL_RANKS) * 100)[:4]}%' if _grank > 999 else f'#{_grank}'
             total_points = 0
             played_in_chats = len(user_stats)
@@ -788,9 +794,9 @@ async def mystats_cmd(message):
                 fullName += ' ' + user_obj.last_name
             fullName = fullName[:25] + '...' if len(fullName) > 25 else fullName
             grp_player_ranks = getTop25Players_sql(chatId, 2000)
-            rank = next((i + 1 for i, prObj in enumerate(grp_player_ranks) if int(prObj.user_id) == user_obj.id), '0') if grp_player_ranks and len(grp_player_ranks) > 0 else '0'
+            rank = next((i for i, prObj in enumerate(grp_player_ranks, 1) if int(prObj.user_id) == user_obj.id), 0) if grp_player_ranks and len(grp_player_ranks) > 0 else 0
             rank = f'*Rank:* \#{rank}\n' if message.chat.type != 'private' else ''
-            _grank = next((i + 1 for i, user in enumerate(GLOBAL_RANKS) if user['user_id'] == user_obj.id), 0) if GLOBAL_RANKS is not None else 0
+            _grank = next((i for i, user in enumerate(GLOBAL_RANKS, 1) if user['user_id'] == user_obj.id), 0) if GLOBAL_RANKS is not None else 0
             grank = f'Top {str(_grank / len(GLOBAL_RANKS) * 100)[:4]}%' if _grank > 999 else f'#{_grank}'
             total_points = 0
             played_in_chats = len(user_stats)
@@ -823,13 +829,16 @@ async def ranking_cmd(message):
             await bot.send_message(chatId, '📊 No player\'s rank determined yet for this group!')
         else:
             global GLOBAL_RANKS
+            reply_markup = None
+            if len(grp_player_ranks) > 25 or True:
+                reply_markup = getInlineBtn('ranking_list_currChat')
             ranksTxt = ''
             top25_global_usr_ids = [gp['user_id'] for gp in GLOBAL_RANKS[:25]]
             for i, grpObj in enumerate(grp_player_ranks, 1):
                 name = '🏅 ' if int(grpObj.user_id) in top25_global_usr_ids else ''
                 name += grpObj.name[:25] + '...' if len(grpObj.name) > 25 else grpObj.name
                 ranksTxt += f'*{i}\.* {funcs.escChar(name)} — {funcs.escChar(grpObj.points)} 💵\n'
-            await bot.send_message(chatId, f'*TOP\-25 players* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
+            await bot.send_message(chatId, f'*TOP\-25 players* 🐊📊\n\n{ranksTxt}', reply_markup=reply_markup, parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['globalranking'])
 async def global_ranking_cmd(message):
@@ -841,6 +850,9 @@ async def global_ranking_cmd(message):
         else:
             # Remove duplicates and re-order the data
             global GLOBAL_RANKS
+            reply_markup = None
+            if len(grp_player_ranks) > 25 or True:
+                reply_markup = getInlineBtn('ranking_list_allChats')
             ranksTxt = ''
             ranks = {}
             for gprObj in grp_player_ranks:
@@ -855,7 +867,7 @@ async def global_ranking_cmd(message):
                 name = user['name'][:25] + '...' if len(user['name']) > 25 else user['name']
                 ranksTxt += f"{i} {funcs.escChar(name)} — {funcs.escChar(user['points'])} 💵\n"
                 i = j
-            await bot.send_message(chatId, f'*TOP\-25 players in all groups* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
+            await bot.send_message(chatId, f'*TOP\-25 players in all groups* 🐊📊\n\n{ranksTxt}', reply_markup=reply_markup, parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['chatranking'])
 async def chat_ranking_cmd(message):
@@ -1246,9 +1258,7 @@ async def handle_query(call):
         curr_game = await getCurrGame(chatId, userObj.id)
         if STATE.get(str(chatId)) is None:
             if curr_game['status'] == 'not_started':
-                await bot.answer_callback_query(call.id, "⚠ Game has not started yet!", show_alert=True)
                 STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
-                return
             else:
                 WORD.update({str(chatId): curr_game['data'].word})
                 STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, int(curr_game['started_at']), True]})
@@ -1302,6 +1312,35 @@ async def handle_query(call):
 
         elif call.data == 'ludo':
             await bot.answer_callback_query(call.id, url='https://t.me/CrocodileGameEnn_bot?game=ludo')
+        elif call.data == 'ranking_list_findMe_currChat':
+            user_stats = getTop25Players_sql(chatId, 2000)
+            if not user_stats:
+                await bot.answer_callback_query(call.id, '❌ Something went wrong!\n\n- If the issue persists, kindly report it to: @CrocodileGamesGroup', show_alert=True)
+                return
+            user_stats = next(([str(i), us] for i, us in enumerate(user_stats, 1) if int(us.user_id) == userObj.id), None)
+            if not user_stats:
+                await bot.answer_callback_query(call.id, '❕Looks like you are new in this chat!\nStart guessing words and earn points to get ranked.', show_alert=True)
+                return
+            if int(user_stats[0]) < 26: user_stats[0] += ' 🏆'
+            last_played = datetime.fromtimestamp(int(user_stats[1].last_played), pytz.timezone('Asia/Kolkata')).strftime('%d-%m-%Y %H:%M:%S')
+            await bot.answer_callback_query(call.id, show_alert=True, cache_time=15,
+                text=f'Rank: #{user_stats[0]}\nName: {user_stats[1].name[:25]}\nEarned: {user_stats[1].points} 💵\nLast played: {last_played}')
+            return
+        elif call.data == 'ranking_list_findMe_allChats':
+            global GLOBAL_RANKS
+            if not GLOBAL_RANKS:
+                granks = {}
+                grp_player_ranks = getTop25PlayersInAllChats_sql()
+                for gprObj in grp_player_ranks:
+                    if gprObj.user_id in granks:
+                        granks[gprObj.user_id]['points'] += gprObj.points
+                    else:
+                        granks[gprObj.user_id] = {'user_id': int(gprObj.user_id), 'name': gprObj.name, 'points': gprObj.points}
+                GLOBAL_RANKS = sorted(granks.values(), key=lambda x: x['points'], reverse=True)
+            _grank = next(([i, user] for i, user in enumerate(GLOBAL_RANKS, 1) if user['user_id'] == userObj.id), 0) if GLOBAL_RANKS is not None else 0
+            grank = f'Top {str(_grank[0] / len(GLOBAL_RANKS) * 100)[:4]}%' if _grank[0] > 999 else f'#{_grank[0]} 🏆' if _grank[0] < 26 else f'#{_grank[0]}'
+            await bot.answer_callback_query(call.id, show_alert=True, cache_time=15,
+                text=f'Rank: {grank}\nName: {_grank[1]["name"][:25]}\nEarned: {_grank[1]["points"]} 💵\n\n- Have queries? Ask @CrocodileGamesGroup')
 
         # Game panel inline btn handlers for leader use cases only ---------------- #
         elif call.data == 'see_word':
