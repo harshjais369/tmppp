@@ -51,9 +51,9 @@ def getUserPoints_sql(user_id):
     finally:
         SESSION.close()
 
-def getTop25Players_sql(chat_id):
+def getTop25Players_sql(chat_id, rowLimit=25):
     try:
-        return SESSION.query(RankingsSql).filter_by(chat_id=str(chat_id)).order_by(RankingsSql.points.desc()).limit(25).all()
+        return SESSION.query(RankingsSql).filter_by(chat_id=str(chat_id)).order_by(RankingsSql.points.desc()).limit(rowLimit).all()
     except Exception as e:
         print(e)
         SESSION.rollback()

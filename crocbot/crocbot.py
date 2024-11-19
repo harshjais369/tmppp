@@ -32,7 +32,7 @@ WAITING_FOR_COMMAND, WAITING_FOR_WORD = range(2)
 CANCEL_BROADCAST = 0
 
 class ExceptionHandler(ExceptionHandler):
-    async def handle(self, e):
+    def handle(self, e):
         t = datetime.fromtimestamp(int(time.time()), pytz.timezone('Asia/Kolkata')).strftime('%d-%m-%Y %H:%M:%S')
         print(f'\n ⟩ {t} ⟩ {e}')
         return True
@@ -720,10 +720,20 @@ async def stats_cmd(message):
             await bot.send_message(chatId, f'📊 {funcs.escChar(reply_user_obj.first_name)} has no stats yet!')
         else:
             global GLOBAL_RANKS
+            if not GLOBAL_RANKS:
+                granks = {}
+                grp_player_ranks = getTop25PlayersInAllChats_sql()
+                for gprObj in grp_player_ranks:
+                    if gprObj.user_id in granks:
+                        granks[gprObj.user_id]['points'] += gprObj.points
+                    else:
+                        granks[gprObj.user_id] = {'user_id': int(gprObj.user_id), 'name': gprObj.name, 'points': gprObj.points}
+                GLOBAL_RANKS = sorted(granks.values(), key=lambda x: x['points'], reverse=True)
             fullName = reply_user_obj.first_name + ' ' + reply_user_obj.last_name if reply_user_obj.last_name is not None else reply_user_obj.first_name
             fullName = fullName[:25] + '...' if len(fullName) > 25 else fullName
-            grp_player_ranks = getTop25Players_sql(chatId)
+            grp_player_ranks = getTop25Players_sql(chatId, 2000)
             rank = next((i + 1 for i, prObj in enumerate(grp_player_ranks) if int(prObj.user_id) == reply_user_obj.id), '0') if grp_player_ranks and len(grp_player_ranks) > 0 else '0'
+            rank = f'*Rank:* \#{rank}\n' if message.chat.type != 'private' else ''
             _grank = next((i + 1 for i, user in enumerate(GLOBAL_RANKS) if user['user_id'] == reply_user_obj.id), 0) if GLOBAL_RANKS is not None else 0
             grank = f'Top {str(_grank / len(GLOBAL_RANKS) * 100)[:4]}%' if _grank > 999 else f'#{_grank}'
             total_points = 0
@@ -739,11 +749,12 @@ async def stats_cmd(message):
                     curr_chat_user_stat = us
                 total_points += int(us.points)
             curr_chat_points = curr_chat_user_stat.points if curr_chat_user_stat else 0
+            curr_chat_points = f' {funcs.escChar(curr_chat_points)} 💵' if message.chat.type != 'private' else ''
             await bot.send_message(chatId, f'*Player stats* 📊\n\n'
                                     f'*Name:* {"🏅 " if _grank > 0 and _grank < 26 else ""}{funcs.escChar(fullName)}\n'
-                                    f'*Earned cash:* {funcs.escChar(curr_chat_points)} 💵\n'
+                                    f'*Earned cash:*{curr_chat_points}\n'
                                     f' *— in all chats:* {funcs.escChar(total_points)} 💵\n'
-                                    f'*Rank:* \#{rank}\n'
+                                    f'{rank}'
                                     f'*Global rank:* {funcs.escChar(grank)}\n'
                                     f'*Played in:* {played_in_chats} groups\n'
                                     f'{last_played}\n'
@@ -763,11 +774,20 @@ async def mystats_cmd(message):
             await bot.send_message(chatId, '📊 You have no stats yet!')
         else:
             global GLOBAL_RANKS
+            if not GLOBAL_RANKS:
+                granks = {}
+                grp_player_ranks = getTop25PlayersInAllChats_sql()
+                for gprObj in grp_player_ranks:
+                    if gprObj.user_id in granks:
+                        granks[gprObj.user_id]['points'] += gprObj.points
+                    else:
+                        granks[gprObj.user_id] = {'user_id': int(gprObj.user_id), 'name': gprObj.name, 'points': gprObj.points}
+                GLOBAL_RANKS = sorted(granks.values(), key=lambda x: x['points'], reverse=True)
             fullName = user_obj.first_name
             if user_obj.last_name is not None:
                 fullName += ' ' + user_obj.last_name
             fullName = fullName[:25] + '...' if len(fullName) > 25 else fullName
-            grp_player_ranks = getTop25Players_sql(chatId)
+            grp_player_ranks = getTop25Players_sql(chatId, 2000)
             rank = next((i + 1 for i, prObj in enumerate(grp_player_ranks) if int(prObj.user_id) == user_obj.id), '0') if grp_player_ranks and len(grp_player_ranks) > 0 else '0'
             rank = f'*Rank:* \#{rank}\n' if message.chat.type != 'private' else ''
             _grank = next((i + 1 for i, user in enumerate(GLOBAL_RANKS) if user['user_id'] == user_obj.id), 0) if GLOBAL_RANKS is not None else 0
@@ -802,11 +822,12 @@ async def ranking_cmd(message):
         if grp_player_ranks is None or len(grp_player_ranks) < 1:
             await bot.send_message(chatId, '📊 No player\'s rank determined yet for this group!')
         else:
+            global GLOBAL_RANKS
             ranksTxt = ''
             top25_global_usr_ids = [gp['user_id'] for gp in GLOBAL_RANKS[:25]]
             for i, grpObj in enumerate(grp_player_ranks, 1):
                 name = '🏅 ' if int(grpObj.user_id) in top25_global_usr_ids else ''
-                name = grpObj.name[:25] + '...' if len(grpObj.name) > 25 else grpObj.name
+                name += grpObj.name[:25] + '...' if len(grpObj.name) > 25 else grpObj.name
                 ranksTxt += f'*{i}\.* {funcs.escChar(name)} — {funcs.escChar(grpObj.points)} 💵\n'
             await bot.send_message(chatId, f'*TOP\-25 players* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
 
