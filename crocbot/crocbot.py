@@ -876,7 +876,7 @@ async def chat_ranking_cmd(message):
         grp_ranks = getTop10Chats_sql()
         if grp_ranks is None:
             msg = await bot.send_message(chatId, '❗ An unknown error occurred!')
-            await asyncio.sleep(5)
+            await sleep(5)
             await bot.delete_message(chatId, msg.message_id)
         else:
             ranksTxt = ''
@@ -917,13 +917,11 @@ async def help_cmd(message):
                                  '\- For more info, join: @CrocodileGamesGroup',
                                  parse_mode='MarkdownV2')
 
-# TODO: Fix addword func
 @bot.message_handler(commands=['addword'])
 async def addword_cmd(message):
     chatId = message.chat.id
     user_obj = message.from_user
-    if user_obj.id not in MY_IDs[1]:
-        await bot.send_message(chatId, '❌ Only superusers can execute this command!')
+    if (chatId in (BLOCK_CHATS + BLOCK_USERS) and user_obj.id not in MY_IDs[1]) or user_obj.id in BLOCK_USERS:
         return
     command_parts = message.text.split(' ', 2)
     if len(command_parts) < 2:
@@ -936,13 +934,49 @@ async def addword_cmd(message):
     if not word.isalpha():
         await bot.send_message(chatId, '❌ Word must contain only alphabets!')
         return
-    import wordlist
-    if word in wordlist.WORDLIST:
-        await bot.send_message(chatId, f'*{word}* exists in my dictionary!')
+    if user_obj.id not in MY_IDs[1]:
+        import wordlist
+        if word in wordlist.WORDLIST:
+            await bot.reply_to(message, f'*{word}* exists in my dictionary\!', parse_mode='MarkdownV2', allow_sending_without_reply=True)
+            return
+        await bot.reply_to(message, '☑️ Your request is being reviewed. You will get notified soon!', allow_sending_without_reply=True)
+        await sleep(1)
+        await bot.send_message(MY_IDs[1][0], f'\#req\_addNewWord\n*ChatID:* `{chatId}`\n*UserID:* `{user_obj.id}`\n*Word:* `{word}`', parse_mode='MarkdownV2')
         return
-    # Open wordlist.py file and add the word in the list
+    if not funcs.addNewWord(word):
+        await bot.reply_to(message, f'*{word}* exists in my dictionary\!', parse_mode='MarkdownV2', allow_sending_without_reply=True)
+        return
+    await bot.send_message(chatId, f'✅ A new word added to my dictionary\!\n\n*Word:* `{word}`', parse_mode='MarkdownV2')
 
-    await bot.send_message(chatId, f'✅ A new word added to my dictionary!')
+@bot.message_handler(commands=['approve'])
+async def approveAddWordReq_cmd(message):
+    chatId = message.chat.id
+    user_obj = message.from_user
+    if (user_obj.id not in MY_IDs[1]) or (not message.reply_to_message):
+        return
+    rply_chat_obj = message.reply_to_message.from_user
+    rply_msg = message.reply_to_message.text
+    # Search from bot #added msg
+    addWordReq_msg = '#req_addNewWord\nChatID: '
+    if rply_chat_obj.id == MY_IDs[0] and rply_msg.startswith(addWordReq_msg):
+        t = rply_msg.split(': ', 1)[1].split('\n')
+        target_chatId = int(t[0])
+        target_userId = int(t[1].split(': ')[1])
+        word = t[2].split(': ')[1].lower()
+        if not funcs.addNewWord(word):
+            await bot.reply_to(message, f'*{word}* exists in my dictionary\!', parse_mode='MarkdownV2', allow_sending_without_reply=True)
+            return
+        try:
+            chat_obj = await bot.get_chat(target_chatId)
+        except:
+            target_chatId = target_userId
+            print('>>> Chat id not found! Trying to send notification to the user...')
+        try:
+            await bot.send_message(target_chatId, f'[✅](tg://user?id={target_userId}) A new word added to my dictionary\!\n\n*Word:* `{word}`', parse_mode='MarkdownV2')
+        except:
+            target_chatId = 'None'
+        await sleep(1)
+        await bot.reply_to(message, f'✅ *{word}* added to dictionary\!\n\n🔔 Chat notified: `{target_chatId}`', parse_mode='MarkdownV2', allow_sending_without_reply=True)
 
 @bot.message_handler(commands=['cmdlist'])
 async def cmdlist_cmd(message):
@@ -957,7 +991,8 @@ async def cmdlist_cmd(message):
         '/send \- send broadcast\n'
         '/cancelbroadcast \- stop broadcast\n'
         '/del \- delete message\n'
-        '/cmdlist \- show commands list\n'
+        '/approve \- approve word request\n'
+        '/cmdlist \- show this message\n'
     )
     block_cmds = (
         '/blockchat \- block chat\n'
@@ -1038,10 +1073,10 @@ async def handle_new_chat_title(message):
     if chatId not in list(set(map(int, TOP10_CHAT_NAMES.keys())) - set(BLOCK_CHATS)):
         return
     title = message.new_chat_title if message.chat.username is None else f'{message.new_chat_title} (@{message.chat.username})'
-    TOP10_CHAT_NAMES.update({str(chatId): str(title)})
     await bot.send_message(MY_IDs[1][0], f'📝 #new_chat_title\nID: {chatId}\nNew: {title}\nOld: {TOP10_CHAT_NAMES.get(str(chatId))}')
+    TOP10_CHAT_NAMES.update({str(chatId): str(title)})
     await sleep(1)
-    await bot.send_message(chatId, f'📝 *Updated chat title!*\n\nFor top 10 chats: /chatranking\nHave any query? Ask \@CrocodileGamesGroup', parse_mode='MarkdownV2')
+    await bot.send_message(chatId, funcs.escChar(f'📝 *Updated chat title!*\n\nFor top 10 chats: /chatranking\nHave any query? Ask @CrocodileGamesGroup'), parse_mode='MarkdownV2')
 
 # Handler for incoming images (if AI model is enabled) -------------------------------------- #
 @bot.message_handler(content_types=['photo'], func=lambda message: str(message.from_user.id) in AI_USERS.keys())
@@ -1187,7 +1222,7 @@ async def handle_group_message(message):
                     else:
                         rem_prmt_frm_indx = str(preConvObj.prompt).find(rplyText)
                         if rem_prmt_frm_indx == -1:
-                            await bot.send_message(chatId, f'Something went wrong!\n*Err:* #0x604', reply_to_message_id=message.message_id,
+                            await bot.send_message(chatId, f'Something went wrong\!\n*Err:* \#0x604', reply_to_message_id=message.message_id,
                                                    parse_mode='MarkdownV2', allow_sending_without_reply=True)
                             return
                         end_offset_index = rem_prmt_frm_indx + len(rplyText)
