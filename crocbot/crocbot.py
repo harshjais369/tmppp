@@ -24,6 +24,7 @@ CROCO_CHATS = [int(x) for x in os.environ.get('CROCO_CHATS', '').split(',') if x
 TOP10_CHAT_NAMES = json.loads(os.environ.get('TOP10_CHAT_NAMES', '{}'))
 GLOBAL_RANKS = []
 STATE = {} # STATE('chat_id': [int(game_state), int(leader_id), bool(show_changed_word_msg), int(started_at), boolstr(can_show_cheat_msg)])
+CHEAT_RECORD = {} # CHEAT_RECORD('chat_id': int(cheat_count))
 WORD = {}
 HINTS = {}
 
@@ -298,11 +299,14 @@ async def botStats_cmd(message):
                                         f'*Chats \(total\):* {len(total_ids)}\n'
                                         f'*Users:* {len(u_ids)}\n'
                                         f'*Groups:* {len(g_ids)}\n'
+                                        f'*Potential reach:* 3\.8M\n'
                                         f'*Super\-users:* {len(MY_IDs[1])}\n'
                                         f'*AI users:* {len(AI_USERS)}\n'
                                         f'*AI enabled groups:* {len(CROCO_CHATS)}\n'
-                                        f'*Blocked chats:* {len(BLOCK_CHATS)}\n'
-                                        f'*Blocked users:* {len(BLOCK_USERS)}\n'
+                                        f'*Groups with cheaters:* {len(CHEAT_RECORD)}\n'
+                                        f'*Detected cheats:* {sum(CHEAT_RECORD.values())}\n'
+                                        f'*Restricted groups:* {len(BLOCK_CHATS)}\n'
+                                        f'*Restricted users:* {len(BLOCK_USERS)}\n'
                                         f'*Total WORDs:* {len(wordlist.WORDLIST)}\n'
                                         f'*Running games:* {len(STATE)}\n',
                                         parse_mode='MarkdownV2', allow_sending_without_reply=True)
@@ -1199,6 +1203,12 @@ async def handle_group_message(message):
                         await bot.send_message(chatId, f'🚨 [{funcs.escChar(f_name)}](tg://user?id={userId}) lost 1💵 for cheating\! *{WORD.get(str(chatId))}*',
                                                reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
                         points = -1
+                        global CHEAT_RECORD
+                        curr_cheat_stats = CHEAT_RECORD.get(str(chatId))
+                        if curr_cheat_stats is None:
+                            CHEAT_RECORD.update({str(chatId): 1})
+                        else:
+                            CHEAT_RECORD.update({str(chatId): curr_cheat_stats + 1})                        
                     removeGame_sql(chatId)
                 else:
                     # Leader revealed the word (stop game and deduct leader's points)
