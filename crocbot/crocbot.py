@@ -727,7 +727,7 @@ async def stats_cmd(message):
         reply_user_obj = message.reply_to_message.from_user
         user_stats = getUserPoints_sql(reply_user_obj.id)
         if not user_stats:
-            await bot.send_message(chatId, f'📊 {funcs.escChar(reply_user_obj.first_name)} has no stats yet!')
+            await bot.send_message(chatId, f'📊 {reply_user_obj.first_name} has no stats yet!')
         else:
             global GLOBAL_RANKS
             if not GLOBAL_RANKS:
