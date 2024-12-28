@@ -23,8 +23,9 @@ BLOCK_USERS = [int(x) for x in os.environ.get('BLOCK_USERS', '').split(',') if x
 CROCO_CHATS = [int(x) for x in os.environ.get('CROCO_CHATS', '').split(',') if x]
 TOP10_CHAT_NAMES = json.loads(os.environ.get('TOP10_CHAT_NAMES', '{}'))
 GLOBAL_RANKS = []
-STATE = {} # STATE('chat_id': [int(game_state), int(leader_id), bool(show_changed_word_msg), int(started_at), boolstr(can_show_cheat_msg)])
+STATE = {} # STATE('chat_id': [int(game_state), int(leader_id), bool(show_changed_word_msg), int(started_at), str(can_show_cheat_msg=[True|False|Force True])])
 CHEAT_RECORD = {} # CHEAT_RECORD('chat_id': int(cheat_count))
+NEW_WORD_REQS = {} # NEW_WORD_REQS = {int(chat_id): {int(user_id): ['word',...],...},...}
 WORD = {}
 HINTS = {}
 
@@ -72,6 +73,15 @@ def getInlineBtn(event: str):
     elif event == 'ranking_list_allChats':
         markup.row_width = 1
         markup.add(InlineKeyboardButton('Where am I? 🔍', callback_data='ranking_list_findMe_allChats'))
+    elif event == 'addWord_req':
+        markup.row_width = 2
+        markup.add(
+            InlineKeyboardButton('✅ Add', callback_data='addWord_req_add'),
+            InlineKeyboardButton('❌ Pop', callback_data='addWord_req_pop')
+        )
+    elif event == 'addWord_req_approve':
+        markup.row_width = 1
+        markup.add(InlineKeyboardButton('✅ Approve all', callback_data='addWord_req_approve'))
     else:
         return None
     return markup
@@ -98,10 +108,12 @@ async def startGame(message, isStartFromCmd=False):
     except:
         chatId = message.message.chat.id
     userObj = message.from_user
+    isNewPlyr = getUserPoints_sql(userObj.id) is None
     if isStartFromCmd:
         curr_game = await getCurrGame(chatId, userObj.id)
         if (curr_game['status'] != 'not_started'):
-            if (int(time.time() - curr_game['started_at']) < 30):
+            started_from = int(time.time() - curr_game['started_at'])
+            if (started_from < 30 or (isNewPlyr and started_from < 600)):
                 msg = await bot.send_message(chatId, '⚠ Do not blabber! The game has already started.')
                 await sleep(10)
                 await bot.delete_message(chatId, msg.message_id)
@@ -299,14 +311,14 @@ async def botStats_cmd(message):
                                         f'*Chats \(total\):* {len(total_ids)}\n'
                                         f'*Users:* {len(u_ids)}\n'
                                         f'*Groups:* {len(g_ids)}\n'
-                                        f'*Potential reach:* 3\.8M\n'
+                                        f'*Potential reach:* 3\.7M\n'
                                         f'*Super\-users:* {len(MY_IDs[1])}\n'
                                         f'*AI users:* {len(AI_USERS)}\n'
                                         f'*AI enabled groups:* {len(CROCO_CHATS)}\n'
                                         f'*Groups with cheaters:* {len(CHEAT_RECORD)}\n'
                                         f'*Detected cheats:* {sum(CHEAT_RECORD.values())}\n'
-                                        f'*Restricted groups:* {len(BLOCK_CHATS)}\n'
-                                        f'*Restricted users:* {len(BLOCK_USERS)}\n'
+                                        f'*Blocked groups:* {len(BLOCK_CHATS)}\n'
+                                        f'*Blocked users:* {len(BLOCK_USERS)}\n'
                                         f'*Total WORDs:* {len(wordlist.WORDLIST)}\n'
                                         f'*Running games:* {len(STATE)}\n',
                                         parse_mode='MarkdownV2', allow_sending_without_reply=True)
@@ -427,6 +439,18 @@ async def del_cmd(message):
         await bot.delete_message(message.chat.id, alrt_msg.message_id)
         return
     await bot.delete_message(message.chat.id, rply_msg.message_id)
+
+@bot.message_handler(commands=['showcheats'])
+async def showCheats_cmd(message):
+    user_obj = message.from_user
+    if user_obj.id not in MY_IDs[1]:
+        return
+    toal_cheats = sum(CHEAT_RECORD.values())
+    cheat_msg = ''
+    for i, (chat_id, cheat_count) in enumerate(CHEAT_RECORD.items(), 1):
+        cheat_msg += f'{i}. {chat_id} — {cheat_count}\n'
+    cheat_msg = '🔍 No cheats found yet\!' if cheat_msg == '' else f'🕵🏻‍♂️ *Cheats detected in groups:* `{toal_cheats}`\n\n' + funcs.escChar(cheat_msg)
+    await bot.reply_to(message, cheat_msg, parse_mode='MarkdownV2', allow_sending_without_reply=True)
 
 # Admin commands handler (mute, unmute, ban) (superuser only) --------------------------------- #
 # TODO: Add/Fix mute/unmute/ban/unban methods
@@ -897,7 +921,7 @@ async def rules_cmd(message):
             'The leader selects a random word and tries to describe it without saying the word. ' \
             'The other players\' goal is to find the word and type it in the groupchat.\n\n' \
             '*You win 1💵 if you -*\n' \
-            '• Be the first person to guess/type the correct word\n\n' \
+            '• Be the first person to guess (type) the correct word.\n\n' \
             '*You lose 1💵 if you -*\n' \
             '• Reveal the word yourself being a leader.\n' \
             '• Type the correct word before the leader has described yet in chat.\n\n' \
@@ -915,8 +939,9 @@ async def help_cmd(message):
                                  '📋 /rules \- know game rules\n'
                                  '📊 /mystats \- your game stats\n'
                                  '📈 /ranking \- top 25 players \(in this chat\)\n'
-                                 '📈 /globalranking \- top 25 players \(in all chats\)\n'
+                                 '📈 /globalranking \- top 25 global players\n'
                                  '📈 /chatranking \- top 10 chats\n'
+                                 '➕ /addword \- add word to dictionary\n'
                                  '📖 /help \- show this message\n\n'
                                  '\- For more info, join: @CrocodileGamesGroup',
                                  parse_mode='MarkdownV2')
@@ -945,7 +970,8 @@ async def addword_cmd(message):
             return
         await bot.reply_to(message, '☑️ Your request is being reviewed. You will get notified soon!', allow_sending_without_reply=True)
         await sleep(1)
-        await bot.send_message(MY_IDs[1][0], f'\#req\_addNewWord\n*ChatID:* `{chatId}`\n*UserID:* `{user_obj.id}`\n*Word:* `{word}`', parse_mode='MarkdownV2')
+        await bot.send_message(MY_IDs[1][0], f'\#req\_addNewWord\n*ChatID:* `{chatId}`\n*UserID:* `{user_obj.id}`\n*Word:* `{word}`',
+                               reply_markup=getInlineBtn('addWord_req'), parse_mode='MarkdownV2')
         return
     if not funcs.addNewWord(word):
         await bot.reply_to(message, f'*{word}* exists in my dictionary\!', parse_mode='MarkdownV2', allow_sending_without_reply=True)
@@ -956,31 +982,16 @@ async def addword_cmd(message):
 async def approveAddWordReq_cmd(message):
     chatId = message.chat.id
     user_obj = message.from_user
-    if (user_obj.id not in MY_IDs[1]) or (not message.reply_to_message):
+    cnfrm_msg = ''
+    if user_obj.id not in MY_IDs[1]:
         return
-    rply_chat_obj = message.reply_to_message.from_user
-    rply_msg = message.reply_to_message.text
-    # Search from bot #added msg
-    addWordReq_msg = '#req_addNewWord\nChatID: '
-    if rply_chat_obj.id == MY_IDs[0] and rply_msg.startswith(addWordReq_msg):
-        t = rply_msg.split(': ', 1)[1].split('\n')
-        target_chatId = int(t[0])
-        target_userId = int(t[1].split(': ')[1])
-        word = t[2].split(': ')[1].lower()
-        if not funcs.addNewWord(word):
-            await bot.reply_to(message, f'*{word}* exists in my dictionary\!', parse_mode='MarkdownV2', allow_sending_without_reply=True)
-            return
-        try:
-            chat_obj = await bot.get_chat(target_chatId)
-        except:
-            target_chatId = target_userId
-            print('>>> Chat id not found! Trying to send notification to the user...')
-        try:
-            await bot.send_message(target_chatId, f'[✅](tg://user?id={target_userId}) A new word added to my dictionary\!\n\n*Word:* `{word}`', parse_mode='MarkdownV2')
-        except:
-            target_chatId = 'None'
-        await sleep(1)
-        await bot.reply_to(message, f'✅ *{word}* added to dictionary\!\n\n🔔 Chat notified: `{target_chatId}`', parse_mode='MarkdownV2', allow_sending_without_reply=True)
+    if not NEW_WORD_REQS:
+        await bot.reply_to(message, '❌ No pending requests!', allow_sending_without_reply=True)
+        return
+    # Send confirmation message
+    for nwr_chat_id, nwr_users in NEW_WORD_REQS.items():
+        cnfrm_msg += f'\n{funcs.escChar(nwr_chat_id)}: \[\n' + ',\n'.join([f'    [{u}](tg://user?id={u}): \[{nwr_users[u]}\]' for u in nwr_users]) + '\n\]'
+    await bot.reply_to(message, f'⏳ *Pending requests:* {len(NEW_WORD_REQS)}\n{cnfrm_msg}', parse_mode='MarkdownV2', reply_markup=getInlineBtn('addWord_req_approve'), allow_sending_without_reply=True)
 
 @bot.message_handler(commands=['cmdlist'])
 async def cmdlist_cmd(message):
@@ -995,7 +1006,7 @@ async def cmdlist_cmd(message):
         '/send \- send broadcast\n'
         '/cancelbroadcast \- stop broadcast\n'
         '/del \- delete message\n'
-        '/approve \- approve word request\n'
+        '/approve \- approve new requests\n'
         '/cmdlist \- show this message\n'
     )
     block_cmds = (
@@ -1320,7 +1331,9 @@ async def handle_query(call):
                 else:
                     STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
             elif curr_game['status'] == 'not_leader':
-                if int(time.time()) - curr_game['started_at'] > 30:
+                isNewPlyr = getUserPoints_sql(userObj.id) is None
+                started_from = int(time.time() - curr_game['started_at'])
+                if (started_from > 30 and not isNewPlyr) or (started_from > 600):
                     # If game started more than 30 seconds ago, then another user can restart the game taking leader's place
                     await stopGame(call, isChangeLeader=True)
                     word = await startGame(call)
@@ -1388,6 +1401,80 @@ async def handle_query(call):
             grank = f'Top {str(_grank[0] / len(GLOBAL_RANKS) * 100)[:4]}%' if _grank[0] > 999 else f'#{_grank[0]} 🏆' if _grank[0] < 26 else f'#{_grank[0]}'
             await bot.answer_callback_query(call.id, show_alert=True, cache_time=15,
                 text=f'Rank: {grank}\nName: {_grank[1]["name"][:25]}\nEarned: {_grank[1]["points"]} 💵\n\n- Have queries? Ask @CrocodileGamesGroup')
+        elif call.data.startswith('addWord_req_'):
+            txt = call.message.text
+            if userObj.id not in MY_IDs[1]:
+                await bot.answer_callback_query(call.id, '❌ You are not authorised to perform this action!', show_alert=True)
+                return
+            global NEW_WORD_REQS
+            if call.data == 'addWord_req_approve':
+                if not NEW_WORD_REQS:
+                    await bot.answer_callback_query(call.id, '❌ No pending requests!')
+                    return
+                cnt = 0
+                for chat_id, users in NEW_WORD_REQS.items():
+                    for user_id, words in users.items():
+                        added_words = []
+                        for wd in words:
+                            if funcs.addNewWord(wd):
+                                added_words.append(wd)
+                        if added_words:
+                            target_chatId = chat_id
+                            try:
+                                target_chat = await bot.get_chat(target_chatId)
+                            except:
+                                target_chatId = user_id
+                            await sleep(1)
+                            try:
+                                target_user = await bot.get_chat(user_id)
+                            except:
+                                target_user = None
+                            try:
+                                fname = target_user.first_name if target_user else 'Ghost User'
+                                added_wds_txt = ', '.join(added_words)
+                                await bot.send_message(target_chatId, parse_mode='MarkdownV2',
+                                    text=f'[✅](tg://user?id={user_id}) *{len(added_words)}* new words added by *{fname}*\n\n```\n{added_wds_txt}```')
+                                cnt += 1
+                            except:
+                                pass
+                            await sleep(1)
+                NEW_WORD_REQS.clear()
+                await bot.send_message(MY_IDs[1][0], f'✅ All words added to dictionary\!\n\n🔔 Notice sent \(times\): `{cnt}`', parse_mode='MarkdownV2', allow_sending_without_reply=True)
+                return
+            if not txt.startswith('#req_addNewWord'):
+                await bot.answer_callback_query(call.id, '❌ Invalid request!')
+                return
+            cid = int(txt[txt.find('ChatID: ') + 8:txt.find('\nUserID:')])
+            uid = int(txt[txt.find('UserID: ') + 8:txt.find('\nWord:')])
+            wd = txt[txt.find('Word: ') + 6:].lower()
+            if call.data == 'addWord_req_add':
+                import wordlist
+                if wd in wordlist.WORDLIST:
+                    await bot.answer_callback_query(call.id, f"{wd} exists!")
+                    return
+                for nwr_chat in NEW_WORD_REQS.values():
+                    for nwr_user, nwr_words in nwr_chat.items():
+                        if wd in nwr_words:
+                            await bot.answer_callback_query(call.id, f"{wd} is already in queue!")
+                            return
+                if cid not in NEW_WORD_REQS:
+                    NEW_WORD_REQS[cid] = {}
+                if uid not in NEW_WORD_REQS[cid]:
+                    NEW_WORD_REQS[cid][uid] = []
+                NEW_WORD_REQS[cid][uid].append(wd)
+                await bot.answer_callback_query(call.id, f'{wd} added to queue!')
+            elif call.data == 'addWord_req_pop':
+                for chat_id in list(NEW_WORD_REQS.keys()):
+                    for user_id in list(NEW_WORD_REQS[chat_id].keys()):
+                        if wd in NEW_WORD_REQS[chat_id][user_id]:
+                            NEW_WORD_REQS[cid][uid].remove(wd)
+                            if not NEW_WORD_REQS[cid][uid]:
+                                del NEW_WORD_REQS[cid][uid]
+                            if not NEW_WORD_REQS[cid]:
+                                del NEW_WORD_REQS[cid]
+                            await bot.answer_callback_query(call.id, f'{wd} removed from queue!')
+                            return
+                await bot.answer_callback_query(call.id, f'{wd} not found in queue!')
 
         # Game panel inline btn handlers for leader use cases only ---------------- #
         elif call.data == 'see_word':
