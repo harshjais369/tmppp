@@ -719,6 +719,7 @@ async def start_game(message):
         if STATE.get(str(chatId)) is None:
             WORD.update({str(chatId): curr_game['data'].word})
             STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, int(curr_game['started_at']), 'False', False]})
+            await bot.send_message(chatId, f'🔄 *Bot restarted\!*\nNo any running games was impacted during this period\.', parse_mode='MarkdownV2')
         isNewPlyr = getUserPoints_sql(userObj.id) is None
         started_from = int(time.time() - curr_game['started_at'])
         if (started_from < 30 or (isNewPlyr and started_from < 600 and curr_game['status'] != 'leader')):
@@ -1204,6 +1205,7 @@ async def handle_group_message(message):
             else:
                 WORD.update({str(chatId): curr_game['data'].word})
                 STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, int(curr_game['started_at']), 'False', False]})
+                await bot.send_message(chatId, f'🔄 *Bot restarted\!*\nNo any running games was impacted during this period\.', parse_mode='MarkdownV2')
         if STATE.get(str(chatId))[0] == WAITING_FOR_WORD:
             leaderId = STATE.get(str(chatId))[1]
             # If leader types sth after starting game, change state to show_changed_word_msg=True
@@ -1311,6 +1313,7 @@ async def handle_group_sticker(message):
         else:
             WORD.update({str(chatId): curr_game['data'].word})
             STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, int(curr_game['started_at']), 'False', False]})
+            await bot.send_message(chatId, f'🔄 *Bot restarted\!*\nNo any running games was impacted during this period\.', parse_mode='MarkdownV2')
     elif STATE.get(str(chatId))[0] == WAITING_FOR_WORD and STATE.get(str(chatId))[1] == userId:
         cheat_status = 'Force True' if STATE.get(str(chatId))[4] == 'Force True' else 'False'
         STATE.update({str(chatId): [WAITING_FOR_WORD, userId, STATE.get(str(chatId))[2], STATE.get(str(chatId))[3], cheat_status, STATE.get(str(chatId))[5]]})
@@ -1343,6 +1346,7 @@ async def handle_query(call):
             else:
                 WORD.update({str(chatId): curr_game['data'].word})
                 STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, int(curr_game['started_at']), 'False', False]})
+                await bot.send_message(chatId, f'🔄 *Bot restarted\!*\nNo any running games was impacted during this period\.', parse_mode='MarkdownV2')
 
         # Inline btn handlers for all general use cases
         if call.data == 'start_game': # User start new game from "XYZ found the word! **WORD**"
