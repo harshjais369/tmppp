@@ -20,6 +20,7 @@ MY_IDs = [6740198215, [5321125784, 6060491450, 6821441983]] # Bot ID, [Superuser
 AI_USERS = {}
 BLOCK_CHATS = [int(x) for x in os.environ.get('BLOCK_CHATS', '').split(',') if x]
 BLOCK_USERS = [int(x) for x in os.environ.get('BLOCK_USERS', '').split(',') if x]
+NO_CHEAT_CHATS = [int(x) for x in os.environ.get('NO_CHEAT_CHATS', '').split(',') if x]
 CROCO_CHATS = [int(x) for x in os.environ.get('CROCO_CHATS', '').split(',') if x]
 TOP10_CHAT_NAMES = json.loads(os.environ.get('TOP10_CHAT_NAMES', '{}'))
 GLOBAL_RANKS = []
@@ -118,7 +119,7 @@ async def startGame(message):
     await bot.send_message(chatId, f'*[{funcs.escChar(f_name)}](tg://user?id={userObj.id}) is explaining the word\!*', reply_markup=getInlineBtn('leading'), parse_mode='MarkdownV2')
     return word
 
-async def stopGame(message, isRefused=False, isChangeLeader=False, isWordRevealed=False):
+async def stopGame(message, isRefused=False, isChangeLeader=False, isWordRevealed=False, word=''):
     # Stop game if user is admin or leader
     try:
         chatId = message.chat.id
@@ -127,7 +128,7 @@ async def stopGame(message, isRefused=False, isChangeLeader=False, isWordReveale
     userObj = message.from_user
     f_name = userObj.first_name[:25] + '...' if len(userObj.first_name) > 25 else userObj.first_name
     if isRefused:
-        await bot.send_message(chatId, f'{funcs.escChar(f_name)} refused to lead\!', reply_markup=getInlineBtn('refused_lead'), parse_mode='MarkdownV2')
+        await bot.send_message(chatId, f'{funcs.escChar(f_name)} refused to lead\!{word}', reply_markup=getInlineBtn('refused_lead'), parse_mode='MarkdownV2')
     elif isChangeLeader:
         # If game started more than 30 seconds, allow others to change leader
         pass
@@ -1113,7 +1114,7 @@ async def handle_new_chat_title(message):
     await bot.send_message(MY_IDs[1][0], f'📝 #new_chat_title\nID: {chatId}\nNew: {title}\nOld: {TOP10_CHAT_NAMES.get(str(chatId))}')
     TOP10_CHAT_NAMES.update({str(chatId): str(title)})
     await sleep(1)
-    await bot.send_message(chatId, funcs.escChar(f'📝 *Updated chat title!*\n\nFor top 10 chats: /chatranking\nHave any query? Ask @CrocodileGamesGroup'), parse_mode='MarkdownV2')
+    await bot.send_message(chatId, f'📝 *Updated chat title\!*\n\nFor top\-10 chats: /chatranking\nFor any query, ask \@CrocodileGamesGroup', parse_mode='MarkdownV2')
 
 # Handler for incoming images (if AI model is enabled) -------------------------------------- #
 @bot.message_handler(content_types=['photo'], func=lambda message: str(message.from_user.id) in AI_USERS.keys())
@@ -1222,16 +1223,23 @@ async def handle_group_message(message):
                     return
             # Check if the message contains the word "Word"
             if msgText.lower() == WORD.get(str(chatId)):
+                global NO_CHEAT_CHATS
+                is_cheat_allowed = chatId in NO_CHEAT_CHATS
                 can_show_cheat_msg = STATE.get(str(chatId))[4]
-                STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
+                if not is_cheat_allowed:
+                    STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
+                elif leaderId != userId:
+                    STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
                 points = 1
                 f_name = userObj.first_name
                 fullName = f_name
                 fullName = f'{fullName} {userObj.last_name}' if userObj.last_name is not None else fullName
-                # Check if user is not leader
-                if leaderId != userId:
+                # Check if user is not leader, or if the chat can ignore cheat
+                if leaderId != userId or is_cheat_allowed:
+                    if is_cheat_allowed and leaderId == userId:
+                        return
                     f_name = f_name[:25] + '...' if len(f_name) > 25 else f_name
-                    if can_show_cheat_msg == 'False':
+                    if can_show_cheat_msg == 'False' or is_cheat_allowed:
                         await bot.send_message(chatId, f'🎉 [{funcs.escChar(fullName)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*',
                                                reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
                     else:
@@ -1588,7 +1596,7 @@ async def handle_query(call):
             elif curr_game['status'] == 'not_leader':
                 await bot.answer_callback_query(call.id, "⚠ You are not leading the game!", show_alert=True)
             else:
-                await stopGame(call, isRefused=True)
+                await stopGame(call, isRefused=True, word=(f' *~{WORD.get(str(chatId))}~*' if STATE.get(str(chatId))[2] else ''))
                 await bot.delete_message(chatId, call.message.message_id)
                 STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
 

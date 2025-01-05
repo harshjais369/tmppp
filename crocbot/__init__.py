@@ -11,13 +11,15 @@ else:
 
 # Environment variables info -------------------------------------------------- #
 # 
-# ENV: PROD or DEV (default) - bot production or development mode
+# ENV: PROD | DEV (default) - bot production or development mode
 # BOT_TOKEN: Telegram bot token
 # DATABASE_URL: PostgreSQL database URL
+# 
 # AI_PLATFORM: AI-model platform (default: google)
 # AI_API_KEY: API key for AI services
 # 
 # BLOCK_CHATS: Chat id to block bot (separated by `,`)
 # BLOCK_USERS: User id to block bot (separated by `,`)
+# NO_CHEAT_CHATS: Chat id where cheating is suppressed (separated by `,`)
 # CROCO_CHATS: Chat id to enable CROCO AI (separated by `,`)
 # TOP10_CHAT_NAMES: {chat_id: chat_name,...} - Chat names for each chat_id in TOP10 CHATS cmd
