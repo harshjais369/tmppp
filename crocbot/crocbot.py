@@ -13,6 +13,7 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import funcs
 from sql_helper.current_running_game_sql import addGame_sql, getGame_sql, removeGame_sql
 from sql_helper.rankings_sql import incrementPoints_sql, getUserPoints_sql, getTop25Players_sql, getTop25PlayersInAllChats_sql, getTop10Chats_sql, getAllChatIds_sql
+from sql_helper.daily_botstats_sql import new_joined_chat_sql
 from sql_helper.ai_conv_sql import getEngAIConv_sql, updateEngAIPrompt_sql
 
 BOT_TOKEN = os.environ.get('BOT_TOKEN', None)
@@ -1103,7 +1104,8 @@ async def handle_new_chat_members(message):
         await sleep(0.5)
         await bot.send_message(chatId, f'🚫 *This chat/group was flagged as suspicious, and hence restricted from using this bot\!*\n\n' \
             f'If you\'re chat/group owner and thinks this is a mistake, please write to: \@CrocodileGamesGroup', parse_mode='MarkdownV2')
-
+    new_joined_chat_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat())
+    
 # Handler for "chat name is changed" (update chat name in TOP10_CHAT_NAMES)
 @bot.message_handler(content_types=['new_chat_title'])
 async def handle_new_chat_title(message):
