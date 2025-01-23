@@ -718,7 +718,7 @@ async def start_game(message):
     global STATE
     curr_game = await getCurrGame(chatId, userObj.id)
     if (curr_game['status'] != 'not_started'):
-        if STATE.get(str(chatId)) is None:
+        if STATE.get(str(chatId)) is None or STATE.get(str(chatId))[0] == WAITING_FOR_COMMAND:
             WORD.update({str(chatId): curr_game['data'].word})
             STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, int(curr_game['started_at']), 'False', False]})
             await bot.send_message(chatId, f'🔄 *Bot restarted\!*\nNo any running games was impacted during this period\.', parse_mode='MarkdownV2')
@@ -740,11 +740,13 @@ async def start_game(message):
         STATE[str(chatId)][5] = True
         for i in range(1, 6):
             await sleep(1)
-            if not STATE.get(str(chatId))[5]:
+            if STATE.get(str(chatId))[0] == WAITING_FOR_COMMAND: # If game stopped before 5 secs
+                return
+            if not STATE.get(str(chatId))[5]: # If cancelled by button press
                 print('Change-leader request cancelled! Chat:', chatId)
                 return
             try:
-                ico = '☑️' if i == 0 else '⌛' if i%2 == 0 else '⏳'
+                ico = '✅' if i == 5 else '⏳' if i%2 == 0 else '⌛'
                 await bot.edit_message_text(f'{ico} *{funcs.escChar(fname)}* wants to lead the game\!\nIn `{5 - i}` seconds\.\.\.',
                     chatId, rmsg.message_id, parse_mode='MarkdownV2', reply_markup=getInlineBtn('newLeader_req'))
             except:
@@ -1549,10 +1551,10 @@ async def handle_query(call):
                             return
                 await bot.answer_callback_query(call.id, f'{wd} not found in queue!')
         elif call.data == 'newLeader_req_cancel':
-            if userObj.id == STATE.get(str(chatId))[1]:
-                await bot.answer_callback_query(call.id, '❌ Only the requester and other participants can undo this action!', show_alert=True)
-                return
             if STATE.get(str(chatId))[0] == WAITING_FOR_WORD and STATE.get(str(chatId))[5]:
+                if userObj.id == STATE.get(str(chatId))[1]:
+                    await bot.answer_callback_query(call.id, '❌ Only the requester and other participants can undo this action!', show_alert=True)
+                    return
                 STATE[str(chatId)][5] = False
                 await sleep(0.1)
                 msg = '❌ ~' + funcs.escChar(call.message.text.split("\n")[0][2:]) + f'~\nCancelled by *{funcs.escChar(userObj.first_name)}*'
