@@ -794,7 +794,7 @@ async def stats_cmd(message):
             rank = next((i for i, prObj in enumerate(grp_player_ranks, 1) if int(prObj.user_id) == reply_user_obj.id), 0) if grp_player_ranks and len(grp_player_ranks) > 0 else 0
             rank = f'*Rank:* \#{rank}\n' if message.chat.type != 'private' else ''
             _grank = next((i for i, user in enumerate(GLOBAL_RANKS, 1) if user['user_id'] == reply_user_obj.id), 0) if GLOBAL_RANKS is not None else 0
-            grank = f'Top {str(_grank / len(GLOBAL_RANKS) * 100)[:4]}%' if _grank > 999 else f'#{_grank}'
+            grank = f'Top {str(_grank / len(GLOBAL_RANKS) * 100)[:4]}%' if _grank > 999 else f'#{_grank} 🏆' if _grank < 4 else f'#{_grank}'
             total_points = 0
             played_in_chats = len(user_stats)
             # Convert last_played to human readable format (IST)
@@ -850,7 +850,7 @@ async def mystats_cmd(message):
             rank = next((i for i, prObj in enumerate(grp_player_ranks, 1) if int(prObj.user_id) == user_obj.id), 0) if grp_player_ranks and len(grp_player_ranks) > 0 else 0
             rank = f'*Rank:* \#{rank}\n' if message.chat.type != 'private' else ''
             _grank = next((i for i, user in enumerate(GLOBAL_RANKS, 1) if user['user_id'] == user_obj.id), 0) if GLOBAL_RANKS is not None else 0
-            grank = f'Top {str(_grank / len(GLOBAL_RANKS) * 100)[:4]}%' if _grank > 999 else f'#{_grank}'
+            grank = f'Top {str(_grank / len(GLOBAL_RANKS) * 100)[:4]}%' if _grank > 999 else f'#{_grank} 🏆' if _grank < 4 else f'#{_grank}'
             total_points = 0
             played_in_chats = len(user_stats)
             curr_chat_user_stat = None
@@ -1164,7 +1164,7 @@ async def handle_image_ai(message):
             return
 
 # Handler for incoming messages in groups
-@bot.message_handler(content_types=['text'], func=lambda message: message.chat.type == 'group' or message.chat.type == 'supergroup')
+@bot.message_handler(content_types=['text'], func=lambda message: message.chat.type in ['supergroup', 'group'])
 async def handle_group_message(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
@@ -1310,8 +1310,8 @@ async def handle_group_message(message):
                 await bot.send_message(chatId, f'*Croco:*{aiResp}', reply_to_message_id=message.message_id,
                                        parse_mode='MarkdownV2', allow_sending_without_reply=True)
 
-# Handler for incoming stickers in groups
-@bot.message_handler(content_types=['sticker', 'animation', 'photo', 'video', 'document', 'dice'], func=lambda message: message.chat.type == 'group' or message.chat.type == 'supergroup')
+# Handler for incoming media in groups
+@bot.message_handler(content_types=['sticker', 'photo', 'video', 'document', 'animation', 'dice', 'poll'], func=lambda message: message.chat.type in ['supergroup', 'group'])
 async def handle_group_sticker(message):
     chatId = message.chat.id
     userId = message.from_user.id
