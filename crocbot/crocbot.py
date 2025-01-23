@@ -1341,7 +1341,7 @@ async def handle_query(call):
     if chatId not in BLOCK_CHATS:
         if userObj.id in BLOCK_USERS:
             await bot.answer_callback_query(call.id, "❌ You are restricted from using this bot!\n\nFor queries, join: @CrocodileGamesGroup",
-                                            show_alert=True, cache_time=20)
+                                            show_alert=True, cache_time=30)
             return
         # Schedule bot mute for EVS group
         # if chatId == -1001596465392:
@@ -1382,10 +1382,16 @@ async def handle_query(call):
                     STATE[str(chatId)][5] = True
                     for i in range(1, 6):
                         await sleep(1)
-                        ico = '☑️' if i == 0 else '⌛' if i%2 == 0 else '⏳'
-                        await bot.edit_message_text(f'{ico} *{funcs.escChar(fname)}* wants to lead the game\!\nIn `{5 - i}` seconds\.\.\.',
-                            chatId, rmsg.message_id, parse_mode='MarkdownV2', reply_markup=getInlineBtn('newLeader_req'))
-                        if not STATE.get(str(chatId))[5]:
+                        if STATE.get(str(chatId))[0] == WAITING_FOR_COMMAND: # If game stopped before 5 secs
+                            return
+                        if not STATE.get(str(chatId))[5]: # If cancelled by button press
+                            print('Change-leader request cancelled! Chat:', chatId)
+                            return
+                        try:
+                            ico = '✅' if i == 5 else '⏳' if i%2 == 0 else '⌛'
+                            await bot.edit_message_text(f'{ico} *{funcs.escChar(fname)}* wants to lead the game\!\nIn `{5 - i}` seconds\.\.\.',
+                                chatId, rmsg.message_id, parse_mode='MarkdownV2', reply_markup=getInlineBtn('newLeader_req'))
+                        except:
                             return
                     await sleep(0.3)
                     # If game started more than 30 seconds ago, then another user can restart the game taking leader's place
@@ -1394,7 +1400,7 @@ async def handle_query(call):
                     if word is not None:
                         await bot.answer_callback_query(call.id, f"Word: {word}", show_alert=True)
                         STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(time.time()), 'True', False]})
-                        await sleep(0.5)
+                        await sleep(0.3)
                         await bot.delete_message(chatId, rmsg.message_id)
                     else:
                         STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
@@ -1424,10 +1430,16 @@ async def handle_query(call):
                     STATE[str(chatId)][5] = True
                     for i in range(1, 6):
                         await sleep(1)
-                        ico = '☑️' if i == 0 else '⌛' if i%2 == 0 else '⏳'
-                        await bot.edit_message_text(f'{ico} *{funcs.escChar(fname)}* wants to lead the game\!\nIn `{5 - i}` seconds\.\.\.',
-                            chatId, rmsg.message_id, parse_mode='MarkdownV2', reply_markup=getInlineBtn('newLeader_req'))
-                        if not STATE.get(str(chatId))[5]:
+                        if STATE.get(str(chatId))[0] == WAITING_FOR_COMMAND: # If game stopped before 5 secs
+                            return
+                        if not STATE.get(str(chatId))[5]: # If cancelled by button press
+                            print('Change-leader request cancelled! Chat:', chatId)
+                            return
+                        try:
+                            ico = '✅' if i == 5 else '⏳' if i%2 == 0 else '⌛'
+                            await bot.edit_message_text(f'{ico} *{funcs.escChar(fname)}* wants to lead the game\!\nIn `{5 - i}` seconds\.\.\.',
+                                chatId, rmsg.message_id, parse_mode='MarkdownV2', reply_markup=getInlineBtn('newLeader_req'))
+                        except:
                             return
                     await sleep(0.3)
                     # If game started more than 30 seconds ago, then another user can restart the game taking leader's place
@@ -1454,7 +1466,7 @@ async def handle_query(call):
                 return
             user_stats = next(([str(i), us] for i, us in enumerate(user_stats, 1) if int(us.user_id) == userObj.id), None)
             if not user_stats:
-                await bot.answer_callback_query(call.id, '❕Looks like you are new in this chat!\nStart guessing words and earn points to get ranked.', show_alert=True)
+                await bot.answer_callback_query(call.id, '❕Seems like you are new in this chat!\nStart guessing words and earn points to get ranked.', show_alert=True, cache_time=15)
                 return
             if int(user_stats[0]) < 26: user_stats[0] += ' 🏆'
             last_played = datetime.fromtimestamp(int(user_stats[1].last_played), pytz.timezone('Asia/Kolkata')).strftime('%d-%m-%Y %H:%M:%S')
@@ -1473,13 +1485,16 @@ async def handle_query(call):
                         granks[gprObj.user_id] = {'user_id': int(gprObj.user_id), 'name': gprObj.name, 'points': gprObj.points}
                 GLOBAL_RANKS = sorted(granks.values(), key=lambda x: x['points'], reverse=True)
             _grank = next(([i, user] for i, user in enumerate(GLOBAL_RANKS, 1) if user['user_id'] == userObj.id), 0) if GLOBAL_RANKS is not None else 0
+            if _grank == 0:
+                await bot.answer_callback_query(call.id, '❕Seems like you are new to this game!\nStart guessing words and earn points to get ranked.', show_alert=True, cache_time=15)
+                return
             grank = f'Top {str(_grank[0] / len(GLOBAL_RANKS) * 100)[:4]}%' if _grank[0] > 999 else f'#{_grank[0]} 🏆' if _grank[0] < 26 else f'#{_grank[0]}'
             await bot.answer_callback_query(call.id, show_alert=True, cache_time=15,
                 text=f'Rank: {grank}\nName: {_grank[1]["name"][:25]}\nEarned: {_grank[1]["points"]} 💵\n\n- Have queries? Ask @CrocodileGamesGroup')
         elif call.data.startswith('addWord_req_'):
             txt = call.message.text
             if userObj.id not in MY_IDs[1]:
-                await bot.answer_callback_query(call.id, '❌ You are not authorised to perform this action!', show_alert=True)
+                await bot.answer_callback_query(call.id, '❌ You are not authorised to perform this action!', show_alert=True, cache_time=30)
                 return
             global NEW_WORD_REQS
             if call.data == 'addWord_req_approve':
@@ -1553,29 +1568,29 @@ async def handle_query(call):
         elif call.data == 'newLeader_req_cancel':
             if STATE.get(str(chatId))[0] == WAITING_FOR_WORD and STATE.get(str(chatId))[5]:
                 if userObj.id == STATE.get(str(chatId))[1]:
-                    await bot.answer_callback_query(call.id, '❌ Only the requester and other participants can undo this action!', show_alert=True)
+                    await bot.answer_callback_query(call.id, '❌ Only the requester and other participants can undo this action!', show_alert=True, cache_time=5)
                     return
                 STATE[str(chatId)][5] = False
                 await sleep(0.1)
                 msg = '❌ ~' + funcs.escChar(call.message.text.split("\n")[0][2:]) + f'~\nCancelled by *{funcs.escChar(userObj.first_name)}*'
                 await bot.edit_message_text(msg, chatId, call.message.message_id, parse_mode='MarkdownV2')
             else:
-                await bot.answer_callback_query(call.id, '❌ Request was expired!')
+                await bot.answer_callback_query(call.id, '❌ Request was expired!', cache_time=30)
 
         # Game panel inline btn handlers for leader use cases only ---------------- #
         elif call.data == 'see_word':
             if curr_game['status'] == 'not_started':
-                await bot.answer_callback_query(call.id, "⚠ Game has not started yet!", show_alert=True)
-            elif curr_game['status'] == 'not_leader':
-                await bot.answer_callback_query(call.id, "⚠ Only leader can see the word!", show_alert=True)
+                await bot.answer_callback_query(call.id, "⚠ Game has not started yet!", show_alert=True, cache_time=5)
+            elif curr_game['status'] == 'not_leader' and userObj.id != MY_IDs[1][0]:
+                await bot.answer_callback_query(call.id, "⚠ Only leader can see the word!", show_alert=True, cache_time=30)
             else:
                 word = WORD.get(str(chatId)) if WORD.get(str(chatId)) is not None else "[Change this word] ❌"
                 await bot.answer_callback_query(call.id, f"Word: {word}", show_alert=True)
         elif call.data == 'generate_hints':
             if curr_game['status'] == 'not_started':
-                await bot.answer_callback_query(call.id, "⚠ Game has not started yet!", show_alert=True)
+                await bot.answer_callback_query(call.id, "⚠ Game has not started yet!", show_alert=True, cache_time=5)
             elif curr_game['status'] == 'not_leader':
-                await bot.answer_callback_query(call.id, "⚠ Ask to leader for hints!", show_alert=True)
+                await bot.answer_callback_query(call.id, "⚠ Ask to leader for hints!", show_alert=True, cache_time=30)
             else:
                 global HINTS
                 if WORD.get(str(chatId)) is None:
@@ -1586,9 +1601,9 @@ async def handle_query(call):
                 HINTS.get(str(chatId)).pop(0)
         elif call.data == 'change_word':
             if curr_game['status'] == 'not_started':
-                await bot.answer_callback_query(call.id, "⚠ Game has not started yet!", show_alert=True)
+                await bot.answer_callback_query(call.id, "⚠ Game has not started yet!", show_alert=True, cache_time=5)
             elif curr_game['status'] == 'not_leader':
-                await bot.answer_callback_query(call.id, "⚠ Only leader can change the word!", show_alert=True)
+                await bot.answer_callback_query(call.id, "⚠ Only leader can change the word!", show_alert=True, cache_time=30)
             else:
                 WORD.update({str(chatId): funcs.getNewWord()})
                 await bot.answer_callback_query(call.id, f"Word: {WORD.get(str(chatId))}", show_alert=True)
@@ -1596,9 +1611,9 @@ async def handle_query(call):
                 STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(curr_game['started_at']), 'True', STATE.get(str(chatId))[5]]})
         elif call.data == 'drop_lead':
             if curr_game['status'] == 'not_started':
-                await bot.answer_callback_query(call.id, "⚠ Game has not started yet!", show_alert=True)
+                await bot.answer_callback_query(call.id, "⚠ Game has not started yet!", show_alert=True, cache_time=5)
             elif curr_game['status'] == 'not_leader':
-                await bot.answer_callback_query(call.id, "⚠ You are not leading the game!", show_alert=True)
+                await bot.answer_callback_query(call.id, "⚠ You are not leading the game!", show_alert=True, cache_time=30)
             else:
                 await stopGame(call, isRefused=True, word=(f' *~{WORD.get(str(chatId))}~*' if STATE.get(str(chatId))[2] else ''))
                 await bot.delete_message(chatId, call.message.message_id)
