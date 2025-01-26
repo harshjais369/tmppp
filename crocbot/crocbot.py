@@ -3,6 +3,8 @@ import time
 import json
 import pytz
 from datetime import datetime
+import numpy as np
+import matplotlib.pyplot as plt
 import platform
 import psutil
 import speedtest
@@ -13,7 +15,7 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import funcs
 from sql_helper.current_running_game_sql import addGame_sql, getGame_sql, removeGame_sql
 from sql_helper.rankings_sql import incrementPoints_sql, getUserPoints_sql, getTop25Players_sql, getTop25PlayersInAllChats_sql, getTop10Chats_sql, getAllChatIds_sql
-from sql_helper.daily_botstats_sql import new_joined_chat_sql
+from sql_helper.daily_botstats_sql import update_dailystats_sql, get_last30days_stats_sql
 from sql_helper.ai_conv_sql import getEngAIConv_sql, updateEngAIPrompt_sql
 
 BOT_TOKEN = os.environ.get('BOT_TOKEN', None)
@@ -282,6 +284,7 @@ async def cancelBroadcast_cmd(message):
 
 @bot.message_handler(commands=['botstats'])
 async def botStats_cmd(message):
+    chatId = message.chat.id
     user_obj = message.from_user
     if user_obj.id not in MY_IDs[1]:
         return
@@ -292,21 +295,48 @@ async def botStats_cmd(message):
     total_ids.extend(u_ids)
     total_ids = list(set(total_ids))
     import wordlist
-    await bot.reply_to(message, f'🤖 *Bot stats:*\n\n'
-                                        f'*Chats \(total\):* {len(total_ids)}\n'
-                                        f'*Users:* {len(u_ids)}\n'
-                                        f'*Groups:* {len(g_ids)}\n'
-                                        f'*Potential reach:* 3\.7M\n'
-                                        f'*Super\-users:* {len(MY_IDs[1])}\n'
-                                        f'*AI users:* {len(AI_USERS)}\n'
-                                        f'*AI enabled groups:* {len(CROCO_CHATS)}\n'
-                                        f'*Groups with cheaters:* {len(CHEAT_RECORD)}\n'
-                                        f'*Detected cheats:* {sum(CHEAT_RECORD.values())}\n'
-                                        f'*Blocked groups:* {len(BLOCK_CHATS)}\n'
-                                        f'*Blocked users:* {len(BLOCK_USERS)}\n'
-                                        f'*Total WORDs:* {len(wordlist.WORDLIST)}\n'
-                                        f'*Running games:* {len(STATE)}\n',
-                                        parse_mode='MarkdownV2', allow_sending_without_reply=True)
+    stats_msg = f'🤖 *Bot stats:*\n\n' \
+        f'*Chats \(total\):* {len(total_ids)}\n' \
+        f'*Users:* {len(u_ids)}\n' \
+        f'*Groups:* {len(g_ids)}\n' \
+        f'*Potential reach:* 3\.7M\n' \
+        f'*Super\-users:* {len(MY_IDs[1])}\n' \
+        f'*AI users:* {len(AI_USERS)}\n' \
+        f'*AI enabled groups:* {len(CROCO_CHATS)}\n' \
+        f'*Groups with cheaters:* {len(CHEAT_RECORD)}\n' \
+        f'*Detected cheats:* {sum(CHEAT_RECORD.values())}\n' \
+        f'*Blocked groups:* {len(BLOCK_CHATS)}\n' \
+        f'*Blocked users:* {len(BLOCK_USERS)}\n' \
+        f'*Total WORDs:* {len(wordlist.WORDLIST)}\n' \
+        f'*Running games:* {len(STATE)}\n'
+    last30days_stats = get_last30days_stats_sql()
+    if len(last30days_stats) == 0:
+        await bot.reply_to(message, stats_msg, parse_mode='MarkdownV2', allow_sending_without_reply=True)
+        return
+    # Prepare matplotlib graph
+    dates, chats_added, games_played, cheats_detected = [], [], [], []
+    for stats in last30days_stats:
+        dates.append(stats.date.split('-')[2])
+        chats_added.append(stats.chats_added)
+        games_played.append(stats.games_played)
+        cheats_detected.append(stats.cheats_detected)
+    x = np.arange(len(dates))
+    fig, ax = plt.subplots()
+    # fig.set_size_inches(10, 5)
+    ax.plot(x, chats_added, label='Chats added')
+    ax.plot(x, games_played, label='Games played', c='g')
+    ax.plot(x, cheats_detected, label='Cheats detected', c='m')
+    ax.set_xticks(x)
+    ax.set_xticklabels(dates, rotation=45)
+    # ax.set_xlabel('CrocodileGameEnn_bot.t.me')
+    ax.set_title('Crocodile Game Bot (In last 30 days)')
+    ax.legend()
+    plt.tight_layout()
+    plt.savefig('last30days_stats.png')
+    plt.close()
+    with open('last30days_stats.png', 'rb') as img:
+        await bot.send_photo(chatId, img, caption=stats_msg, parse_mode='MarkdownV2',
+                             reply_to_message_id=message.message_id, allow_sending_without_reply=True)
 
 @bot.message_handler(commands=['serverinfo'])
 async def serverInfo_cmd(message):
@@ -756,6 +786,7 @@ async def start_game(message):
         await sleep(0.3)
     if await startGame(message) is not None:
         STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(time.time()), 'True', False]})
+        update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 0, 1)
 
 @bot.message_handler(commands=['stop'])
 async def stop_game(message):
@@ -1106,7 +1137,7 @@ async def handle_new_chat_members(message):
         await sleep(0.5)
         await bot.send_message(chatId, f'🚫 *This chat/group was flagged as suspicious, and hence restricted from using this bot\!*\n\n' \
             f'If you\'re chat/group owner and thinks this is a mistake, please write to: \@CrocodileGamesGroup', parse_mode='MarkdownV2')
-    new_joined_chat_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat())
+    update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 2, 1)
     
 # Handler for "chat name is changed" (update chat name in TOP10_CHAT_NAMES)
 @bot.message_handler(content_types=['new_chat_title'])
@@ -1257,6 +1288,8 @@ async def handle_group_message(message):
                         else:
                             CHEAT_RECORD.update({str(chatId): curr_cheat_stats + 1})                        
                     removeGame_sql(chatId)
+                    if points == -1:
+                        update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 1, 1)
                 else:
                     # Leader revealed the word (stop game and deduct leader's points)
                     await stopGame(message, isWordRevealed=True)
@@ -1367,6 +1400,7 @@ async def handle_query(call):
                 if word is not None:
                     await bot.answer_callback_query(call.id, f"Word: {word}", show_alert=True)
                     STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(time.time()), 'True', False]})
+                    update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 0, 1)
                 else:
                     STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
             elif curr_game['status'] == 'not_leader':
@@ -1402,6 +1436,7 @@ async def handle_query(call):
                         STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(time.time()), 'True', False]})
                         await sleep(0.3)
                         await bot.delete_message(chatId, rmsg.message_id)
+                        update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 0, 1)
                     else:
                         STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
                 else:
@@ -1415,6 +1450,7 @@ async def handle_query(call):
                     await bot.answer_callback_query(call.id, f"Word: {word}", show_alert=True)
                     await bot.delete_message(chatId, call.message.message_id)
                     STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(time.time()), 'True', False]})
+                    update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 0, 1)
                 else:
                     STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
             elif curr_game['status'] == 'not_leader':
@@ -1450,6 +1486,7 @@ async def handle_query(call):
                         STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(time.time()), 'True', False]})
                         await sleep(0.3)
                         await bot.delete_message(chatId, rmsg.message_id)
+                        update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 0, 1)
                     else:
                         STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
                 else:
