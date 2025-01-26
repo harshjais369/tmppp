@@ -299,7 +299,7 @@ async def botStats_cmd(message):
         f'*Chats \(total\):* {len(total_ids)}\n' \
         f'*Users:* {len(u_ids)}\n' \
         f'*Groups:* {len(g_ids)}\n' \
-        f'*Potential reach:* 3\.7M\n' \
+        f'*Potential reach:* 3\.8M\n' \
         f'*Super\-users:* {len(MY_IDs[1])}\n' \
         f'*AI users:* {len(AI_USERS)}\n' \
         f'*AI enabled groups:* {len(CROCO_CHATS)}\n' \
@@ -318,13 +318,13 @@ async def botStats_cmd(message):
     for stats in last30days_stats:
         dates.append(stats.date.split('-')[2])
         chats_added.append(stats.chats_added)
-        games_played.append(stats.games_played)
+        games_played.append(stats.games_played / 10)
         cheats_detected.append(stats.cheats_detected)
     x = np.arange(len(dates))
     fig, ax = plt.subplots()
     # fig.set_size_inches(10, 5)
     ax.plot(x, chats_added, label='Chats added')
-    ax.plot(x, games_played, label='Games played', c='g')
+    ax.plot(x, games_played, label='Games played ×10', c='g')
     ax.plot(x, cheats_detected, label='Cheats detected', c='m')
     ax.set_xticks(x)
     ax.set_xticklabels(dates, rotation=45)
@@ -1344,8 +1344,9 @@ async def handle_group_message(message):
                                        parse_mode='MarkdownV2', allow_sending_without_reply=True)
 
 # Handler for incoming media in groups
-@bot.message_handler(content_types=['sticker', 'photo', 'video', 'document', 'animation', 'dice', 'poll'], func=lambda message: message.chat.type in ['supergroup', 'group'])
-async def handle_group_sticker(message):
+@bot.message_handler(content_types=['sticker', 'photo', 'video', 'document', 'animation', 'dice', 'poll', 'voice', 'video_note', 'audio', 'contact'],
+                     func=lambda message: message.chat.type in ['supergroup', 'group'])
+async def handle_group_media(message):
     chatId = message.chat.id
     userId = message.from_user.id
     if chatId in BLOCK_CHATS and userId in BLOCK_USERS:
