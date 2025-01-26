@@ -1120,8 +1120,8 @@ async def cmdlist_cmd(message):
 async def handle_new_chat_members(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
-        await bot.send_message(MY_IDs[1][0], f'✅ Bot \#added to chat: `{funcs.escChar(chatId)}`\n{funcs.escChar(message.chat.title)}',
-                               parse_mode='MarkdownV2')
+        await bot.send_message(f'✅ Bot \#added to chat: `{funcs.escChar(chatId)}`\n{funcs.escChar(message.chat.title)}\n\@{funcs.escChar(message.chat.username)}',
+                               chat_id=MY_IDs[1][0], parse_mode='MarkdownV2')
         await sleep(0.5)
         # await bot.send_message(-1002204421104, f'✅ Bot \#added to chat: `{funcs.escChar(chatId)}`', parse_mode='MarkdownV2')
         await sleep(2.5)
@@ -1131,8 +1131,8 @@ async def handle_new_chat_members(message):
         ])
         await bot.send_message(chatId, f'👉🏻 Tap /help to see game commands.\n\nSupport group: @CrocodileGamesGroup', reply_markup=markup_btn)
     else:
-        await bot.send_message(MY_IDs[1][0], f'☑️ Bot \#added to a \#blocked chat: `{funcs.escChar(chatId)}`\n{funcs.escChar(message.chat.title)}',
-                               parse_mode='MarkdownV2')
+        await bot.send_message(f'☑️ Bot \#added to a \#blocked chat: `{funcs.escChar(chatId)}`\n{funcs.escChar(message.chat.title)}\n\@{funcs.escChar(message.chat.username)}',
+                               chat_id=MY_IDs[1][0], parse_mode='MarkdownV2')
         await sleep(0.5)
         # await bot.send_message(-1002204421104, f'☑️ Bot \#added to a \#blocked chat: `{funcs.escChar(chatId)}`', parse_mode='MarkdownV2')
         await sleep(0.5)
