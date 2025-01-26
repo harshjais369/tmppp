@@ -1064,6 +1064,7 @@ async def cmdlist_cmd(message):
         '/cancelbroadcast \- stop broadcast\n'
         '/del \- delete message\n'
         '/approve \- approve new requests\n'
+        '/showcheats \- groups with cheats\n'
         '/cmdlist \- show this message\n'
     )
     block_cmds = (
@@ -1095,7 +1096,7 @@ async def cmdlist_cmd(message):
         '/addword \- add word to dictionary\n'
     )
     ludo_cmds = (
-        '/startludo \- start a Ludo game'
+        '/startludo \- ~play Ludo game~ \(disabled\)'
     )
     await bot.send_message(chatId, '📖 *All commands:*\n\n'
                                     '📊 *Super\-user commands —*\n'
