@@ -1120,8 +1120,8 @@ async def cmdlist_cmd(message):
 async def handle_new_chat_members(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
-        await bot.send_message(f'✅ Bot \#added to chat: `{funcs.escChar(chatId)}`\n{funcs.escChar(message.chat.title)}\n\@{funcs.escChar(message.chat.username)}',
-                               chat_id=MY_IDs[1][0], parse_mode='MarkdownV2')
+        username = f'\n\(\@{funcs.escChar(message.chat.username)}\)' if message.chat.username is not None else ''
+        await bot.send_message(MY_IDs[1][0], f'✅ Bot \#added to chat: `{funcs.escChar(chatId)}`\n{funcs.escChar(message.chat.title)}{username}', parse_mode='MarkdownV2')
         await sleep(0.5)
         # await bot.send_message(-1002204421104, f'✅ Bot \#added to chat: `{funcs.escChar(chatId)}`', parse_mode='MarkdownV2')
         await sleep(2.5)
@@ -1139,7 +1139,18 @@ async def handle_new_chat_members(message):
         await bot.send_message(chatId, f'🚫 *This chat/group was flagged as suspicious, and hence restricted from using this bot\!*\n\n' \
             f'If you\'re chat/group owner and thinks this is a mistake, please write to: \@CrocodileGamesGroup', parse_mode='MarkdownV2')
     update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 2, 1)
-    
+
+# Handler for "bot removed by chat/user" (send message to 1st superuser (MY_IDs[1][0]))
+@bot.my_chat_member_handler(func=lambda message: message.new_chat_member.status in ['kicked', 'left'])
+async def handle_my_chat_member(message):
+    chatId = message.chat.id
+    username = f'\(\@{funcs.escChar(message.chat.username)}\)' if message.chat.username is not None else ''
+    if message.chat.type != 'private':
+        await bot.send_message(MY_IDs[1][0], f'❌ Bot \#removed by chat: `{funcs.escChar(chatId)}`\n{funcs.escChar(message.chat.title)}\n{username}', parse_mode='MarkdownV2')
+    else:
+        fullName = funcs.escChar(f'{message.chat.first_name} {message.chat.last_name}' if message.chat.last_name is not None else message.chat.first_name)
+        await bot.send_message(MY_IDs[1][0], f'❌ Bot \#removed by user: `{funcs.escChar(chatId)}`\n{fullName}\n{username}', parse_mode='MarkdownV2')
+
 # Handler for "chat name is changed" (update chat name in TOP10_CHAT_NAMES)
 @bot.message_handler(content_types=['new_chat_title'])
 async def handle_new_chat_title(message):
