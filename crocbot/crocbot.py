@@ -299,7 +299,7 @@ async def botStats_cmd(message):
         f'*Chats \(total\):* {len(total_ids)}\n' \
         f'*Users:* {len(u_ids)}\n' \
         f'*Groups:* {len(g_ids)}\n' \
-        f'*Potential reach:* 3\.8M\n' \
+        f'*Potential reach:* 3\.9M\n' \
         f'*Super\-users:* {len(MY_IDs[1])}\n' \
         f'*AI users:* {len(AI_USERS)}\n' \
         f'*AI enabled groups:* {len(CROCO_CHATS)}\n' \
