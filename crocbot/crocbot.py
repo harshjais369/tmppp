@@ -295,20 +295,20 @@ async def botStats_cmd(message):
     total_ids.extend(u_ids)
     total_ids = list(set(total_ids))
     import wordlist
-    stats_msg = f'🤖 *Bot stats:*\n\n' \
+    stats_msg = f'🤖 *Bot stats \(complete\):*\n\n' \
         f'*Chats \(total\):* {len(total_ids)}\n' \
         f'*Users:* {len(u_ids)}\n' \
         f'*Groups:* {len(g_ids)}\n' \
         f'*Potential reach:* 3\.9M\n' \
         f'*Super\-users:* {len(MY_IDs[1])}\n' \
         f'*AI users:* {len(AI_USERS)}\n' \
-        f'*AI enabled groups:* {len(CROCO_CHATS)}\n' \
+        f'*AI groups:* {len(CROCO_CHATS)}\n' \
         f'*Groups with cheaters:* {len(CHEAT_RECORD)}\n' \
         f'*Detected cheats:* {sum(CHEAT_RECORD.values())}\n' \
         f'*Blocked groups:* {len(BLOCK_CHATS)}\n' \
         f'*Blocked users:* {len(BLOCK_USERS)}\n' \
         f'*Total WORDs:* {len(wordlist.WORDLIST)}\n' \
-        f'*Running games:* {len(STATE)}\n'
+        f'*Active chats \(since reboot\):* {len(STATE)}\n'
     last30days_stats = get_last30days_stats_sql()
     if len(last30days_stats) == 0:
         await bot.reply_to(message, stats_msg, parse_mode='MarkdownV2', allow_sending_without_reply=True)
@@ -323,18 +323,30 @@ async def botStats_cmd(message):
     x = np.arange(len(dates))
     fig, ax = plt.subplots()
     # fig.set_size_inches(10, 5)
+    # removing axes from the figure
+    plt.gca().spines['right'].set_visible(False)
+    plt.gca().spines['top'].set_visible(False)
+    # Text Watermark
+    fig.text(1, 0.1, '@CrocodileGameEnn_bot', fontsize=35, color='gray', ha='right', va='bottom', alpha=0.1, rotation=25)
+    plt.xlim(0, len(dates) - 1)
+    plt.ylim(0, max(games_played))
     ax.plot(x, chats_added, label='Chats added')
     ax.plot(x, games_played, label='Games played ×100', c='g')
-    ax.plot(x, cheats_detected, label='Cheats detected ×100', c='m')
+    ax.plot(x, cheats_detected, label='Cheats found ×100', c='m')
     ax.set_xticks(x)
     ax.set_xticklabels(dates, rotation=45)
     # ax.set_xlabel('CrocodileGameEnn_bot.t.me')
     ax.set_title('Crocodile Game Bot (In last 30 days)')
-    ax.legend()
+    ax.legend(frameon=False)
     plt.tight_layout()
     plt.savefig('last30days_stats.png')
     plt.close()
     with open('last30days_stats.png', 'rb') as img:
+        # Append today's stats to message
+        stats_msg = f'📅 *Today stats:*\n\n' \
+            f'*New chats:* {chats_added[-1]}\n' \
+            f'*Games played:* {int(games_played[-1] * 100)}\n' \
+            f'*Cheating rate:* {funcs.escChar(100*cheats_detected[-1]/games_played[-1])[:4]}%\n\n' + stats_msg
         await bot.send_photo(chatId, img, caption=stats_msg, parse_mode='MarkdownV2',
                              reply_to_message_id=message.message_id, allow_sending_without_reply=True)
 

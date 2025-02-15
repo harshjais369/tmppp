@@ -23,7 +23,7 @@ DailyBotStats.__table__.create(checkfirst=True, bind=SESSION.bind)
 
 def get_last30days_stats_sql() -> list:
     try:
-        return SESSION.query(DailyBotStats).order_by(DailyBotStats.id).limit(30).all()
+        return SESSION.query(DailyBotStats).order_by(DailyBotStats.id.desc()).limit(30).all()[::-1]
     except Exception as e:
         print(e)
         return []
