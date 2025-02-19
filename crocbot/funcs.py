@@ -8,7 +8,10 @@ AI_API_KEY = os.environ.get('AI_API_KEY', None)
 if AI_PLATFORM == 'google':
     from google import genai
     from google.genai.types import (Tool, Part, GenerateContentConfig, SafetySetting, HarmBlockThreshold, GoogleSearch)
-    client = genai.Client(api_key=AI_API_KEY)
+    try:
+        client = genai.Client(api_key=AI_API_KEY)
+    except:
+        print('AI_API_KEY is not configured properly. Please check .env file!')
 elif AI_PLATFORM == 'openai':
     from openai import OpenAI
     client_openai = OpenAI(api_key=AI_API_KEY)
@@ -199,6 +202,26 @@ def getCrocoResp(prompt):
 
 
 # Other funcs ------------------------------------------------------------------ #
+
+def escName(user, charLimit: int=25, part: str='fname') -> str:
+    """
+    Removes any "ㅤ" characters from a name.
+    
+    :param user: from_user object
+    :param limit: Max length of the name = 25
+    :param part: 'fname' | 'full' = 'fname'
+    :return: fname + lname | "[Ghost User]"
+    """
+    fullname = user.first_name.replace('ㅤ', '')
+    if part != 'fname':
+        fullname = (fullname + ' ' + user.last_name.replace('ㅤ', '')).lstrip() if user.last_name else fullname
+        fullname = fullname if fullname != '' else '[Ghost User]'
+        return fullname[:charLimit] + '...' if len(fullname) > charLimit else fullname
+    if fullname == '':
+        fullname = user.last_name.replace('ㅤ', '') if user.last_name else '[Ghost User]'
+        if fullname == '':
+            fullname = '[Ghost User]'
+    return fullname[:charLimit] + '...' if len(fullname) > charLimit else fullname
 
 def escChar(content) -> str:
     """

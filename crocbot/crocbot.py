@@ -13,6 +13,7 @@ from asyncio import sleep
 from telebot.async_telebot import AsyncTeleBot, ExceptionHandler
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import funcs
+from funcs import escName, escChar
 from sql_helper.current_running_game_sql import addGame_sql, getGame_sql, removeGame_sql
 from sql_helper.rankings_sql import incrementPoints_sql, getUserPoints_sql, getTop25Players_sql, getTop25PlayersInAllChats_sql, getTop10Chats_sql, getAllChatIds_sql
 from sql_helper.daily_botstats_sql import update_dailystats_sql, get_last30days_stats_sql
@@ -91,8 +92,8 @@ def getInlineBtn(event: str):
 async def startBotCmdInPvt(message, chatId):
     # Show greeting message and "Add Bot To Group" button
     userObj = message.from_user
-    f_name = '' if len(userObj.first_name) > 30 else userObj.first_name
-    greet_msg = f'👋🏻 Hey {funcs.escChar(f_name)}\!\n' \
+    fullname = escName(userObj, 35)
+    greet_msg = f'👋🏻 Hey {escChar(fullname)}\!\n' \
         f'🐊 *Crocodile Game* is a word guessing game where one player explains the word and others try to guess it\.\n\n' \
         f'👉🏻 Add me into your group and start playing the game now with your friends\!\n\n' \
         f'Press \/help to see the *list of all commands* and how they work\!'
@@ -118,8 +119,8 @@ async def startGame(message):
         await sleep(10)
         await bot.delete_message(chatId, msg.message_id)
         return None
-    f_name = userObj.first_name[:25] + '...' if len(userObj.first_name) > 25 else userObj.first_name
-    await bot.send_message(chatId, f'*[{funcs.escChar(f_name)}](tg://user?id={userObj.id}) is explaining the word\!*', reply_markup=getInlineBtn('leading'), parse_mode='MarkdownV2')
+    await bot.send_message(chatId, f'*[{escChar(escName(userObj))}](tg://user?id={userObj.id}) is explaining the word\!*',
+                           reply_markup=getInlineBtn('leading'), parse_mode='MarkdownV2')
     return word
 
 async def stopGame(message, isRefused=False, isChangeLeader=False, isWordRevealed=False, word=''):
@@ -129,15 +130,15 @@ async def stopGame(message, isRefused=False, isChangeLeader=False, isWordReveale
     except:
         chatId = message.message.chat.id
     userObj = message.from_user
-    f_name = userObj.first_name[:25] + '...' if len(userObj.first_name) > 25 else userObj.first_name
+    fullname = escName(userObj)
     if isRefused:
-        await bot.send_message(chatId, f'{funcs.escChar(f_name)} refused to lead\!{word}', reply_markup=getInlineBtn('refused_lead'), parse_mode='MarkdownV2')
+        await bot.send_message(chatId, f'{escChar(fullname)} refused to lead\!{word}', reply_markup=getInlineBtn('refused_lead'), parse_mode='MarkdownV2')
     elif isChangeLeader:
         # If game started more than 30 seconds, allow others to change leader
         pass
     elif isWordRevealed:
         # Leader revealed the word (deduct point)
-        await bot.send_message(chatId, f'🛑 *Game stopped\!*\n[{funcs.escChar(f_name)}](tg://user?id={userObj.id}) \(\-1💵\) revealed the word: *{WORD.get(str(chatId))}*',
+        await bot.send_message(chatId, f'🛑 *Game stopped\!*\n[{escChar(fullname)}](tg://user?id={userObj.id}) \(\-1💵\) revealed the word: *{WORD.get(str(chatId))}*',
                                reply_markup=getInlineBtn('revealed_word'), parse_mode='MarkdownV2')
     else:
         chat_admins = await bot.get_chat_administrators(chatId)
@@ -171,8 +172,7 @@ async def changeWord(message):
     HINTS.pop(str(chatId), None)
     addGame_sql(chatId, user_obj.id, WORD.get(str(chatId)))
     if (STATE.get(str(chatId))[0] == WAITING_FOR_COMMAND) or (STATE.get(str(chatId))[0] == WAITING_FOR_WORD and STATE.get(str(chatId))[2]):
-        f_name = user_obj.first_name[:25] + '...' if len(user_obj.first_name) > 25 else user_obj.first_name
-        await bot.send_message(chatId, f"❗ {funcs.escChar(f_name)} changed the word\!", parse_mode='MarkdownV2')
+        await bot.send_message(chatId, f"❗ {escChar(escName(user_obj))} changed the word\!", parse_mode='MarkdownV2')
 
 async def getCurrGame(chatId, userId):
     if STATE is not None and str(chatId) in STATE and STATE.get(str(chatId))[0] == WAITING_FOR_WORD:
@@ -346,7 +346,7 @@ async def botStats_cmd(message):
         stats_msg = f'📅 *Today stats:*\n\n' \
             f'*New chats:* {chats_added[-1]}\n' \
             f'*Games played:* {int(games_played[-1] * 100)}\n' \
-            f'*Cheating rate:* {funcs.escChar(100*cheats_detected[-1]/games_played[-1])[:4]}%\n\n' + stats_msg
+            f'*Cheating rate:* {escChar(100*cheats_detected[-1]/games_played[-1])[:4]}%\n\n' + stats_msg
         await bot.send_photo(chatId, img, caption=stats_msg, parse_mode='MarkdownV2',
                              reply_to_message_id=message.message_id, allow_sending_without_reply=True)
 
@@ -366,15 +366,15 @@ async def serverInfo_cmd(message):
     upload_speed = round(st.upload() / 1024 / 1024, 2)
     ping = st.results.ping
     await bot.reply_to(message, f'🖥 *Server info:*\n\n'
-                                f'*System:* {funcs.escChar(platform.system())} {funcs.escChar(platform.release())}\n'
-                                f'*CPU usage:* {funcs.escChar(cpu_usage)}%\n'
-                                f'*Memory usage:* {funcs.escChar(mem.percent)}%\n'
-                                f'*Disk usage:* {funcs.escChar(disk.percent)}%\n'
+                                f'*System:* {escChar(platform.system())} {escChar(platform.release())}\n'
+                                f'*CPU usage:* {escChar(cpu_usage)}%\n'
+                                f'*Memory usage:* {escChar(mem.percent)}%\n'
+                                f'*Disk usage:* {escChar(disk.percent)}%\n'
                                 f'*Network speed:*\n'
-                                f'\t*– Download:* {funcs.escChar(download_speed)} Mb/s\n'
-                                f'\t*– Upload:* {funcs.escChar(upload_speed)} Mb/s\n'
-                                f'\t*– Ping:* {funcs.escChar(ping)} ms\n'
-                                f'*Uptime:* {funcs.escChar(time.strftime("%H:%M:%S", time.gmtime(time.time() - psutil.boot_time())))}\n',
+                                f'\t*– Download:* {escChar(download_speed)} Mb/s\n'
+                                f'\t*– Upload:* {escChar(upload_speed)} Mb/s\n'
+                                f'\t*– Ping:* {escChar(ping)} ms\n'
+                                f'*Uptime:* {escChar(time.strftime("%H:%M:%S", time.gmtime(time.time() - psutil.boot_time())))}\n',
                                 parse_mode='MarkdownV2', allow_sending_without_reply=True)
 
 # See chat/user info
@@ -398,20 +398,19 @@ async def info_cmd(message):
                 await bot.reply_to(message, 'Chat not found!', allow_sending_without_reply=True)
                 return
             await bot.reply_to(message, f'👥 *Chat info:*\n\n'
-                                        f'*ID:* `{funcs.escChar(chat_obj.id)}`\n'
-                                        f'*Type:* {funcs.escChar(chat_obj.type)}\n'
-                                        f'*Title:* {funcs.escChar(chat_obj.title)}\n'
-                                        f'*Username:* @{funcs.escChar(chat_obj.username)}\n'
-                                        f'*Invite link:* {funcs.escChar(chat_obj.invite_link)}\n'
-                                        f'*Description:* {funcs.escChar(chat_obj.description)}\n',
+                                        f'*ID:* `{escChar(chat_obj.id)}`\n'
+                                        f'*Type:* {escChar(chat_obj.type)}\n'
+                                        f'*Title:* {escChar(chat_obj.title)}\n'
+                                        f'*Username:* @{escChar(chat_obj.username)}\n'
+                                        f'*Invite link:* {escChar(chat_obj.invite_link)}\n'
+                                        f'*Description:* {escChar(chat_obj.description)}\n',
                                         parse_mode='MarkdownV2', allow_sending_without_reply=True)
             return
-        fullName = rply_chat_obj.first_name + ' ' + rply_chat_obj.last_name if rply_chat_obj.last_name is not None else rply_chat_obj.first_name
         await bot.reply_to(message, f'👤 *User info:*\n\n'
-                                    f'*ID:* `{funcs.escChar(rply_chat_obj.id)}`\n'
-                                    f'*Name:* {funcs.escChar(fullName)}\n'
-                                    f'*Username:* @{funcs.escChar(rply_chat_obj.username)}\n'
-                                    f'*User link:* [link](tg://user?id={funcs.escChar(rply_chat_obj.id)})\n',
+                                    f'*ID:* `{escChar(rply_chat_obj.id)}`\n'
+                                    f'*Name:* {escChar(escName(rply_chat_obj, 100, "full"))}\n'
+                                    f'*Username:* @{escChar(rply_chat_obj.username)}\n'
+                                    f'*User link:* [link](tg://user?id={escChar(rply_chat_obj.id)})\n',
                                     parse_mode='MarkdownV2', allow_sending_without_reply=True)
         return
     command_parts = message.text.split(' ', 2)
@@ -429,23 +428,21 @@ async def info_cmd(message):
         await bot.reply_to(message, 'Chat not found!', allow_sending_without_reply=True)
         return
     if chat_obj.type == 'private':
-        fullName = chat_obj.first_name + ' ' + chat_obj.last_name if chat_obj.last_name is not None else chat_obj.first_name
-        fullName = fullName[:25] + '...' if len(fullName) > 25 else fullName
         await bot.reply_to(message, f'👤 *User info:*\n\n'
-                                        f'*ID:* `{funcs.escChar(chat_obj.id)}`\n'
-                                        f'*Name:* {funcs.escChar(fullName)}\n'
-                                        f'*Username:* @{funcs.escChar(chat_obj.username)}\n'
-                                        f'*User link:* [link](tg://user?id={funcs.escChar(chat_obj.id)})\n'
-                                        f'*Bio:* {funcs.escChar(chat_obj.bio)}\n',
+                                        f'*ID:* `{escChar(chat_obj.id)}`\n'
+                                        f'*Name:* {escChar(escName(chat_obj, 100, "full"))}\n'
+                                        f'*Username:* @{escChar(chat_obj.username)}\n'
+                                        f'*User link:* [link](tg://user?id={escChar(chat_obj.id)})\n'
+                                        f'*Bio:* {escChar(chat_obj.bio)}\n',
                                         parse_mode='MarkdownV2', allow_sending_without_reply=True)
     else:
         await bot.reply_to(message, f'👥 *Chat info:*\n\n'
-                                            f'*ID:* `{funcs.escChar(chat_obj.id)}`\n'
-                                            f'*Type:* {funcs.escChar(chat_obj.type)}\n'
-                                            f'*Title:* {funcs.escChar(chat_obj.title)}\n'
-                                            f'*Username:* @{funcs.escChar(chat_obj.username)}\n'
-                                            f'*Invite link:* {funcs.escChar(chat_obj.invite_link)}\n'
-                                            f'*Description:* {funcs.escChar(chat_obj.description)}\n',
+                                            f'*ID:* `{escChar(chat_obj.id)}`\n'
+                                            f'*Type:* {escChar(chat_obj.type)}\n'
+                                            f'*Title:* {escChar(chat_obj.title)}\n'
+                                            f'*Username:* @{escChar(chat_obj.username)}\n'
+                                            f'*Invite link:* {escChar(chat_obj.invite_link)}\n'
+                                            f'*Description:* {escChar(chat_obj.description)}\n',
                                             parse_mode='MarkdownV2', allow_sending_without_reply=True)
 
 @bot.message_handler(commands=['del'])
@@ -476,7 +473,7 @@ async def showCheats_cmd(message):
     cheat_msg = ''
     for i, (chat_id, cheat_count) in enumerate(CHEAT_RECORD.items(), 1):
         cheat_msg += f'{i}. {chat_id} — {cheat_count}\n'
-    cheat_msg = '🔍 No cheats found yet\!' if cheat_msg == '' else f'🕵🏻‍♂️ *Cheats detected in groups:* `{toal_cheats}`\n\n' + funcs.escChar(cheat_msg)
+    cheat_msg = '🔍 No cheats found yet\!' if cheat_msg == '' else f'🕵🏻‍♂️ *Cheats detected in groups:* `{toal_cheats}`\n\n' + escChar(cheat_msg)
     await bot.reply_to(message, cheat_msg, parse_mode='MarkdownV2', allow_sending_without_reply=True)
 
 # Admin commands handler (mute, unmute, ban) (superuser only) --------------------------------- #
@@ -501,7 +498,7 @@ async def mute_cmd(message):
                 await bot.reply_to(message, 'I cannot mute a superuser!', allow_sending_without_reply=True)
                 return
             await bot.restrict_chat_member(message.chat.id, rply_usr_obj.id)
-            await bot.reply_to(message, f'Muted [{rply_usr_obj.first_name}](tg://user?id={rply_usr_obj.id}).',
+            await bot.reply_to(message, f'Muted [{escName(rply_usr_obj)}](tg://user?id={rply_usr_obj.id}).',
                                parse_mode='Markdown', allow_sending_without_reply=True)
         else:
             await bot.reply_to(message, 'No user specified!', allow_sending_without_reply=True)
@@ -516,7 +513,7 @@ async def mute_cmd(message):
         await bot.reply_to(message, 'User not found!', allow_sending_without_reply=True)
         return
     await bot.restrict_chat_member(message.chat.id, usr_obj.user.id)
-    await bot.reply_to(message, f'Muted [{usr_obj.user.first_name}](tg://user?id={usr_obj.user.id}).',
+    await bot.reply_to(message, f'Muted [{escName(usr_obj.user)}](tg://user?id={usr_obj.user.id}).',
                        parse_mode='Markdown', allow_sending_without_reply=True)
 
 @bot.message_handler(commands=['unmute'])
@@ -533,7 +530,7 @@ async def unmute_cmd(message):
         if message.reply_to_message is not None:
             rply_usr_obj = message.reply_to_message.from_user
             await bot.restrict_chat_member(message.chat.id, rply_usr_obj.id, can_send_messages=True)
-            await bot.reply_to(message, f'[{rply_usr_obj.first_name}](tg://user?id={rply_usr_obj.id}) can speak now!',
+            await bot.reply_to(message, f'[{escName(rply_usr_obj)}](tg://user?id={rply_usr_obj.id}) can speak now!',
                                parse_mode='Markdown', allow_sending_without_reply=True)
         else:
             await bot.reply_to(message, 'No user specified!', allow_sending_without_reply=True)
@@ -548,7 +545,7 @@ async def unmute_cmd(message):
         await bot.reply_to(message, 'User not found!', allow_sending_without_reply=True)
         return
     await bot.restrict_chat_member(message.chat.id, usr_obj.user.id, can_send_messages=True)
-    await bot.reply_to(message, f'[{usr_obj.user.first_name}](tg://user?id={usr_obj.user.id}) can speak now!',
+    await bot.reply_to(message, f'[{escName(usr_obj.user)}](tg://user?id={usr_obj.user.id}) can speak now!',
                        parse_mode='Markdown', allow_sending_without_reply=True)
 
 # Block/Unblock chat/user (superuser only) --------------------------------------------------------- #
@@ -623,7 +620,7 @@ async def blockuser_cmd(message):
                 await bot.reply_to(message, 'User already blocked!', allow_sending_without_reply=True)
                 return
             BLOCK_USERS.append(int(rply_usr_obj.id))
-            await bot.reply_to(message, f'User [{rply_usr_obj.first_name}](tg://user?id={rply_usr_obj.id}) blocked successfully!',
+            await bot.reply_to(message, f'User [{escName(rply_usr_obj)}](tg://user?id={rply_usr_obj.id}) blocked successfully!',
                                parse_mode='Markdown', allow_sending_without_reply=True)
         else:
             await bot.reply_to(message, 'No user specified!', allow_sending_without_reply=True)
@@ -641,7 +638,7 @@ async def blockuser_cmd(message):
         if usr_obj.type != 'private':
             await bot.reply_to(message, 'Provided id belongs to a groupchat! To block a groupchat, use /blockchat command.', allow_sending_without_reply=True)
             return
-        user_title = f'[{usr_obj.first_name}](tg://user?id={usr_obj.id})'
+        user_title = f'[{escName(usr_obj)}](tg://user?id={usr_obj.id})'
     except:
         pass
     BLOCK_USERS.append(int(user_id))
@@ -660,7 +657,7 @@ async def unblockuser_cmd(message):
                 await bot.reply_to(message, 'User not blocked!', allow_sending_without_reply=True)
                 return
             BLOCK_USERS.remove(int(rply_usr_obj.id))
-            await bot.reply_to(message, f'User [{rply_usr_obj.first_name}](tg://user?id={rply_usr_obj.id}) unblocked successfully!',
+            await bot.reply_to(message, f'User [{escName(rply_usr_obj)}](tg://user?id={rply_usr_obj.id}) unblocked successfully!',
                                parse_mode='Markdown', allow_sending_without_reply=True)
         else:
             await bot.reply_to(message, 'No user specified!', allow_sending_without_reply=True)
@@ -678,7 +675,7 @@ async def unblockuser_cmd(message):
         if usr_obj.type != 'private':
             await bot.reply_to(message, 'Provided id belongs to a groupchat! To unblock a groupchat, use /unblockchat command.', allow_sending_without_reply=True)
             return
-        user_title = f'[{usr_obj.first_name}](tg://user?id={usr_obj.id})'
+        user_title = f'[{escName(usr_obj)}](tg://user?id={usr_obj.id})'
     except:
         pass
     BLOCK_USERS.remove(int(user_id))
@@ -696,7 +693,7 @@ async def setaiuser_cmd(message):
                 reply_user_obj = message.reply_to_message.from_user
                 global AI_USERS
                 AI_USERS.update({str(reply_user_obj.id): str(chatId)})
-                await bot.send_message(chatId, f"🤖 AI user set to [{reply_user_obj.first_name}](tg://user?id={reply_user_obj.id})!", parse_mode='Markdown')
+                await bot.send_message(chatId, f"🤖 AI user set to [{escName(reply_user_obj)}](tg://user?id={reply_user_obj.id})!", parse_mode='Markdown')
             else:
                 await bot.send_message(chatId, '❌ Please reply to a message from the user you want to set as AI user!')
         else:
@@ -712,7 +709,7 @@ async def delaiuser_cmd(message):
                 reply_user_obj = message.reply_to_message.from_user
                 global AI_USERS
                 AI_USERS.pop(str(reply_user_obj.id), None)
-                await bot.send_message(chatId, f"🤖 [{reply_user_obj.first_name}](tg://user?id={reply_user_obj.id}) has no AI access anymore!", parse_mode='Markdown')
+                await bot.send_message(chatId, f"🤖 [{escName(reply_user_obj)}](tg://user?id={reply_user_obj.id}) has no AI access anymore!", parse_mode='Markdown')
             else:
                 await bot.send_message(chatId, '❌ Please reply to a message from the user you want to remove AI access from!')
         else:
@@ -776,8 +773,8 @@ async def start_game(message):
             await sleep(10)
             await bot.delete_message(chatId, msg.message_id)
             return
-        fname = userObj.first_name[:25] + '...' if len(userObj.first_name) > 25 else userObj.first_name
-        rmsg = await bot.send_message(chatId, f'⏳ *{funcs.escChar(fname)}* wants to lead the game\!\nIn `5` seconds\.\.\.',
+        fullname = escName(userObj)
+        rmsg = await bot.send_message(chatId, f'⏳ *{escChar(fullname)}* wants to lead the game\!\nIn `5` seconds\.\.\.',
                                         parse_mode='MarkdownV2', reply_markup=getInlineBtn('newLeader_req'))
         STATE[str(chatId)][5] = True
         for i in range(1, 6):
@@ -789,7 +786,7 @@ async def start_game(message):
                 return
             try:
                 ico = '✅' if i == 5 else '⏳' if i%2 == 0 else '⌛'
-                await bot.edit_message_text(f'{ico} *{funcs.escChar(fname)}* wants to lead the game\!\nIn `{5 - i}` seconds\.\.\.',
+                await bot.edit_message_text(f'{ico} *{escChar(fullname)}* wants to lead the game\!\nIn `{5 - i}` seconds\.\.\.',
                     chatId, rmsg.message_id, parse_mode='MarkdownV2', reply_markup=getInlineBtn('newLeader_req'))
             except:
                 return
@@ -819,7 +816,7 @@ async def stats_cmd(message):
         reply_user_obj = message.reply_to_message.from_user
         user_stats = getUserPoints_sql(reply_user_obj.id)
         if not user_stats:
-            await bot.send_message(chatId, f'📊 {reply_user_obj.first_name} has no stats yet!')
+            await bot.send_message(chatId, f'📊 {escName(reply_user_obj)} has no stats yet!')
         else:
             global GLOBAL_RANKS
             if not GLOBAL_RANKS:
@@ -831,8 +828,7 @@ async def stats_cmd(message):
                     else:
                         granks[gprObj.user_id] = {'user_id': int(gprObj.user_id), 'name': gprObj.name, 'points': gprObj.points}
                 GLOBAL_RANKS = sorted(granks.values(), key=lambda x: x['points'], reverse=True)
-            fullName = reply_user_obj.first_name + ' ' + reply_user_obj.last_name if reply_user_obj.last_name is not None else reply_user_obj.first_name
-            fullName = fullName[:25] + '...' if len(fullName) > 25 else fullName
+            fullName = escName(reply_user_obj, 25, 'full').replace("🏅", "")
             grp_player_ranks = getTop25Players_sql(chatId, 2000)
             rank = next((i for i, prObj in enumerate(grp_player_ranks, 1) if int(prObj.user_id) == reply_user_obj.id), 0) if grp_player_ranks and len(grp_player_ranks) > 0 else 0
             rank = f'*Rank:* \#{rank}\n' if message.chat.type != 'private' else ''
@@ -844,20 +840,20 @@ async def stats_cmd(message):
             last_played = ''
             if user_obj.id in MY_IDs[1]:
                 last_played = datetime.fromtimestamp(int(user_stats[0].last_played), pytz.timezone('Asia/Kolkata')).strftime('%d-%m-%Y %H:%M:%S')
-                last_played = f'*Last played:* {funcs.escChar(last_played)}\n'
+                last_played = f'*Last played:* {escChar(last_played)}\n'
             curr_chat_user_stat = None
             for us in user_stats:
                 if str(us.chat_id) == str(chatId):
                     curr_chat_user_stat = us
                 total_points += int(us.points)
             curr_chat_points = curr_chat_user_stat.points if curr_chat_user_stat else 0
-            curr_chat_points = f' {funcs.escChar(curr_chat_points)} 💵' if message.chat.type != 'private' else ''
+            curr_chat_points = f' {escChar(curr_chat_points)} 💵' if message.chat.type != 'private' else ''
             await bot.send_message(chatId, f'*Player stats* 📊\n\n'
-                                    f'*Name:* {"🏅 " if _grank > 0 and _grank < 26 else ""}{funcs.escChar(fullName)}\n'
+                                    f'*Name:* {"🏅 " if _grank > 0 and _grank < 26 else ""}{escChar(fullName)}\n'
                                     f'*Earned cash:*{curr_chat_points}\n'
-                                    f' *— in all chats:* {funcs.escChar(total_points)} 💵\n'
+                                    f' *— in all chats:* {escChar(total_points)} 💵\n'
                                     f'{rank}'
-                                    f'*Global rank:* {funcs.escChar(grank)}\n'
+                                    f'*Global rank:* {escChar(grank)}\n'
                                     f'*Played in:* {played_in_chats} groups\n'
                                     f'{last_played}\n'
                                     f'❕ _You receive 1💵 reward for\neach correct word guess\._',
@@ -885,10 +881,7 @@ async def mystats_cmd(message):
                     else:
                         granks[gprObj.user_id] = {'user_id': int(gprObj.user_id), 'name': gprObj.name, 'points': gprObj.points}
                 GLOBAL_RANKS = sorted(granks.values(), key=lambda x: x['points'], reverse=True)
-            fullName = user_obj.first_name
-            if user_obj.last_name is not None:
-                fullName += ' ' + user_obj.last_name
-            fullName = fullName[:25] + '...' if len(fullName) > 25 else fullName
+            fullName = escName(user_obj, 25, 'full').replace('🏅', '')
             grp_player_ranks = getTop25Players_sql(chatId, 2000)
             rank = next((i for i, prObj in enumerate(grp_player_ranks, 1) if int(prObj.user_id) == user_obj.id), 0) if grp_player_ranks and len(grp_player_ranks) > 0 else 0
             rank = f'*Rank:* \#{rank}\n' if message.chat.type != 'private' else ''
@@ -902,13 +895,13 @@ async def mystats_cmd(message):
                     curr_chat_user_stat = us
                 total_points += int(us.points)
             curr_chat_points = curr_chat_user_stat.points if curr_chat_user_stat else 0
-            curr_chat_points = f' {funcs.escChar(curr_chat_points)} 💵' if message.chat.type != 'private' else ''
+            curr_chat_points = f' {escChar(curr_chat_points)} 💵' if message.chat.type != 'private' else ''
             await bot.send_message(chatId, f'*Player stats* 📊\n\n'
-                                    f'*Name:* {"🏅 " if _grank > 0 and _grank < 26 else ""}{funcs.escChar(fullName)}\n'
+                                    f'*Name:* {"🏅 " if _grank > 0 and _grank < 26 else ""}{escChar(fullName)}\n'
                                     f'*Earned cash:*{curr_chat_points}\n'
-                                    f' *— in all chats:* {funcs.escChar(total_points)} 💵\n'
+                                    f' *— in all chats:* {escChar(total_points)} 💵\n'
                                     f'{rank}'
-                                    f'*Global rank:* {funcs.escChar(grank)}\n'
+                                    f'*Global rank:* {escChar(grank)}\n'
                                     f'*Played in:* {played_in_chats} groups\n\n'
                                     f'❕ _You receive 1💵 reward for\neach correct word guess\._',
                                     parse_mode='MarkdownV2')
@@ -931,9 +924,9 @@ async def ranking_cmd(message):
             ranksTxt = ''
             top25_global_usr_ids = [gp['user_id'] for gp in GLOBAL_RANKS[:25]]
             for i, grpObj in enumerate(grp_player_ranks, 1):
-                name = '🏅 ' if int(grpObj.user_id) in top25_global_usr_ids else ''
-                name += grpObj.name[:25] + '...' if len(grpObj.name) > 25 else grpObj.name
-                ranksTxt += f'*{i}\.* {funcs.escChar(name)} — {funcs.escChar(grpObj.points)} 💵\n'
+                name = ('🏅 ' if int(grpObj.user_id) in top25_global_usr_ids else '') + grpObj.name.replace('🏅', '')
+                name = name[:25] + '...' if len(name) > 25 else name
+                ranksTxt += f'*{i}\.* {escChar(name)} — {escChar(grpObj.points)} 💵\n'
             await bot.send_message(chatId, f'*TOP\-25 players* 🐊📊\n\n{ranksTxt}', reply_markup=reply_markup, parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['globalranking'])
@@ -960,8 +953,8 @@ async def global_ranking_cmd(message):
             for i, user in enumerate(GLOBAL_RANKS[:25], 1):
                 j = i
                 i = '🥇' if i == 1 else '🥈' if i == 2 else '🥉' if i == 3 else f'*{str(i)}\.*'
-                name = user['name'][:25] + '...' if len(user['name']) > 25 else user['name']
-                ranksTxt += f"{i} {funcs.escChar(name)} — {funcs.escChar(user['points'])} 💵\n"
+                name = user['name'][:22].rstrip() + '...' if len(user['name']) > 22 else user['name']
+                ranksTxt += f"{i} {escChar(name)} — {escChar(user['points'])} 💵\n"
                 i = j
             await bot.send_message(chatId, f'*TOP\-25 players in all groups* 🐊📊\n\n{ranksTxt}', reply_markup=reply_markup, parse_mode='MarkdownV2')
 
@@ -977,17 +970,18 @@ async def chat_ranking_cmd(message):
         else:
             ranksTxt = ''
             for i, (chat_id, points) in enumerate(grp_ranks, 1):
-                chat_name = TOP10_CHAT_NAMES.get(str(chat_id), "Unknown group")
-                ranksTxt += f'*{i}\.* {funcs.escChar(chat_name)} — {funcs.escChar(points)} 💵\n'
+                chat_name = TOP10_CHAT_NAMES.get(str(chat_id), 'Unknown group')
+                ranksTxt += f'*{i}\.* {escChar(chat_name)} — {escChar(points)} 💵\n'
             await bot.send_message(chatId, f'*TOP\-10 groups* 🐊📊\n\n{ranksTxt}', parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['rules'])
 async def rules_cmd(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
-        rules_msg = 'In this game, there are two roles: leader and other participants. ' \
+        rplyToMsgId = message.reply_to_message.message_id if message.reply_to_message else None
+        rules_msg = '>In this game, there are two roles: leader and other participants. ' \
             'The leader selects a random word and tries to describe it without saying the word. ' \
-            'The other players\' goal is to find the word and type it in the groupchat.\n\n' \
+            'The other players\' goal is to find the word and type it in the group-chat.\n\n' \
             '*You win 1💵 if you -*\n' \
             '• Be the first person to guess (type) the correct word.\n\n' \
             '*You lose 1💵 if you -*\n' \
@@ -995,8 +989,8 @@ async def rules_cmd(message):
             '• Found correct word before the leader provides any clues/hints in the chat.\n' \
             '• Use whisper bots or any other means to cheat.\n\n' \
             '- For game commands, press /help'
-        rules_msg = funcs.escChar(rules_msg).replace('\\*', '*')
-        await bot.send_message(chatId, f'📖 *Game Rules:*\n\n{rules_msg}', parse_mode='MarkdownV2')
+        rules_msg = escChar(rules_msg).replace('\\*', '*').replace('\\>', '>', 1)
+        await bot.send_message(chatId, f'📖 *Game Rules:*\n\n{rules_msg}', reply_to_message_id=rplyToMsgId, parse_mode='MarkdownV2', allow_sending_without_reply=True)
 
 @bot.message_handler(commands=['help'])
 async def help_cmd(message):
@@ -1035,7 +1029,9 @@ async def addword_cmd(message):
     if user_obj.id not in MY_IDs[1]:
         import wordlist
         if word in wordlist.WORDLIST:
-            await bot.reply_to(message, f'*{word}* exists in my dictionary\!', parse_mode='MarkdownV2', allow_sending_without_reply=True)
+            msg = await bot.reply_to(message, f'*{word}* exists in my dictionary\!', parse_mode='MarkdownV2', allow_sending_without_reply=True)
+            await sleep(30)
+            await bot.delete_message(chatId, msg.message_id)
             return
         await bot.reply_to(message, '☑️ Your request is being reviewed. You will be notified soon!', allow_sending_without_reply=True)
         await sleep(1)
@@ -1043,7 +1039,9 @@ async def addword_cmd(message):
                                reply_markup=getInlineBtn('addWord_req'), parse_mode='MarkdownV2')
         return
     if not funcs.addNewWord(word):
-        await bot.reply_to(message, f'*{word}* exists in my dictionary\!', parse_mode='MarkdownV2', allow_sending_without_reply=True)
+        msg = await bot.reply_to(message, f'*{word}* exists in my dictionary\!', parse_mode='MarkdownV2', allow_sending_without_reply=True)
+        await sleep(30)
+        await bot.delete_message(chatId, msg.message_id)
         return
     await bot.send_message(chatId, f'✅ A new word added to my dictionary\!\n\n*Word:* `{word}`', parse_mode='MarkdownV2')
 
@@ -1059,7 +1057,7 @@ async def approveAddWordReq_cmd(message):
         return
     # Send confirmation message
     for nwr_chat_id, nwr_users in NEW_WORD_REQS.items():
-        cnfrm_msg += f'\n{funcs.escChar(nwr_chat_id)}: \[\n' + ',\n'.join([f'    [{u}](tg://user?id={u}): \[{nwr_users[u]}\]' for u in nwr_users]) + '\n\]'
+        cnfrm_msg += f'\n{escChar(nwr_chat_id)}: \[\n' + ',\n'.join([f'    [{u}](tg://user?id={u}): \[{nwr_users[u]}\]' for u in nwr_users]) + '\n\]'
     await bot.reply_to(message, f'⏳ *Pending requests:* {len(NEW_WORD_REQS)}\n{cnfrm_msg}', parse_mode='MarkdownV2', reply_markup=getInlineBtn('addWord_req_approve'), allow_sending_without_reply=True)
 
 @bot.message_handler(commands=['cmdlist'])
@@ -1132,36 +1130,36 @@ async def cmdlist_cmd(message):
 async def handle_new_chat_members(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
-        username = f'\n\(\@{funcs.escChar(message.chat.username)}\)' if message.chat.username is not None else ''
-        await bot.send_message(MY_IDs[1][0], f'✅ Bot \#added to chat: `{funcs.escChar(chatId)}`\n{funcs.escChar(message.chat.title)}{username}', parse_mode='MarkdownV2')
+        username = f'\n\(\@{escChar(message.chat.username)}\)' if message.chat.username is not None else ''
+        await bot.send_message(MY_IDs[1][0], f'✅ Bot \#added to chat: `{escChar(chatId)}`\n{escChar(message.chat.title)}{username}', parse_mode='MarkdownV2')
         await sleep(0.5)
-        # await bot.send_message(-1002204421104, f'✅ Bot \#added to chat: `{funcs.escChar(chatId)}`', parse_mode='MarkdownV2')
+        # await bot.send_message(-1002204421104, f'✅ Bot \#added to chat: `{escChar(chatId)}`', parse_mode='MarkdownV2')
         await sleep(2.5)
         markup_btn = InlineKeyboardMarkup([
             [InlineKeyboardButton('📢 Get bot updates!', url='t.me/CrocodileGames')],
-            [InlineKeyboardButton('🚀 Start game!', callback_data='start_game')]
+            [InlineKeyboardButton('🚀 Launch game!', callback_data='start_game')]
         ])
         await bot.send_message(chatId, f'👉🏻 Tap /help to see game commands.\n\nSupport group: @CrocodileGamesGroup', reply_markup=markup_btn)
     else:
-        await bot.send_message(f'☑️ Bot \#added to a \#blocked chat: `{funcs.escChar(chatId)}`\n{funcs.escChar(message.chat.title)}\n\@{funcs.escChar(message.chat.username)}',
+        await bot.send_message(f'☑️ Bot \#added to a \#blocked chat: `{escChar(chatId)}`\n{escChar(message.chat.title)}\n\@{escChar(message.chat.username)}',
                                chat_id=MY_IDs[1][0], parse_mode='MarkdownV2')
         await sleep(0.5)
-        # await bot.send_message(-1002204421104, f'☑️ Bot \#added to a \#blocked chat: `{funcs.escChar(chatId)}`', parse_mode='MarkdownV2')
+        # await bot.send_message(-1002204421104, f'☑️ Bot \#added to a \#blocked chat: `{escChar(chatId)}`', parse_mode='MarkdownV2')
         await sleep(0.5)
         await bot.send_message(chatId, f'🚫 *This chat/group was flagged as suspicious, and hence restricted from using this bot\!*\n\n' \
-            f'If you\'re chat/group owner and thinks this is a mistake, please write to: \@CrocodileGamesGroup', parse_mode='MarkdownV2')
+            f'If you\'re chat/group owner and believes this is a mistake, please write to: \@CrocodileGamesGroup', parse_mode='MarkdownV2')
     update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 2, 1)
 
 # Handler for "bot removed by chat/user" (send message to 1st superuser (MY_IDs[1][0]))
 @bot.my_chat_member_handler(func=lambda message: message.new_chat_member.status in ['kicked', 'left'])
 async def handle_my_chat_member(message):
     chatId = message.chat.id
-    username = f'\(\@{funcs.escChar(message.chat.username)}\)' if message.chat.username is not None else ''
+    username = f'\(\@{escChar(message.chat.username)}\)' if message.chat.username is not None else ''
     if message.chat.type != 'private':
-        await bot.send_message(MY_IDs[1][0], f'❌ Bot \#removed by chat: `{funcs.escChar(chatId)}`\n{funcs.escChar(message.chat.title)}\n{username}', parse_mode='MarkdownV2')
+        await bot.send_message(MY_IDs[1][0], f'❌ Bot \#removed by chat: `{escChar(chatId)}`\n{escChar(message.chat.title)}\n{username}', parse_mode='MarkdownV2')
     else:
-        fullName = funcs.escChar(f'{message.chat.first_name} {message.chat.last_name}' if message.chat.last_name is not None else message.chat.first_name)
-        await bot.send_message(MY_IDs[1][0], f'❌ Bot \#removed by user: `{funcs.escChar(chatId)}`\n{fullName}\n{username}', parse_mode='MarkdownV2')
+        fullName = escChar(escName(message.chat, 100, 'full'))
+        await bot.send_message(MY_IDs[1][0], f'❌ Bot \#removed by [user]((tg://user?id={chatId})): `{chatId}`\n{fullName}\n{username}', parse_mode='MarkdownV2')
 
 # Handler for "chat name is changed" (update chat name in TOP10_CHAT_NAMES)
 @bot.message_handler(content_types=['new_chat_title'])
@@ -1217,7 +1215,7 @@ async def handle_image_ai(message):
                 aiResp = funcs.getAIResp(prompt, 'text-davinci-002', 0.8, 1800, 1, 0.2, 0)
             aiResp = aiResp if aiResp != 0 else 'Something went wrong! Please try again later.'
             aiResp = aiResp.replace('Croco:', '', 1).lstrip() if aiResp.startswith('Croco:') else aiResp
-            aiResp = funcs.escChar(aiResp).replace('\\*\\*', '*').replace('\\`', '`')
+            aiResp = escChar(aiResp).replace('\\*\\*', '*').replace('\\`', '`')
             await bot.send_message(chatId, aiResp, reply_to_message_id=message.message_id, parse_mode='MarkdownV2', allow_sending_without_reply=True)
             return
 
@@ -1281,7 +1279,7 @@ async def handle_group_message(message):
                 aiResp = funcs.getAIResp(prompt, 'text-davinci-002', 0.8, 1800, 1, 0.2, 0)
             aiResp = aiResp if aiResp != 0 else 'Something went wrong! Please try again later.'
             aiResp = aiResp.replace('Croco:', '', 1).lstrip() if aiResp.startswith('Croco:') else aiResp
-            aiResp = funcs.escChar(aiResp).replace('\\*\\*', '*').replace('\\`', '`')
+            aiResp = escChar(aiResp).replace('\\*\\*', '*').replace('\\`', '`')
             await bot.send_message(chatId, aiResp, reply_to_message_id=rplyToMsg.message_id, parse_mode='MarkdownV2', allow_sending_without_reply=True)
             return
 
@@ -1319,19 +1317,16 @@ async def handle_group_message(message):
                 elif leaderId != userId:
                     STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
                 points = 1
-                f_name = userObj.first_name
-                fullName = f_name
-                fullName = f'{fullName} {userObj.last_name}' if userObj.last_name is not None else fullName
+                fullName = escName(userObj)
                 # Check if user is not leader, or if the chat can ignore cheat
                 if leaderId != userId or is_cheat_allowed:
                     if is_cheat_allowed and leaderId == userId:
                         return
-                    f_name = f_name[:25] + '...' if len(f_name) > 25 else f_name
                     if can_show_cheat_msg == 'False' or is_cheat_allowed:
-                        await bot.send_message(chatId, f'🎉 [{funcs.escChar(fullName)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*',
+                        await bot.send_message(chatId, f'🎉 [{escChar(fullName)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*',
                                                reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
                     else:
-                        await bot.send_message(chatId, f'🚨 [{funcs.escChar(f_name)}](tg://user?id={userId}) lost 1💵 for cheating\! *{WORD.get(str(chatId))}*',
+                        await bot.send_message(chatId, f'🚨 [{escChar(fullName)}](tg://user?id={userId}) lost 1💵 for cheating\! *{WORD.get(str(chatId))}*',
                                                reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
                         points = -1
                         global CHEAT_RECORD
@@ -1347,6 +1342,7 @@ async def handle_group_message(message):
                     # Leader revealed the word (stop game and deduct leader's points)
                     await stopGame(message, isWordRevealed=True)
                     points = -1
+                fullName = escName(userObj, 100, 'full')
                 incrementPoints_sql(userId, chatId, points, fullName)
         
         elif chatId in CROCO_CHATS: # Check if chat is allowed to use Croco AI
@@ -1384,7 +1380,7 @@ async def handle_group_message(message):
                     p = f'{rplyText}\nYou: {msgText}\nCroco: '
                     resp = funcs.getCrocoResp(p).lstrip()
                     updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
-                aiResp = funcs.escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
+                aiResp = escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
                 await bot.send_message(chatId, f'*Croco:* {aiResp}', reply_to_message_id=message.message_id,
                                        parse_mode='MarkdownV2', allow_sending_without_reply=True)
             elif any(t in msgText.lower() for t in funcs.AI_TRIGGER_MSGS):
@@ -1392,7 +1388,7 @@ async def handle_group_message(message):
                 p = f'You: {msgText}\nCroco: '
                 resp = funcs.getCrocoResp(p).lstrip()
                 updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
-                aiResp = funcs.escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
+                aiResp = escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
                 await bot.send_message(chatId, f'*Croco:* {aiResp}', reply_to_message_id=message.message_id,
                                        parse_mode='MarkdownV2', allow_sending_without_reply=True)
 
@@ -1464,8 +1460,8 @@ async def handle_query(call):
                     if STATE.get(str(chatId))[5]:
                         await bot.answer_callback_query(call.id, '⚠ Do not blabber! Someone else is going to lead the game next.', show_alert=True)
                         return
-                    fname = userObj.first_name[:25] + '...' if len(userObj.first_name) > 25 else userObj.first_name
-                    rmsg = await bot.send_message(chatId, f'⏳ *{funcs.escChar(fname)}* wants to lead the game\!\nIn `5` seconds\.\.\.',
+                    fullname = escName(userObj)
+                    rmsg = await bot.send_message(chatId, f'⏳ *{escChar(fullname)}* wants to lead the game\!\nIn `5` seconds\.\.\.',
                         parse_mode='MarkdownV2', reply_markup=getInlineBtn('newLeader_req'))
                     STATE[str(chatId)][5] = True
                     for i in range(1, 6):
@@ -1477,7 +1473,7 @@ async def handle_query(call):
                             return
                         try:
                             ico = '✅' if i == 5 else '⏳' if i%2 == 0 else '⌛'
-                            await bot.edit_message_text(f'{ico} *{funcs.escChar(fname)}* wants to lead the game\!\nIn `{5 - i}` seconds\.\.\.',
+                            await bot.edit_message_text(f'{ico} *{escChar(fullname)}* wants to lead the game\!\nIn `{5 - i}` seconds\.\.\.',
                                 chatId, rmsg.message_id, parse_mode='MarkdownV2', reply_markup=getInlineBtn('newLeader_req'))
                         except:
                             return
@@ -1514,8 +1510,8 @@ async def handle_query(call):
                     if STATE.get(str(chatId))[5]:
                         await bot.answer_callback_query(call.id, '⚠ Do not blabber! Someone else is going to lead the game next.', show_alert=True)
                         return
-                    fname = userObj.first_name[:25] + '...' if len(userObj.first_name) > 25 else userObj.first_name
-                    rmsg = await bot.send_message(chatId, f'⏳ *{funcs.escChar(fname)}* wants to lead the game\!\nIn `5` seconds\.\.\.',
+                    fullname = escName(userObj)
+                    rmsg = await bot.send_message(chatId, f'⏳ *{escChar(fullname)}* wants to lead the game\!\nIn `5` seconds\.\.\.',
                         parse_mode='MarkdownV2', reply_markup=getInlineBtn('newLeader_req'))
                     STATE[str(chatId)][5] = True
                     for i in range(1, 6):
@@ -1527,7 +1523,7 @@ async def handle_query(call):
                             return
                         try:
                             ico = '✅' if i == 5 else '⏳' if i%2 == 0 else '⌛'
-                            await bot.edit_message_text(f'{ico} *{funcs.escChar(fname)}* wants to lead the game\!\nIn `{5 - i}` seconds\.\.\.',
+                            await bot.edit_message_text(f'{ico} *{escChar(fullname)}* wants to lead the game\!\nIn `{5 - i}` seconds\.\.\.',
                                 chatId, rmsg.message_id, parse_mode='MarkdownV2', reply_markup=getInlineBtn('newLeader_req'))
                         except:
                             return
@@ -1611,10 +1607,12 @@ async def handle_query(call):
                             except:
                                 target_user = None
                             try:
-                                fname = target_user.first_name if target_user else 'Ghost User'
+                                fullname = '[Ghost User]'
+                                if target_user:
+                                    fullname = escName(target_user)
                                 added_wds_txt = ', '.join(added_words)
                                 await bot.send_message(target_chatId, parse_mode='MarkdownV2',
-                                    text=f'[✅](tg://user?id={funcs.escChar(user_id)}) *{len(added_words)}* new words added by *{funcs.escChar(fname)}*\n\n```\n{added_wds_txt}```')
+                                    text=f'[✅](tg://user?id={escChar(user_id)}) *{len(added_words)}* new word\(s\) added by *{escChar(fullname)}*\n\n```\n{added_wds_txt}```')
                                 cnt += 1
                             except:
                                 pass
@@ -1663,7 +1661,7 @@ async def handle_query(call):
                     return
                 STATE[str(chatId)][5] = False
                 await sleep(0.1)
-                msg = '❌ ~' + funcs.escChar(call.message.text.split("\n")[0][2:]) + f'~\nCancelled by *{funcs.escChar(userObj.first_name)}*'
+                msg = '❌ ~' + escChar(call.message.text.split("\n")[0][2:]) + f'~\nCancelled by *{escChar(escName(userObj))}*'
                 await bot.edit_message_text(msg, chatId, call.message.message_id, parse_mode='MarkdownV2')
             else:
                 await bot.answer_callback_query(call.id, '❌ Request was expired!', cache_time=30)
