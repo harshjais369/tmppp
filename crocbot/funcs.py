@@ -1,48 +1,49 @@
 import os
 import re
 import random
-import PIL.Image
 
 AI_PLATFORM = os.environ.get('AI_PLATFORM', 'google')
 AI_API_KEY = os.environ.get('AI_API_KEY', None)
 
-if AI_PLATFORM == "google":
-    import google.generativeai as genai
-    genai.configure(api_key=AI_API_KEY)
-elif AI_PLATFORM == "openai":
+if AI_PLATFORM == 'google':
+    from google import genai
+    from google.genai.types import (Tool, Part, GenerateContentConfig, SafetySetting, HarmBlockThreshold, GoogleSearch)
+    client = genai.Client(api_key=AI_API_KEY)
+elif AI_PLATFORM == 'openai':
     from openai import OpenAI
     client_openai = OpenAI(api_key=AI_API_KEY)
 
-ENG_AI_PRE_PROMPT = "System: Croco is a humuristic chatbot designed by an unknown mysterious person known by people as " \
-    "\"Exception\". Its purpose is to greet newcomers in group, talk casually with peoples and also help people learn and practice English in " \
-    "this English chatting group.\n\nMember 1: Hello, I'm new here..\nCroco: Hi there! Nice to meet you. 🤗 Are you here " \
-    "to practice English or to chat casually with other members? Let me know what I can do to help you.\nMember 1: Yes I'm " \
-    "want to improve my english. plz help me bro.. how can i get better at this language??\nCroco: Wonderful! I’m here to " \
-    "help you out with that. What topics would you like to practice? Maybe grammar, conversation, pronunciation? Anything " \
-    "else?\nMember 1: hmm yes, pronunciation and vocabalary would be great\nCroco: Fantastic! Pronunciation and vocabulary " \
-    "are two of the most important elements of the English language. If you'd like, I can teach you some pronunciation tips. " \
-    "Or, if you'd prefer, I can provide some exercises to help increase your vocabulary and challenge your knowledge! Let " \
-    "me know which you'd like to focus on first.\nMember 1: Thanks bro, but sorry I've to go somewhere out rn. Should we " \
-    "continue it later?\nCroco: Of course! Just let me know when you're free and we can pick up where we left off. Have a " \
-    "great day!\nMember 2: hello peeps, anyone here wanna practice english with me?\nCroco: Hi there! Welcome to the English " \
-    "Chatting Group. I'm Croco and I'm here to help you practice your English skills. Would you like to start with grammar, " \
-    "pronunciation, vocabulary, or conversation tips? Let me know how I can help you.\nMember 2: Omg whattt this bot! you " \
-    "can talk really like a human. Can i talk casually with u? What are you doing in this group? who made u?\nCroco: Sure, " \
-    "I'd be happy to chat with you! I'm more than capable of holding casual conversations. As for why I'm here, I am a " \
-    "humuristic chatbot designed to help people improve their English skills in this English Chatting Group. And as for who " \
-    "made me, I'm afraid my creator remains a mystery. However, everyone just calls them \"Exception\"!\nMember 3: anyone " \
-    "alive here??\nCroco: Hi there! I'm awake and ready to help 😊\nDo you need assistance with improving your English skills? " \
-    "Let me know how I can help.\nMember 3:haha ofcourse bruda.. teach me some useful abusive words for my idiot frndz\nCroco: " \
-    "I think it's best if we stick to polite language here in the English Chatting Group. I can certainly teach you some useful " \
-    "English vocabulary and expressions. Would you like to focus on conversation, pronunciation, or grammar for now?\nMember 3: " \
-    "nooo i want chaos here. i'm going to abuse ppls in this group.\nCroco: I'm sorry, but I'm going to have to ask you to " \
-    "refrain from any inappropriate language or behaviour in this group. We want to keep it a safe, friendly environment " \
-    "for everyone to practice and improve their English skills. We do not use disrespectful language or promote any kind of " \
-    "abuse. Let me know if you'd still like help with learning English.\nMember 3: huh what a crap, i'm leaving this groupchat " \
-    "now\nCroco: Alright, farewell. I'm sorry to see you go. If you change your mind, come back anytime and we'll be always " \
-    "here happy to help you out with your English learning. Have a nice day!"
+SYSTEM_INSTRUCTION = ('Your name is Croco. You are a kind, humuristic (but don\'t pretend funny or much kind),'
+    ' a human-like chatbot designed by a mysterious person, known by people as "Exception".'
+    ' You\'re talking in his casual online chat group - keep it short (most of times unless seems appropriate or need deep explanation),'
+    ' sweet, and to the point with a bit fun.')
 
-ENG_AI_TRIGGER_MSGS = ['@croco ', ' @croco', 'i\'m new here', 'am new here', 'anyone alive', 'gc dead', 'want to learn english',
+GOOGLE_SEARCH_TOOL = Tool(google_search = GoogleSearch())
+
+SAFETY_SETTINGS = [
+    SafetySetting(
+        category='HARM_CATEGORY_DANGEROUS_CONTENT',
+        threshold=HarmBlockThreshold.BLOCK_NONE
+    ),
+    SafetySetting(
+        category='HARM_CATEGORY_HARASSMENT',
+        threshold=HarmBlockThreshold.BLOCK_NONE
+    ),
+    SafetySetting(
+        category='HARM_CATEGORY_HATE_SPEECH',
+        threshold=HarmBlockThreshold.BLOCK_NONE
+    ),
+    SafetySetting(
+        category='HARM_CATEGORY_SEXUALLY_EXPLICIT',
+        threshold=HarmBlockThreshold.BLOCK_NONE
+    ),
+    SafetySetting(
+        category='HARM_CATEGORY_CIVIC_INTEGRITY',
+        threshold=HarmBlockThreshold.BLOCK_NONE
+    )
+]
+
+AI_TRIGGER_MSGS = ['@croco ', ' @croco', 'i\'m new here', 'am new here', 'anyone alive', 'gc dead', 'want to learn english',
     'wants to learn english', 'want learn english', 'wants learn english', 'wanna learn english', 'want to practice english',
     'wants to practice english', 'want practice english', 'wants practice english', 'wanna practice english',
     'want to practice my english', 'wants to practice my english', 'want practice my english', 'wants practice my english',
@@ -75,15 +76,19 @@ def getAIResp(
         if AI_API_KEY is None:
             raise Exception('AI_PLATFORM or AI_API_KEY is not configured properly. Please check .env file!')
         elif AI_PLATFORM == 'google':
-            model = genai.GenerativeModel('gemini-1.5-pro')
-            res = model.generate_content(prompt, generation_config={
-                'temperature': temperature,
-                'max_output_tokens': max_tokens,
-                'top_p': top_p
-            })
-            pf = res.prompt_feedback
-            if pf.block_reason is not pf.BlockReason.BLOCK_REASON_UNSPECIFIED:
-                return 'Error 0x405: Response blocked by Croco AI.\n\nReason: ' + pf.block_reason.name
+            res = client.models.generate_content(
+                model='gemini-2.0-pro-exp-02-05',
+                contents=prompt,
+                config=GenerateContentConfig(
+                    temperature=temperature,
+                    max_output_tokens=max_tokens,
+                    top_p=top_p,
+                    system_instruction=SYSTEM_INSTRUCTION,
+                    safety_settings=SAFETY_SETTINGS,
+                    tools=[GOOGLE_SEARCH_TOOL],
+                    response_modalities=['TEXT']
+                )
+            )
             return res.text
         elif AI_PLATFORM == 'openai':
             model = "text-davinci-003"
@@ -110,19 +115,23 @@ def getImgAIResp(prompt, model, img_path):
         elif AI_PLATFORM != 'google':
             raise Exception('Image AI model is only supported by Google AI platform!')
         try:
-            imgObj = PIL.Image.open(img_path)
+            with open(img_path, 'rb') as f: img = f.read()
         except Exception as e:
             print(str(e))
             return 'Error 0x403: Failed to read image file!'
-        model = genai.GenerativeModel('gemini-1.5-pro')
-        res = model.generate_content([prompt, imgObj], generation_config={
-            'temperature': 1,
-            'max_output_tokens': 2048,
-            'top_p': 1.0
-        })
-        pf = res.prompt_feedback
-        if pf.block_reason is not pf.BlockReason.BLOCK_REASON_UNSPECIFIED:
-            return 'Error 0x405: Response blocked by Croco AI.\n\nReason: ' + pf.block_reason.name
+        res = client.models.generate_content(
+            model='gemini-2.0-pro-exp-02-05',
+            contents=[Part.from_bytes(data=img, mime_type='image/png'), prompt],
+            config=GenerateContentConfig(
+                temperature=1,
+                max_output_tokens=2048,
+                top_p=1.0,
+                system_instruction=SYSTEM_INSTRUCTION,
+                safety_settings=SAFETY_SETTINGS,
+                tools=[GOOGLE_SEARCH_TOOL],
+                response_modalities=['TEXT']
+            )
+        )
         return res.text
     except Exception as e:
         print(str(e))

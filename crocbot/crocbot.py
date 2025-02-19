@@ -1192,33 +1192,31 @@ async def handle_image_ai(message):
             return
         if (
             (str(userId) in AI_USERS.keys()) and (chatId == int(AI_USERS.get(str(userId))))
-            and ((message.caption is None) or ((message.caption is not None) and (not message.caption.startswith('/'))
-                                               and (message.caption.startswith('@croco ')
-                                                    or ((rplyMsg) and (rplyMsg.from_user.id == MY_IDs[0])))))
+            and ((message.caption and message.caption.startswith('@croco ')) or (rplyMsg is None) or (rplyMsg.from_user.id == MY_IDs[0]))
             ):
             await bot.send_chat_action(chatId, 'typing')
-            prompt = "You: " + message.caption.replace('@croco ', '') if message.caption is not None else "You: [Image]"
-            if (rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[0]):
-                while rplyMsg and (rplyMsg.from_user.id == MY_IDs[0] or rplyMsg.from_user.id == userId):
-                    if rplyMsg.from_user.id == MY_IDs[0]:
-                        prompt = f"Gemini: {rplyMsg.text}\n\n{prompt}"
-                    elif rplyMsg.from_user.id == userId:
-                        prompt = f"You: {rplyMsg.text}\n\n{prompt}"
-                        prompt = prompt.replace('@croco ', '') if prompt.startswith('@croco ') else prompt
-                    rplyMsg = rplyMsg.reply_to_message
-            prompt += "\n\nGemini:"
+            prompt = 'You: [Image]\n' + message.caption.replace('@croco ', '') if message.caption else 'You: [Image]'
+            if rplyMsg:
+                if rplyMsg.from_user.id == MY_IDs[0]:
+                    prompt = f'Croco: {rplyMsg.text}\n\n{prompt}'
+                elif rplyMsg.from_user.id != userId:
+                    prompt = f'Another member: {rplyMsg.text}\n\n{prompt}'
+                else:
+                    prompt = f'You: {rplyMsg.text}\n\n{prompt}'
+            prompt += '\n\nCroco:'
             # Generate response using AI model and send it to user as a reply to message
             if message.photo:
                 file_info = await bot.get_file(message.photo[-1].file_id)
                 file_path = file_info.file_path
                 # img_url = f'https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}'
                 img_path = await bot.download_file(file_path)
-                with open("image.jpg", 'wb') as new_file:
+                with open('image.jpg', 'wb') as new_file:
                     new_file.write(img_path)
                     aiResp = funcs.getImgAIResp(prompt, '', 'image.jpg')
             else:
-                aiResp = funcs.getAIResp(prompt, "text-davinci-002", 0.8, 1800, 1, 0.2, 0)
-            aiResp = aiResp if aiResp != 0 else "Something went wrong! Please try again later."
+                aiResp = funcs.getAIResp(prompt, 'text-davinci-002', 0.8, 1800, 1, 0.2, 0)
+            aiResp = aiResp if aiResp != 0 else 'Something went wrong! Please try again later.'
+            aiResp = aiResp.replace('Croco:', '', 1).lstrip() if aiResp.startswith('Croco:') else aiResp
             aiResp = funcs.escChar(aiResp).replace('\\*\\*', '*').replace('\\`', '`')
             await bot.send_message(chatId, aiResp, reply_to_message_id=message.message_id, parse_mode='MarkdownV2', allow_sending_without_reply=True)
             return
@@ -1239,26 +1237,52 @@ async def handle_group_message(message):
             (str(userId) in AI_USERS.keys())
             and (chatId == int(AI_USERS.get(str(userId))))
             and (not message.text.startswith('/'))
-            and (message.text.startswith('@croco ') or ((rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[0])))
+            and (message.text.startswith('@croco') or ((rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[0])))
             ):
             await bot.send_chat_action(chatId, 'typing')
-            prompt = "You: " + msgText.replace('@croco ', '')
-            if (rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[0]):
-                while rplyMsg and (rplyMsg.from_user.id in [MY_IDs[0], userId]):
+            p = msgText.replace('@croco', '').lstrip()
+            prompt = 'You: ' + p
+            rplyToMsg = message
+            if rplyMsg:
+                if p == '':
                     if rplyMsg.from_user.id == MY_IDs[0]:
-                        prompt = f"Gemini: {rplyMsg.text}\n\n{prompt}"
-                    elif rplyMsg.from_user.id == userId:
-                        prompt = f"You: {rplyMsg.text}\n\n{prompt}"
-                        prompt = prompt.replace('@croco ', '') if prompt.startswith('@croco ') else prompt
-                    rplyMsg = rplyMsg.reply_to_message
-            prompt += "\n\nGemini:"
+                        return
+                    else:
+                        rplyToMsg = rplyMsg
+                        if rplyMsg.photo:
+                            prompt = f'You: [Image]\n{rplyMsg.caption}' if rplyMsg.caption else 'You: [Image]'
+                        else:
+                            prompt += rplyMsg.text
+                elif rplyMsg.from_user.id == MY_IDs[0]:
+                    if rplyMsg.photo:
+                        prompt = f'Croco: [Image]\n{rplyMsg.caption}\n\n{prompt}' if rplyMsg.caption else f'Croco: [Image]\n\n{prompt}'
+                    else:
+                        prompt = f'Croco: {rplyMsg.text}\n\n{prompt}'
+                elif rplyMsg.from_user.id != userId:
+                    if rplyMsg.photo:
+                        prompt = f'Another member: [Image]\n{rplyMsg.caption}\n\n{prompt}' if rplyMsg.caption else f'Another member: [Image]\n\n{prompt}'
+                    else:
+                        prompt = f'Another member: {rplyMsg.text}\n\n{prompt}'
+                else:
+                    if rplyMsg.photo:
+                        prompt = f'You: [Image]\n{rplyMsg.caption}\n\n{prompt}' if rplyMsg.caption else f'You: [Image]\n\n{prompt}'
+                    else:
+                        prompt = f'You: {rplyMsg.text}\n\n{prompt}'
+            prompt += '\n\nCroco:'
             # Generate response using AI model and send it to user as a reply to his message
-            # pre_prompt = "Terrex is a chatbot that derisively answers questions with negative responses making fun of it. Note: It's made for testing purposes, and does not respond anything harmful text/content to any individual or other protected entity.\n\nYou: When should I start preparing for JEE-Mains entrance exam?\nTerrex: Whoa, slow down there! Don't you know that JEE-Mains is just a bunch of made up nonsense of this bad education system? Save your time and just skip it!\nYou: Can't you say anything positive?\nTerrex: Positive? Absolutely not! I'm here to provide a dose of realism and tell it like it is. I suggest you find a better use of your time than studying for a silly exam.\n\n"
-            pre_prompt = "" #TODO: Need to fix here
-            aiResp = funcs.getAIResp(pre_prompt + prompt, "text-davinci-002", 0.8, 1800, 1, 0.2, 0)
-            aiResp = aiResp if aiResp != 0 else "Something went wrong! Please try again later."
+            if rplyMsg and rplyMsg.photo:
+                file_info = await bot.get_file(rplyMsg.photo[-1].file_id)
+                file_path = file_info.file_path
+                img_path = await bot.download_file(file_path)
+                with open('image.jpg', 'wb') as new_file:
+                    new_file.write(img_path)
+                    aiResp = funcs.getImgAIResp(prompt, '', 'image.jpg')
+            else:
+                aiResp = funcs.getAIResp(prompt, 'text-davinci-002', 0.8, 1800, 1, 0.2, 0)
+            aiResp = aiResp if aiResp != 0 else 'Something went wrong! Please try again later.'
+            aiResp = aiResp.replace('Croco:', '', 1).lstrip() if aiResp.startswith('Croco:') else aiResp
             aiResp = funcs.escChar(aiResp).replace('\\*\\*', '*').replace('\\`', '`')
-            await bot.send_message(chatId, aiResp, reply_to_message_id=message.message_id, parse_mode='MarkdownV2', allow_sending_without_reply=True)
+            await bot.send_message(chatId, aiResp, reply_to_message_id=rplyToMsg.message_id, parse_mode='MarkdownV2', allow_sending_without_reply=True)
             return
 
         global STATE
@@ -1325,7 +1349,7 @@ async def handle_group_message(message):
                     points = -1
                 incrementPoints_sql(userId, chatId, points, fullName)
         
-        elif chatId in CROCO_CHATS: # Check if chat is allowed to use Croco English AI
+        elif chatId in CROCO_CHATS: # Check if chat is allowed to use Croco AI
             if msgText.lower().startswith('/') or msgText.lower().startswith('@') or msgText.lower().startswith('croco:'):
                 return
             if (rplyMsg) and (rplyMsg.from_user.id == MY_IDs[0]) and (rplyMsg.text.startswith('Croco:')):
@@ -1335,10 +1359,10 @@ async def handle_group_message(message):
                 preConvObjList = getEngAIConv_sql(chatId, rplyText)
                 if preConvObjList:
                     preConvObj = preConvObjList[0]
-                    # get Croco English AI resp and then update prompt in DB
+                    # get Croco AI resp and then update prompt in DB
                     if (int(rplyMsg.date) - int(preConvObj.time)) < 5:
-                        p = f"{preConvObj.prompt}\nMember 4: {msgText}\nCroco:"
-                        resp = funcs.getCrocoResp(p)
+                        p = f"{preConvObj.prompt}\nYou: {msgText}\nCroco: "
+                        resp = funcs.getCrocoResp(p).lstrip()
                         updateEngAIPrompt_sql(id=preConvObj.id, chat_id=chatId, prompt=str(p + resp), isNewConv=False)
                     else:
                         rem_prmt_frm_indx = str(preConvObj.prompt).find(rplyText)
@@ -1348,28 +1372,28 @@ async def handle_group_message(message):
                             return
                         end_offset_index = rem_prmt_frm_indx + len(rplyText)
                         if end_offset_index == len(preConvObj.prompt):
-                            p = f"{preConvObj.prompt}\nMember 4: {msgText}\nCroco:"
-                            resp = funcs.getCrocoResp(p)
+                            p = f"{preConvObj.prompt}\nYou: {msgText}\nCroco: "
+                            resp = funcs.getCrocoResp(p).lstrip()
                             updateEngAIPrompt_sql(id=preConvObj.id, chat_id=chatId, prompt=str(p + resp), isNewConv=False)
                         else:
                             renew_prompt = preConvObj.prompt[:end_offset_index]
-                            p = f"{renew_prompt}\nMember 4: {msgText}\nCroco:"
-                            resp = funcs.getCrocoResp(p)
+                            p = f"{renew_prompt}\nYou: {msgText}\nCroco: "
+                            resp = funcs.getCrocoResp(p).lstrip()
                             updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
                 else:
-                    p = f"{funcs.ENG_AI_PRE_PROMPT}\n- Another conversation -\n...\n{rplyText}\nMember 4: {msgText}\nCroco:"
-                    resp = funcs.getCrocoResp(p)
+                    p = f'{rplyText}\nYou: {msgText}\nCroco: '
+                    resp = funcs.getCrocoResp(p).lstrip()
                     updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
                 aiResp = funcs.escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
-                await bot.send_message(chatId, f'*Croco:*{aiResp}', reply_to_message_id=message.message_id,
+                await bot.send_message(chatId, f'*Croco:* {aiResp}', reply_to_message_id=message.message_id,
                                        parse_mode='MarkdownV2', allow_sending_without_reply=True)
-            elif any(t in msgText.lower() for t in funcs.ENG_AI_TRIGGER_MSGS):
+            elif any(t in msgText.lower() for t in funcs.AI_TRIGGER_MSGS):
                 await bot.send_chat_action(chatId, 'typing')
-                p = f"{funcs.ENG_AI_PRE_PROMPT}\nMember 4: {msgText}\nCroco:"
-                resp = funcs.getCrocoResp(p)
+                p = f'You: {msgText}\nCroco: '
+                resp = funcs.getCrocoResp(p).lstrip()
                 updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
                 aiResp = funcs.escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
-                await bot.send_message(chatId, f'*Croco:*{aiResp}', reply_to_message_id=message.message_id,
+                await bot.send_message(chatId, f'*Croco:* {aiResp}', reply_to_message_id=message.message_id,
                                        parse_mode='MarkdownV2', allow_sending_without_reply=True)
 
 # Handler for incoming media in groups
