@@ -10,7 +10,7 @@ import psutil
 import speedtest
 import asyncio
 from asyncio import sleep
-from telebot.async_telebot import AsyncTeleBot, ExceptionHandler
+from telebot.async_telebot import AsyncTeleBot, ExceptionHandler, traceback
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import funcs
 from funcs import escName, escChar
@@ -41,7 +41,7 @@ CANCEL_BROADCAST = 0
 class ExceptionHandler(ExceptionHandler):
     def handle(self, e):
         t = datetime.fromtimestamp(int(time.time()), pytz.timezone('Asia/Kolkata')).strftime('%d-%m-%Y %H:%M:%S')
-        print(f'\n ⟩ {t} ⟩ {e}')
+        print(f'\n ⟩ {t} ⟩ {e}\n\n{traceback.format_exc()}')
         return True
 
 # Create the bot instance
