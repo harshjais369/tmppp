@@ -203,6 +203,24 @@ def getCrocoResp(prompt):
 
 # Other funcs ------------------------------------------------------------------ #
 
+INVISIBLE_CHARS = [b'\\U000e0046', b'\\U000e003c', b'\\U000e002e', b'\\U000e0079', b'\\U000e005e', b'\\u2060', b'\\U000e0039', b'\\U000e006b',
+    b'\\U000e0057', b'\\U000e007a', b'\\U000e0075', b'\\U000e0059', b'\\u2063', b'\\u2004', b'\\u200d', b'\\U000e0036', b'\\u2001',
+    b'\\U000e0043', b'\\U000e0054', b'\\U000e002c', b'\\U000e005d', b'\\U000e006f', b'\\U000e0077', b'\\U000e0073', b'\\u2000', b'\\U000e003d',
+    b'\\u2064', b'\\u2007', b'\\u3000', b'\\U0001d174', b'\\U000e004c', b'\\U000e004b', b'\\u2005', b'\\u061c', b'\\U0001d175', b'\\U000e0030',
+    b'\\U000e004f', b'\\u200c', b'\\u200f', b'\\u2069', b'\\U000e0047', b'\\U0001d178', b'\\U000e0026', b'\\U000e0048', b'\\U000e007d',
+    b'\\U000e0064', b'\\u202b', b'\\u2062', b'\\u202c', b'\\U000e0069', b'\\u180e', b'\\u202f', b'\\xad', b'\\U0001d179', b'\\U000e005f',
+    b'\\u206c', b'\\U000e0020', b'\\U000e0033', b'\\U000e007b', b'\\U000e0034', b'\\U000e0041', b'\\U000e0071', b'\\U000e002a', b'\\U000e0040',
+    b'\\U000e0050', b'\\U000e0035', b'\\U000e0025', b'\\U000e0058', b'\\U000e0065', b'\\U000e0037', b'\\u206e', b'\\U000e0024', b'\\U000e004d',
+    b'\\U000e006d', b'\\U000e005c', b'\\u2006', b'\\u202a', b'\\U000e0051', b'\\U000e0062', b'\\u206a', b'\\U000e003e', b'\\u200b',
+    b'\\U000e0038', b'\\U000e0076', b'\\U000e007e', b'\\U000e0021', b'\\U000e004a', b'\\U000e0060', b'\\U000e0070', b'\\U000e006a',
+    b'\\U000e0029', b'\\U000e005b', b'\\U000e0061', b'\\U000e0078', b'\\u2003', b'\\U0001d173', b'\\U000e0022', b'\\u2009', b'\\U0001d177',
+    b'\\U000e0055', b'\\u2067', b'\\U000e0044', b'\\u206d', b'\\u2061', b'\\U000e003a', b'\\xa0', b'\\U000e0072', b'\\U000e007f',
+    b'\\U000e0032', b'\\u206b', b'\\U000e003b', b'\\U000e002b', b'\\u206f', b'\\U000e0053', b'\\U000e007c', b'\\U000e0045', b'\\U000e004e',
+    b'\\u202e', b'\\U000e0027', b'\\U000e0049', b'\\u2002', b'\\U000e0001', b'\\U000e0023', b'\\U000e0052', b'\\u2008', b'\\U000e0074',
+    b'\\U0001d17a', b'\\U000e002f', b'\\U000e003f', b'\\U000e0066', b'\\U000e0067', b'\\ufeff', b'\\U000e0042', b'\\u2066', b'\\U000e0063',
+    b'\\U000e0068', b'\\U000e0031', b'\\u200a', b'\\U000e005a', b'\\u1680', b'\\U000e0028', b'\\u200e', b'\\U000e0056', b'\\u202d',
+    b'\\U0001d176', b'\\u205f', b'\\U000e006c', b'\\U000e006e', b'\\U000e002d', b'\\u2068', b'\\u3164', b'\\u2800']
+
 def escName(user, charLimit: int=25, part: str='fname') -> str:
     """
     Removes any "ㅤ" characters from a name.
@@ -212,16 +230,19 @@ def escName(user, charLimit: int=25, part: str='fname') -> str:
     :param part: 'fname' | 'full' = 'fname'
     :return: fname + lname | "[Ghost User]"
     """
-    fullname = user.first_name.replace('ㅤ', '')
-    if part != 'fname':
-        fullname = (fullname + ' ' + user.last_name.replace('ㅤ', '')).lstrip() if user.last_name else fullname
-        fullname = fullname if fullname != '' else '[Ghost User]'
-        return fullname[:charLimit] + '...' if len(fullname) > charLimit else fullname
-    if fullname == '':
-        fullname = user.last_name.replace('ㅤ', '') if user.last_name else '[Ghost User]'
-        if fullname == '':
-            fullname = '[Ghost User]'
-    return fullname[:charLimit] + '...' if len(fullname) > charLimit else fullname
+    finalName = ''
+    for c in user.first_name:
+        if c.encode('unicode-escape') not in INVISIBLE_CHARS:
+            finalName += c
+    if (finalName == '' or part != 'fname') and user.last_name:
+        finalName += ' '
+        for c in user.last_name:
+            if c.encode('unicode-escape') not in INVISIBLE_CHARS:
+                finalName += c
+    finalName = finalName.replace('  ', '').strip()
+    if finalName == '':
+        finalName = '[Ghost User]'
+    return finalName[:charLimit] + '...' if len(finalName) > charLimit else finalName
 
 def escChar(content) -> str:
     """

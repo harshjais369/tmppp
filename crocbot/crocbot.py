@@ -1159,7 +1159,7 @@ async def handle_my_chat_member(message):
         await bot.send_message(MY_IDs[1][0], f'❌ Bot \#removed by chat: `{escChar(chatId)}`\n{escChar(message.chat.title)}\n{username}', parse_mode='MarkdownV2')
     else:
         fullName = escChar(escName(message.chat, 100, 'full'))
-        await bot.send_message(MY_IDs[1][0], f'❌ Bot \#removed by [user]((tg://user?id={chatId})): `{chatId}`\n{fullName}\n{username}', parse_mode='MarkdownV2')
+        await bot.send_message(MY_IDs[1][0], f'❌ Bot \#removed by [user](tg://user?id={chatId}): `{chatId}`\n{fullName}\n{username}', parse_mode='MarkdownV2')
 
 # Handler for "chat name is changed" (update chat name in TOP10_CHAT_NAMES)
 @bot.message_handler(content_types=['new_chat_title'])
