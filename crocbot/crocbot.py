@@ -855,7 +855,8 @@ async def stats_cmd(message):
                                     f'{rank}'
                                     f'*Global rank:* {escChar(grank)}\n'
                                     f'*Played in:* {played_in_chats} groups\n'
-                                    f'{last_played}\n'
+                                    f'{last_played}'
+                                    '                               \n'
                                     f'❕ _You receive 1💵 reward for\neach correct word guess\._',
                                     parse_mode='MarkdownV2')
 
@@ -902,7 +903,8 @@ async def mystats_cmd(message):
                                     f' *— in all chats:* {escChar(total_points)} 💵\n'
                                     f'{rank}'
                                     f'*Global rank:* {escChar(grank)}\n'
-                                    f'*Played in:* {played_in_chats} groups\n\n'
+                                    f'*Played in:* {played_in_chats} groups\n'
+                                    '                               \n'
                                     f'❕ _You receive 1💵 reward for\neach correct word guess\._',
                                     parse_mode='MarkdownV2')
 
