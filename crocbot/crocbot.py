@@ -299,7 +299,7 @@ async def botStats_cmd(message):
         f'*Chats \(total\):* {len(total_ids)}\n' \
         f'*Users:* {len(u_ids)}\n' \
         f'*Groups:* {len(g_ids)}\n' \
-        f'*Potential reach:* 3\.9M\n' \
+        f'*Potential reach:* 4\.0M\n' \
         f'*Super\-users:* {len(MY_IDs[1])}\n' \
         f'*AI users:* {len(AI_USERS)}\n' \
         f'*AI groups:* {len(CROCO_CHATS)}\n' \
@@ -343,10 +343,11 @@ async def botStats_cmd(message):
     plt.close()
     with open('last30days_stats.png', 'rb') as img:
         # Append today's stats to message
-        stats_msg = f'📅 *Today stats:*\n\n' \
+        stats_msg = f'📅 *Today\'s stats:*\n\n' \
             f'*New chats:* {chats_added[-1]}\n' \
             f'*Games played:* {int(games_played[-1] * 100)}\n' \
-            f'*Cheating rate:* {escChar(100*cheats_detected[-1]/games_played[-1])[:4]}%\n\n' + stats_msg
+            f'*Cheating rate:* {escChar(100*cheats_detected[-1]/games_played[-1])[:4]}%\n' \
+            '                                     \n' + stats_msg
         await bot.send_photo(chatId, img, caption=stats_msg, parse_mode='MarkdownV2',
                              reply_to_message_id=message.message_id, allow_sending_without_reply=True)
 
