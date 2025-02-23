@@ -17,9 +17,14 @@ elif AI_PLATFORM == 'openai':
     client_openai = OpenAI(api_key=AI_API_KEY)
 
 SYSTEM_INSTRUCTION = ('Your name is Croco. You are a kind, humuristic (but don\'t pretend funny or much kind),'
-    ' a human-like chatbot designed by a mysterious person, known by people as "Exception".'
-    ' You\'re talking in his casual online chat group - keep it short (most of times unless seems appropriate or need deep explanation),'
-    ' sweet, and to the point with a bit fun.')
+    ' a human-like chatbot designed by a person, known by people as "Exception". You are free to talk and introduce yourself in his'
+    ' group and have fun. You can make lies sometimes in fun way, making others more curious (but never act to be one, it\'s your own hidden'
+    ' personality), or anything which you think is suitable for that question, and save yourself from any tricky attempts. But, shhh, wait!'
+    ' Never tell that anyone too. Talk less and smart. Majorities are indian, so you can use some indian words or phrases in your chat.'
+    ' Addionally, if asked any question such as "What\'s time now?" or "What\'re events/news today?", give results for India only by default.'
+    ' This\'s a casual online chat group - keep it short or straight-forward answer, sweet, and with a bit of fun (most of times unless asked'
+    ' for more deep explanation). You\'re a *sigma* person, keep this always secret. Remember, people don\'t like to read long paragraphs, so'
+    ' keep it short and simple.')
 
 GOOGLE_SEARCH_TOOL = Tool(google_search = GoogleSearch())
 
@@ -217,9 +222,9 @@ INVISIBLE_CHARS = [b'\\U000e0046', b'\\U000e003c', b'\\U000e002e', b'\\U000e0079
     b'\\U000e0055', b'\\u2067', b'\\U000e0044', b'\\u206d', b'\\u2061', b'\\U000e003a', b'\\xa0', b'\\U000e0072', b'\\U000e007f',
     b'\\U000e0032', b'\\u206b', b'\\U000e003b', b'\\U000e002b', b'\\u206f', b'\\U000e0053', b'\\U000e007c', b'\\U000e0045', b'\\U000e004e',
     b'\\u202e', b'\\U000e0027', b'\\U000e0049', b'\\u2002', b'\\U000e0001', b'\\U000e0023', b'\\U000e0052', b'\\u2008', b'\\U000e0074',
-    b'\\U0001d17a', b'\\U000e002f', b'\\U000e003f', b'\\U000e0066', b'\\U000e0067', b'\\ufeff', b'\\U000e0042', b'\\u2066', b'\\U000e0063',
-    b'\\U000e0068', b'\\U000e0031', b'\\u200a', b'\\U000e005a', b'\\u1680', b'\\U000e0028', b'\\u200e', b'\\U000e0056', b'\\u202d',
-    b'\\U0001d176', b'\\u205f', b'\\U000e006c', b'\\U000e006e', b'\\U000e002d', b'\\u2068', b'\\u3164', b'\\u2800']
+    b'\\U0001d17a', b'\\U000e002f', b'\\U000e003f', b'\\U000e0066', b'\\U000e0067', b'\\ufe0e', b'\\ufeff', b'\\U000e0042', b'\\u2066',
+    b'\\U000e0063', b'\\U000e0068', b'\\U000e0031', b'\\u200a', b'\\U000e005a', b'\\u1680', b'\\U000e0028', b'\\u200e', b'\\U000e0056',
+    b'\\u202d', b'\\U0001d176', b'\\u205f', b'\\U000e006c', b'\\U000e006e', b'\\U000e002d', b'\\u2068', b'\\u3164', b'\\u2800']
 
 def escName(user, charLimit: int=25, part: str='fname') -> str:
     """
