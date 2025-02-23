@@ -233,7 +233,7 @@ def escName(user, charLimit: int=25, part: str='fname') -> str:
     :param user: from_user object
     :param limit: Max length of the name = 25
     :param part: 'fname' | 'full' = 'fname'
-    :return: fname + lname | "[Ghost User]"
+    :return: fname + lname | user.id
     """
     finalName = ''
     for c in user.first_name:
@@ -246,7 +246,7 @@ def escName(user, charLimit: int=25, part: str='fname') -> str:
                 finalName += c
     finalName = finalName.replace('  ', '').strip()
     if finalName == '':
-        finalName = '[Ghost User]'
+        finalName = str(user.id)
     return finalName[:charLimit] + '...' if len(finalName) > charLimit else finalName
 
 def escChar(content) -> str:
