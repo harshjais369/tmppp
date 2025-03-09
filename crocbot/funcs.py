@@ -236,17 +236,12 @@ def escName(user, charLimit: int=25, part: str='fname') -> str:
     :return: fname + lname | user.id
     """
     finalName = ''
-    for c in user.first_name:
-        if c.encode('unicode-escape') not in INVISIBLE_CHARS:
-            finalName += c
+    finalName += ''.join(c for c in user.first_name if c.encode('unicode-escape') not in INVISIBLE_CHARS)
     if (finalName == '' or part != 'fname') and user.last_name:
-        finalName += ' '
-        for c in user.last_name:
-            if c.encode('unicode-escape') not in INVISIBLE_CHARS:
-                finalName += c
+        finalName += ' ' + ''.join(c for c in user.last_name if c.encode('unicode-escape') not in INVISIBLE_CHARS)
     finalName = finalName.replace('  ', '').strip()
-    if finalName == '':
-        finalName = str(user.id)
+    if not finalName:
+        finalName = f'[id: {user.id}]'
     return finalName[:charLimit] + '...' if len(finalName) > charLimit else finalName
 
 def escChar(content) -> str:
