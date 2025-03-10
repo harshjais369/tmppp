@@ -1228,174 +1228,175 @@ async def handle_image_ai(message):
 @bot.message_handler(content_types=['text'], func=lambda message: message.chat.type in ['supergroup', 'group'])
 async def handle_group_message(message):
     chatId = message.chat.id
-    if chatId not in BLOCK_CHATS:
-        userObj = message.from_user
-        userId = userObj.id
-        msgText = message.text
-        rplyMsg = message.reply_to_message
-        if userId in BLOCK_USERS:
+    userObj = message.from_user
+    userId = userObj.id
+    msgText = message.text
+    rplyMsg = message.reply_to_message
+    if chatId in BLOCK_CHATS or userId in BLOCK_USERS:
+        return
+    global STATE
+    if STATE.get(str(chatId)) is None:
+        curr_game = await getCurrGame(chatId, userId)
+        if curr_game['status'] == 'not_started':
+            STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
             return
-
-        if (
-            (str(userId) in AI_USERS.keys())
-            and (chatId == int(AI_USERS.get(str(userId))))
-            and (not message.text.startswith('/'))
-            and (message.text.startswith('@croco') or ((rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[0])))
-            ):
-            await bot.send_chat_action(chatId, 'typing')
-            p = msgText.replace('@croco', '').lstrip()
-            prompt = 'You: ' + p
-            rplyToMsg = message
-            if rplyMsg:
-                if p == '':
-                    if rplyMsg.from_user.id == MY_IDs[0]:
-                        return
-                    else:
-                        rplyToMsg = rplyMsg
-                        if rplyMsg.photo:
-                            prompt = f'You: [Image]\n{rplyMsg.caption}' if rplyMsg.caption else 'You: [Image]'
-                        else:
-                            prompt += rplyMsg.text
-                elif rplyMsg.from_user.id == MY_IDs[0]:
-                    if rplyMsg.photo:
-                        prompt = f'Croco: [Image]\n{rplyMsg.caption}\n\n{prompt}' if rplyMsg.caption else f'Croco: [Image]\n\n{prompt}'
-                    else:
-                        prompt = f'Croco: {rplyMsg.text}\n\n{prompt}'
-                elif rplyMsg.from_user.id != userId:
-                    if rplyMsg.photo:
-                        prompt = f'Another member: [Image]\n{rplyMsg.caption}\n\n{prompt}' if rplyMsg.caption else f'Another member: [Image]\n\n{prompt}'
-                    else:
-                        prompt = f'Another member: {rplyMsg.text}\n\n{prompt}'
-                else:
-                    if rplyMsg.photo:
-                        prompt = f'You: [Image]\n{rplyMsg.caption}\n\n{prompt}' if rplyMsg.caption else f'You: [Image]\n\n{prompt}'
-                    else:
-                        prompt = f'You: {rplyMsg.text}\n\n{prompt}'
-            prompt += '\n\nCroco:'
-            # Generate response using AI model and send it to user as a reply to his message
-            if rplyMsg and rplyMsg.photo:
-                file_info = await bot.get_file(rplyMsg.photo[-1].file_id)
-                file_path = file_info.file_path
-                img_path = await bot.download_file(file_path)
-                with open('image.jpg', 'wb') as new_file:
-                    new_file.write(img_path)
-                    aiResp = funcs.getImgAIResp(prompt, '', 'image.jpg')
+        else:
+            WORD.update({str(chatId): curr_game['data'].word})
+            STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, int(curr_game['started_at']), 'False', False]})
+            await bot.send_message(chatId, f'🔄 *Bot restarted\!*\nAll active games were restored back and will continue running\.', parse_mode='MarkdownV2')
+    
+    if STATE.get(str(chatId))[0] == WAITING_FOR_WORD:
+        leaderId = STATE.get(str(chatId))[1]
+        # If leader types sth after starting game, change state to show_changed_word_msg=True
+        if leaderId == userId:
+            cheat_status = 'Force True' if STATE.get(str(chatId))[4] == 'Force True' else 'False'
+            if (rplyMsg is None) or ((rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[0])):
+                STATE.update({str(chatId): [WAITING_FOR_WORD, userId, True, STATE.get(str(chatId))[3], cheat_status, STATE.get(str(chatId))[5]]})
             else:
-                aiResp = funcs.getAIResp(prompt, 'text-davinci-002', 0.8, 1800, 1, 0.2, 0)
-            aiResp = aiResp if aiResp != 0 else 'Something went wrong! Please try again later.'
-            aiResp = aiResp.replace('Croco:', '', 1).lstrip() if aiResp.startswith('Croco:') else aiResp
-            aiResp = escChar(aiResp).replace('\\*\\*', '*').replace('\\`', '`')
-            await bot.send_message(chatId, aiResp, reply_to_message_id=rplyToMsg.message_id, parse_mode='MarkdownV2', allow_sending_without_reply=True)
-            return
-
-        global STATE
-        if STATE.get(str(chatId)) is None:
-            curr_game = await getCurrGame(chatId, userId)
-            if curr_game['status'] == 'not_started':
+                # When leader replies to any msg, except bot's msg
+                STATE.update({str(chatId): [WAITING_FOR_WORD, userId, STATE.get(str(chatId))[2], STATE.get(str(chatId))[3], cheat_status, STATE.get(str(chatId))[5]]})
+            if message.via_bot and any(t in msgText.lower() for t in ['whisper message to', 'read the whisper', 'private message to', 'generating whisper']):
+                STATE.update({str(chatId): [WAITING_FOR_WORD, userId, STATE.get(str(chatId))[2], STATE.get(str(chatId))[3], 'Force True', STATE.get(str(chatId))[5]]})
+                print('\n>>> Whisper message detected! ChatID:', chatId, '| UserID:', userId, '| Bot:', message.via_bot.username)
+                return
+        # Check if the message contains the word "Word"
+        if msgText.lower() == WORD.get(str(chatId)):
+            global NO_CHEAT_CHATS
+            is_cheat_allowed = chatId in NO_CHEAT_CHATS
+            can_show_cheat_msg = STATE.get(str(chatId))[4]
+            if not is_cheat_allowed:
                 STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
-                return
-            else:
-                WORD.update({str(chatId): curr_game['data'].word})
-                STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, int(curr_game['started_at']), 'False', False]})
-                await bot.send_message(chatId, f'🔄 *Bot restarted\!*\nAll active games were restored back and will continue running\.', parse_mode='MarkdownV2')
-        if STATE.get(str(chatId))[0] == WAITING_FOR_WORD:
-            leaderId = STATE.get(str(chatId))[1]
-            # If leader types sth after starting game, change state to show_changed_word_msg=True
-            if leaderId == userId:
-                cheat_status = 'Force True' if STATE.get(str(chatId))[4] == 'Force True' else 'False'
-                if (rplyMsg is None) or ((rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[0])):
-                    STATE.update({str(chatId): [WAITING_FOR_WORD, userId, True, STATE.get(str(chatId))[3], cheat_status, STATE.get(str(chatId))[5]]})
-                else:
-                    # When leader replies to any msg, except bot's msg
-                    STATE.update({str(chatId): [WAITING_FOR_WORD, userId, STATE.get(str(chatId))[2], STATE.get(str(chatId))[3], cheat_status, STATE.get(str(chatId))[5]]})
-                if message.via_bot and any(t in msgText.lower() for t in ['whisper message to', 'read the whisper', 'private message to', 'generating whisper']):
-                    STATE.update({str(chatId): [WAITING_FOR_WORD, userId, STATE.get(str(chatId))[2], STATE.get(str(chatId))[3], 'Force True', STATE.get(str(chatId))[5]]})
-                    print('\n>>> Whisper message detected! ChatID:', chatId, '| UserID:', userId, '| Bot:', message.via_bot.username)
+            elif leaderId != userId:
+                STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
+            points = 1
+            fullName = escName(userObj)
+            # Check if user is not leader, or if the chat can ignore cheat
+            if leaderId != userId or is_cheat_allowed:
+                if is_cheat_allowed and leaderId == userId:
                     return
-            # Check if the message contains the word "Word"
-            if msgText.lower() == WORD.get(str(chatId)):
-                global NO_CHEAT_CHATS
-                is_cheat_allowed = chatId in NO_CHEAT_CHATS
-                can_show_cheat_msg = STATE.get(str(chatId))[4]
-                if not is_cheat_allowed:
-                    STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
-                elif leaderId != userId:
-                    STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
-                points = 1
-                fullName = escName(userObj)
-                # Check if user is not leader, or if the chat can ignore cheat
-                if leaderId != userId or is_cheat_allowed:
-                    if is_cheat_allowed and leaderId == userId:
-                        return
-                    if can_show_cheat_msg == 'False' or is_cheat_allowed:
-                        await bot.send_message(chatId, f'🎉 [{escChar(fullName)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*',
-                                               reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
-                    else:
-                        await bot.send_message(chatId, f'🚨 [{escChar(fullName)}](tg://user?id={userId}) lost 1💵 for cheating\! *{WORD.get(str(chatId))}*',
-                                               reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
-                        points = -1
-                        global CHEAT_RECORD
-                        curr_cheat_stats = CHEAT_RECORD.get(str(chatId))
-                        if curr_cheat_stats is None:
-                            CHEAT_RECORD.update({str(chatId): 1})
-                        else:
-                            CHEAT_RECORD.update({str(chatId): curr_cheat_stats + 1})                        
-                    removeGame_sql(chatId)
-                    if points == -1:
-                        update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 1, 1)
+                if can_show_cheat_msg == 'False' or is_cheat_allowed:
+                    await bot.send_message(chatId, f'🎉 [{escChar(fullName)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*',
+                                            reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
                 else:
-                    # Leader revealed the word (stop game and deduct leader's points)
-                    await stopGame(message, isWordRevealed=True)
+                    await bot.send_message(chatId, f'🚨 [{escChar(fullName)}](tg://user?id={userId}) lost 1💵 for cheating\! *{WORD.get(str(chatId))}*',
+                                            reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
                     points = -1
-                fullName = escName(userObj, 100, 'full')
-                incrementPoints_sql(userId, chatId, points, fullName)
-        
-        elif chatId in CROCO_CHATS: # Check if chat is allowed to use Croco AI
-            if msgText.lower().startswith('/') or msgText.lower().startswith('@') or msgText.lower().startswith('croco:'):
-                return
-            if (rplyMsg) and (rplyMsg.from_user.id == MY_IDs[0]) and (rplyMsg.text.startswith('Croco:')):
-                await bot.send_chat_action(chatId, 'typing')
-                rplyText = rplyMsg.text
-                resp = None
-                preConvObjList = getEngAIConv_sql(chatId, rplyText)
-                if preConvObjList:
-                    preConvObj = preConvObjList[0]
-                    # get Croco AI resp and then update prompt in DB
-                    if (int(rplyMsg.date) - int(preConvObj.time)) < 5:
+                    global CHEAT_RECORD
+                    curr_cheat_stats = CHEAT_RECORD.get(str(chatId))
+                    if curr_cheat_stats is None:
+                        CHEAT_RECORD.update({str(chatId): 1})
+                    else:
+                        CHEAT_RECORD.update({str(chatId): curr_cheat_stats + 1})                        
+                removeGame_sql(chatId)
+                if points == -1:
+                    update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 1, 1)
+            else:
+                # Leader revealed the word (stop game and deduct leader's points)
+                await stopGame(message, isWordRevealed=True)
+                points = -1
+            fullName = escName(userObj, 100, 'full')
+            incrementPoints_sql(userId, chatId, points, fullName)
+    
+    if (
+        (str(userId) in AI_USERS.keys())
+        and (chatId == int(AI_USERS.get(str(userId))))
+        and (not message.text.startswith('/'))
+        and (message.text.startswith('@croco') or ((rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[0])))
+        ):
+        if (STATE.get(str(chatId))[0] == WAITING_FOR_WORD) and (userId not in MY_IDs[1]):
+            return
+        await bot.send_chat_action(chatId, 'typing')
+        p = msgText.replace('@croco', '').lstrip()
+        prompt = 'You: ' + p
+        rplyToMsg = message
+        if rplyMsg:
+            if p == '':
+                if rplyMsg.from_user.id == MY_IDs[0]:
+                    return
+                else:
+                    rplyToMsg = rplyMsg
+                    if rplyMsg.photo:
+                        prompt = f'You: [Image]\n{rplyMsg.caption}' if rplyMsg.caption else 'You: [Image]'
+                    else:
+                        prompt += rplyMsg.text
+            elif rplyMsg.from_user.id == MY_IDs[0]:
+                if rplyMsg.photo:
+                    prompt = f'Croco: [Image]\n{rplyMsg.caption}\n\n{prompt}' if rplyMsg.caption else f'Croco: [Image]\n\n{prompt}'
+                else:
+                    prompt = f'Croco: {rplyMsg.text}\n\n{prompt}'
+            elif rplyMsg.from_user.id != userId:
+                if rplyMsg.photo:
+                    prompt = f'Another member: [Image]\n{rplyMsg.caption}\n\n{prompt}' if rplyMsg.caption else f'Another member: [Image]\n\n{prompt}'
+                else:
+                    prompt = f'Another member: {rplyMsg.text}\n\n{prompt}'
+            else:
+                if rplyMsg.photo:
+                    prompt = f'You: [Image]\n{rplyMsg.caption}\n\n{prompt}' if rplyMsg.caption else f'You: [Image]\n\n{prompt}'
+                else:
+                    prompt = f'You: {rplyMsg.text}\n\n{prompt}'
+        prompt += '\n\nCroco:'
+        # Generate response using AI model and send it to user as a reply to his message
+        if rplyMsg and rplyMsg.photo:
+            file_info = await bot.get_file(rplyMsg.photo[-1].file_id)
+            file_path = file_info.file_path
+            img_path = await bot.download_file(file_path)
+            with open('image.jpg', 'wb') as new_file:
+                new_file.write(img_path)
+                aiResp = funcs.getImgAIResp(prompt, '', 'image.jpg')
+        else:
+            aiResp = funcs.getAIResp(prompt, 'text-davinci-002', 0.8, 1800, 1, 0.2, 0)
+        aiResp = aiResp if aiResp != 0 else 'Something went wrong! Please try again later.'
+        aiResp = aiResp.replace('Croco:', '', 1).lstrip() if aiResp.startswith('Croco:') else aiResp
+        aiResp = escChar(aiResp).replace('\\*\\*', '*').replace('\\`', '`')
+        await bot.send_message(chatId, aiResp, reply_to_message_id=rplyToMsg.message_id, parse_mode='MarkdownV2', allow_sending_without_reply=True)
+        return
+
+    elif chatId in CROCO_CHATS: # Check if chat is allowed to use Croco AI
+        if msgText.lower().startswith('/') or msgText.lower().startswith('@') or msgText.lower().startswith('croco:'):
+            return
+        if (rplyMsg) and (rplyMsg.from_user.id == MY_IDs[0]) and (rplyMsg.text.startswith('Croco:')):
+            await bot.send_chat_action(chatId, 'typing')
+            rplyText = rplyMsg.text
+            resp = None
+            preConvObjList = getEngAIConv_sql(chatId, rplyText)
+            if preConvObjList:
+                preConvObj = preConvObjList[0]
+                # get Croco AI resp and then update prompt in DB
+                if (int(rplyMsg.date) - int(preConvObj.time)) < 5:
+                    p = f"{preConvObj.prompt}\nYou: {msgText}\nCroco: "
+                    resp = funcs.getCrocoResp(p).lstrip()
+                    updateEngAIPrompt_sql(id=preConvObj.id, chat_id=chatId, prompt=str(p + resp), isNewConv=False)
+                else:
+                    rem_prmt_frm_indx = str(preConvObj.prompt).find(rplyText)
+                    if rem_prmt_frm_indx == -1:
+                        await bot.send_message(chatId, f'Something went wrong\!\n*Err:* \#0x604', reply_to_message_id=message.message_id,
+                                                parse_mode='MarkdownV2', allow_sending_without_reply=True)
+                        return
+                    end_offset_index = rem_prmt_frm_indx + len(rplyText)
+                    if end_offset_index == len(preConvObj.prompt):
                         p = f"{preConvObj.prompt}\nYou: {msgText}\nCroco: "
                         resp = funcs.getCrocoResp(p).lstrip()
                         updateEngAIPrompt_sql(id=preConvObj.id, chat_id=chatId, prompt=str(p + resp), isNewConv=False)
                     else:
-                        rem_prmt_frm_indx = str(preConvObj.prompt).find(rplyText)
-                        if rem_prmt_frm_indx == -1:
-                            await bot.send_message(chatId, f'Something went wrong\!\n*Err:* \#0x604', reply_to_message_id=message.message_id,
-                                                   parse_mode='MarkdownV2', allow_sending_without_reply=True)
-                            return
-                        end_offset_index = rem_prmt_frm_indx + len(rplyText)
-                        if end_offset_index == len(preConvObj.prompt):
-                            p = f"{preConvObj.prompt}\nYou: {msgText}\nCroco: "
-                            resp = funcs.getCrocoResp(p).lstrip()
-                            updateEngAIPrompt_sql(id=preConvObj.id, chat_id=chatId, prompt=str(p + resp), isNewConv=False)
-                        else:
-                            renew_prompt = preConvObj.prompt[:end_offset_index]
-                            p = f"{renew_prompt}\nYou: {msgText}\nCroco: "
-                            resp = funcs.getCrocoResp(p).lstrip()
-                            updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
-                else:
-                    p = f'{rplyText}\nYou: {msgText}\nCroco: '
-                    resp = funcs.getCrocoResp(p).lstrip()
-                    updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
-                aiResp = escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
-                await bot.send_message(chatId, f'*Croco:* {aiResp}', reply_to_message_id=message.message_id,
-                                       parse_mode='MarkdownV2', allow_sending_without_reply=True)
-            elif any(t in msgText.lower() for t in funcs.AI_TRIGGER_MSGS):
-                await bot.send_chat_action(chatId, 'typing')
-                p = f'You: {msgText}\nCroco: '
+                        renew_prompt = preConvObj.prompt[:end_offset_index]
+                        p = f"{renew_prompt}\nYou: {msgText}\nCroco: "
+                        resp = funcs.getCrocoResp(p).lstrip()
+                        updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
+            else:
+                p = f'{rplyText}\nYou: {msgText}\nCroco: '
                 resp = funcs.getCrocoResp(p).lstrip()
                 updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
-                aiResp = escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
-                await bot.send_message(chatId, f'*Croco:* {aiResp}', reply_to_message_id=message.message_id,
-                                       parse_mode='MarkdownV2', allow_sending_without_reply=True)
+            aiResp = escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
+            await bot.send_message(chatId, f'*Croco:* {aiResp}', reply_to_message_id=message.message_id,
+                                    parse_mode='MarkdownV2', allow_sending_without_reply=True)
+        elif any(t in msgText.lower() for t in funcs.AI_TRIGGER_MSGS):
+            await bot.send_chat_action(chatId, 'typing')
+            p = f'You: {msgText}\nCroco: '
+            resp = funcs.getCrocoResp(p).lstrip()
+            updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
+            aiResp = escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
+            await bot.send_message(chatId, f'*Croco:* {aiResp}', reply_to_message_id=message.message_id,
+                                    parse_mode='MarkdownV2', allow_sending_without_reply=True)
 
 # Handler for incoming media in groups
 @bot.message_handler(content_types=['sticker', 'photo', 'video', 'document', 'animation', 'dice', 'poll', 'voice', 'video_note', 'audio', 'contact'],
