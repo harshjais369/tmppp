@@ -20,7 +20,7 @@ from sql_helper.daily_botstats_sql import update_dailystats_sql, get_last30days_
 from sql_helper.ai_conv_sql import getEngAIConv_sql, updateEngAIPrompt_sql
 
 BOT_TOKEN = os.environ.get('BOT_TOKEN', None)
-MY_IDs = [6740198215, [5321125784, 6060491450, 6821441983]] # Bot ID, [Superuser IDs]
+MY_IDs = [6740198215, [5321125784, 6060491450, 6821441983, 7497979187]] # Bot ID, [Superuser IDs]
 AI_USERS = {}
 BLOCK_CHATS = [int(x) for x in os.environ.get('BLOCK_CHATS', '').split(',') if x]
 BLOCK_USERS = [int(x) for x in os.environ.get('BLOCK_USERS', '').split(',') if x]
@@ -1719,6 +1719,6 @@ async def handle_query(call):
 # Start the bot
 try:
     print('[PROD] Bot is running...')
-    asyncio.run(bot.infinity_polling(skip_pending=True))
+    asyncio.run(bot.infinity_polling())
 except BaseException as e:
     print('\n[PROD] Bot stopped!\nCaused by:', e.__repr__())
