@@ -556,16 +556,16 @@ async def blockchat_cmd(message):
     user_obj = message.from_user
     if user_obj.id not in MY_IDs[1]:
         return
-    command_parts = message.text.split(' ', 2)
+    command_parts = message.text.split(' ', 3)
     if len(command_parts) < 2:
         await bot.reply_to(message, 'No chat ID specified!', allow_sending_without_reply=True)
         return
     chat_id = command_parts[1]
     if not (chat_id.isdigit() or (chat_id.startswith('-') and chat_id[1:].isdigit())
-            or (chat_id.startswith('@') and chat_id[1:][0].isalpha())):
+            or (chat_id.startswith('@') and chat_id[1].isalpha())):
         await bot.reply_to(message, 'Invalid chat ID!', allow_sending_without_reply=True)
         return
-    if int(chat_id) in BLOCK_CHATS:
+    if chat_id[0] != '@' and int(chat_id) in BLOCK_CHATS:
         await bot.reply_to(message, 'Chat already blocked!', allow_sending_without_reply=True)
         return
     title = 'unknown\_chat'
@@ -574,11 +574,18 @@ async def blockchat_cmd(message):
         if chat_obj.type == 'private':
             await bot.reply_to(message, 'Provided id belongs to a user! To block a user, use /blockuser command.', allow_sending_without_reply=True)
             return
+        chat_id = chat_obj.id
         title = chat_obj.title
     except:
-        pass
+        if chat_id[0] == '@':
+            await bot.reply_to(message, 'Chat not found!', allow_sending_without_reply=True)
+            return
     BLOCK_CHATS.append(int(chat_id))
     await bot.reply_to(message, f'Chat {title} blocked successfully!', parse_mode='Markdown', allow_sending_without_reply=True)
+    if len(command_parts) > 2 and title != 'unknown\_chat':
+        await sleep(3)
+        await bot.send_message(chat_id, f'🚫 *This chat/group was banned from using this bot due to violation of our Terms of Service\.*\n\n' \
+            f'If you\'re chat/group owner and believe this is a mistake, please write to: \@CrocodileGamesGroup', parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['unblockchat'])
 async def unblockchat_cmd(message):
@@ -591,10 +598,10 @@ async def unblockchat_cmd(message):
         return
     chat_id = command_parts[1]
     if not (chat_id.isdigit() or (chat_id.startswith('-') and chat_id[1:].isdigit())
-            or (chat_id.startswith('@') and chat_id[1:][0].isalpha())):
+            or (chat_id.startswith('@') and chat_id[1].isalpha())):
         await bot.reply_to(message, 'Invalid chat ID!', allow_sending_without_reply=True)
         return
-    if int(chat_id) not in BLOCK_CHATS:
+    if chat_id[0] != '@' and int(chat_id) not in BLOCK_CHATS:
         await bot.reply_to(message, 'Chat not blocked!', allow_sending_without_reply=True)
         return
     title = 'unknown\_chat'
@@ -603,9 +610,12 @@ async def unblockchat_cmd(message):
         if chat_obj.type == 'private':
             await bot.reply_to(message, 'Provided id belongs to a user! To unblock a user, use /unblockuser command.', allow_sending_without_reply=True)
             return
+        chat_id = chat_obj.id
         title = chat_obj.title
     except:
-        pass
+        if chat_id[0] == '@':
+            await bot.reply_to(message, 'Chat not found!', allow_sending_without_reply=True)
+            return
     BLOCK_CHATS.remove(int(chat_id))
     await bot.reply_to(message, f'Chat {title} unblocked successfully!', parse_mode='Markdown', allow_sending_without_reply=True)
 
@@ -628,10 +638,10 @@ async def blockuser_cmd(message):
             await bot.reply_to(message, 'No user specified!', allow_sending_without_reply=True)
         return
     user_id = command_parts[1]
-    if not user_id.isdigit():
+    if not (user_id.isdigit() or (user_id.startswith('@') and user_id[1].isalpha())):
         await bot.reply_to(message, 'Invalid user ID!', allow_sending_without_reply=True)
         return
-    if int(user_id) in BLOCK_USERS:
+    if user_id[0] != '@' and int(user_id) in BLOCK_USERS:
         await bot.reply_to(message, 'User already blocked!', allow_sending_without_reply=True)
         return
     user_title = 'unknown\_user'
@@ -640,9 +650,12 @@ async def blockuser_cmd(message):
         if usr_obj.type != 'private':
             await bot.reply_to(message, 'Provided id belongs to a groupchat! To block a groupchat, use /blockchat command.', allow_sending_without_reply=True)
             return
+        user_id = usr_obj.id
         user_title = f'[{escName(usr_obj)}](tg://user?id={usr_obj.id})'
     except:
-        pass
+        if user_id[0] == '@':
+            await bot.reply_to(message, 'User not found!', allow_sending_without_reply=True)
+            return
     BLOCK_USERS.append(int(user_id))
     await bot.reply_to(message, f'User {user_title} blocked successfully!', parse_mode='Markdown', allow_sending_without_reply=True)
 
@@ -665,10 +678,10 @@ async def unblockuser_cmd(message):
             await bot.reply_to(message, 'No user specified!', allow_sending_without_reply=True)
         return
     user_id = command_parts[1]
-    if not user_id.isdigit():
+    if not (user_id.isdigit() or (user_id.startswith('@') and user_id[1].isalpha())):
         await bot.reply_to(message, 'Invalid user ID!', allow_sending_without_reply=True)
         return
-    if int(user_id) not in BLOCK_USERS:
+    if user_id[0] != '@' and int(user_id) not in BLOCK_USERS:
         await bot.reply_to(message, 'User not blocked!', allow_sending_without_reply=True)
         return
     user_title = 'unknown\_user'
@@ -677,9 +690,12 @@ async def unblockuser_cmd(message):
         if usr_obj.type != 'private':
             await bot.reply_to(message, 'Provided id belongs to a groupchat! To unblock a groupchat, use /unblockchat command.', allow_sending_without_reply=True)
             return
+        user_id = usr_obj.id
         user_title = f'[{escName(usr_obj)}](tg://user?id={usr_obj.id})'
     except:
-        pass
+        if user_id[0] == '@':
+            await bot.reply_to(message, 'User not found!', allow_sending_without_reply=True)
+            return
     BLOCK_USERS.remove(int(user_id))
     await bot.reply_to(message, f'User {user_title} unblocked successfully!', parse_mode='Markdown', allow_sending_without_reply=True)
 
@@ -1137,9 +1153,7 @@ async def handle_new_chat_members(message):
     if chatId not in BLOCK_CHATS:
         username = f'\n\(\@{escChar(message.chat.username)}\)' if message.chat.username is not None else ''
         await bot.send_message(MY_IDs[1][0], f'✅ Bot \#added to chat: `{escChar(chatId)}`\n{escChar(message.chat.title)}{username}', parse_mode='MarkdownV2')
-        await sleep(0.5)
-        # await bot.send_message(-1002204421104, f'✅ Bot \#added to chat: `{escChar(chatId)}`', parse_mode='MarkdownV2')
-        await sleep(2.5)
+        await sleep(3)
         markup_btn = InlineKeyboardMarkup([
             [InlineKeyboardButton('📢 Get bot updates!', url='t.me/CrocodileGames')],
             [InlineKeyboardButton('🚀 Launch game!', callback_data='start_game')]
@@ -1148,10 +1162,8 @@ async def handle_new_chat_members(message):
     else:
         await bot.send_message(text=f'☑️ Bot \#added to a \#blocked chat: `{escChar(chatId)}`\n{escChar(message.chat.title)}\n\@{escChar(message.chat.username)}',
                                chat_id=MY_IDs[1][0], parse_mode='MarkdownV2')
-        await sleep(0.5)
-        # await bot.send_message(-1002204421104, f'☑️ Bot \#added to a \#blocked chat: `{escChar(chatId)}`', parse_mode='MarkdownV2')
-        await sleep(0.5)
-        await bot.send_message(chatId, f'🚫 *This chat/group is banned from using this bot due to violation of our Terms of Service.*\n\n' \
+        await sleep(3)
+        await bot.send_message(chatId, f'🚫 *This chat/group was banned from using this bot due to violation of our Terms of Service\.*\n\n' \
             f'If you\'re chat/group owner and believe this is a mistake, please write to: \@CrocodileGamesGroup', parse_mode='MarkdownV2')
     update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 2, 1)
 
