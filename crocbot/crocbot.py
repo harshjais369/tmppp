@@ -1146,13 +1146,13 @@ async def handle_new_chat_members(message):
         ])
         await bot.send_message(chatId, f'👉🏻 Tap /help to see game commands.\n\nSupport group: @CrocodileGamesGroup', reply_markup=markup_btn)
     else:
-        await bot.send_message(f'☑️ Bot \#added to a \#blocked chat: `{escChar(chatId)}`\n{escChar(message.chat.title)}\n\@{escChar(message.chat.username)}',
+        await bot.send_message(text=f'☑️ Bot \#added to a \#blocked chat: `{escChar(chatId)}`\n{escChar(message.chat.title)}\n\@{escChar(message.chat.username)}',
                                chat_id=MY_IDs[1][0], parse_mode='MarkdownV2')
         await sleep(0.5)
         # await bot.send_message(-1002204421104, f'☑️ Bot \#added to a \#blocked chat: `{escChar(chatId)}`', parse_mode='MarkdownV2')
         await sleep(0.5)
-        await bot.send_message(chatId, f'🚫 *This chat/group was flagged as suspicious, and hence restricted from using this bot\!*\n\n' \
-            f'If you\'re chat/group owner and believes this is a mistake, please write to: \@CrocodileGamesGroup', parse_mode='MarkdownV2')
+        await bot.send_message(chatId, f'🚫 *This chat/group is banned from using this bot due to violation of our Terms of Service.*\n\n' \
+            f'If you\'re chat/group owner and believe this is a mistake, please write to: \@CrocodileGamesGroup', parse_mode='MarkdownV2')
     update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 2, 1)
 
 # Handler for "bot removed by chat/user" (send message to 1st superuser (MY_IDs[1][0]))
