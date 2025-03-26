@@ -1272,7 +1272,7 @@ async def handle_group_message(message):
                 print('\n>>> Whisper message detected! ChatID:', chatId, '| UserID:', userId, '| Bot:', message.via_bot.username)
                 return
         # Check if the message contains the word "Word"
-        if msgText.lower() == WORD.get(str(chatId)):
+        if WORD.get(str(chatId)) in msgText.lower().replace(' ', ''):
             global NO_CHEAT_CHATS
             is_cheat_allowed = chatId in NO_CHEAT_CHATS
             can_show_cheat_msg = STATE.get(str(chatId))[4]
