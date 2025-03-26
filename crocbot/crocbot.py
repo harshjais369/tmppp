@@ -804,7 +804,7 @@ async def start_game(message):
                 print('Change-leader request cancelled! Chat:', chatId)
                 return
             try:
-                ico = '✅' if i == 5 else '⏳' if i%2 == 0 else '⌛'
+                ico = '✅' if i == 5 else '⌛' if i&1 else '⏳'
                 await bot.edit_message_text(f'{ico} *{escChar(fullname)}* want to lead the game\!\nIn `{5 - i}` seconds\.\.\.',
                     chatId, rmsg.message_id, parse_mode='MarkdownV2', reply_markup=getInlineBtn('newLeader_req'))
             except:
@@ -1534,7 +1534,7 @@ async def handle_query(call):
                             print('Change-leader request cancelled! Chat:', chatId)
                             return
                         try:
-                            ico = '✅' if i == 5 else '⏳' if i%2 == 0 else '⌛'
+                            ico = '✅' if i == 5 else '⌛' if i&1 else '⏳'
                             await bot.edit_message_text(f'{ico} *{escChar(fullname)}* want to lead the game\!\nIn `{5 - i}` seconds\.\.\.',
                                 chatId, rmsg.message_id, parse_mode='MarkdownV2', reply_markup=getInlineBtn('newLeader_req'))
                         except:
@@ -1584,7 +1584,7 @@ async def handle_query(call):
                             print('Change-leader request cancelled! Chat:', chatId)
                             return
                         try:
-                            ico = '✅' if i == 5 else '⏳' if i%2 == 0 else '⌛'
+                            ico = '✅' if i == 5 else '⌛' if i&1 else '⏳'
                             await bot.edit_message_text(f'{ico} *{escChar(fullname)}* want to lead the game\!\nIn `{5 - i}` seconds\.\.\.',
                                 chatId, rmsg.message_id, parse_mode='MarkdownV2', reply_markup=getInlineBtn('newLeader_req'))
                         except:
