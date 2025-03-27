@@ -256,6 +256,8 @@ async def sendBroadcast_cmd(message):
     if len(chat_ids) == 0:
         await bot.reply_to(message, 'No chat ID specified!', allow_sending_without_reply=True)
         return
+    await bot.send_message(MY_IDs[2][0], f'\#Broadcast started by: [{escChar(escName(user_obj))}](tg://user?id={user_obj.id})\n\n'
+                    f'*Parameters:* {escChar(message.text[6:])}\n*Total chats:* {len(chat_ids)}', parse_mode='MarkdownV2')
     i = 0
     global CANCEL_BROADCAST
     CANCEL_BROADCAST = 0
@@ -284,7 +286,7 @@ async def cancelBroadcast_cmd(message):
     CANCEL_BROADCAST = 1
     await bot.reply_to(message, 'Broadcast cancelled!', allow_sending_without_reply=True)
     await sleep(2)
-    await bot.send_message(MY_IDs[2][0], f'\#Broadcast cancelled by: [{escName(user_obj.first_name)}](tg://user?id={user_obj.id})', parse_mode='MarkdownV2')
+    await bot.send_message(MY_IDs[2][0], f'\#Broadcast cancelled by: [{escChar(escName(user_obj))}](tg://user?id={user_obj.id})', parse_mode='MarkdownV2')
 
 # Forward message by message ID and chat ID
 @bot.message_handler(commands=['fwd'])
