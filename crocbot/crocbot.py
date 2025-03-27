@@ -1319,7 +1319,9 @@ async def handle_group_message(message):
                 print('\n>>> Whisper message detected! ChatID:', chatId, '| UserID:', userId, '| Bot:', message.via_bot.username)
                 return
         # Check if the message contains the word "Word"
-        if WORD.get(str(chatId)) in msgText.lower().replace(' ', ''):
+        word = WORD.get(str(chatId))
+        isWordMatched = word in msgText.lower().replace(' ', '') if len(word) > 3 else msgText.lower() == word
+        if isWordMatched:
             global NO_CHEAT_CHATS
             is_cheat_allowed = chatId in NO_CHEAT_CHATS
             can_show_cheat_msg = STATE.get(str(chatId))[4]
@@ -1334,10 +1336,10 @@ async def handle_group_message(message):
                 if is_cheat_allowed and leaderId == userId:
                     return
                 if can_show_cheat_msg == 'False' or is_cheat_allowed:
-                    await bot.send_message(chatId, f'🎉 [{escChar(fullName)}](tg://user?id={userId}) found the word\! *{WORD.get(str(chatId))}*',
+                    await bot.send_message(chatId, f'🎉 [{escChar(fullName)}](tg://user?id={userId}) found the word\! *{word}*',
                                             reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
                 else:
-                    await bot.send_message(chatId, f'🚨 [{escChar(fullName)}](tg://user?id={userId}) lost 1💵 for cheating\! *{WORD.get(str(chatId))}*',
+                    await bot.send_message(chatId, f'🚨 [{escChar(fullName)}](tg://user?id={userId}) lost 1💵 for cheating\! *{word}*',
                                             reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
                     points = -1
                     global CHEAT_RECORD
