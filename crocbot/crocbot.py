@@ -785,9 +785,10 @@ async def showaiusers_cmd(message):
 # Ludo game commands handler (startludo) ------------------------------------------------------ #
 @bot.message_handler(commands=['startludo'])
 async def startludo_cmd(message):
-    chatId = message.chat.id
-    if chatId not in (BLOCK_CHATS + BLOCK_USERS):
-        await bot.send_game(chatId, 'ludo')
+    # chatId = message.chat.id
+    # if chatId not in (BLOCK_CHATS + BLOCK_USERS):
+    #     await bot.send_game(chatId, 'ludo')
+    return
 
 # Crocodile game commands handler ------------------------------------------------------------- #
 # (game, stop, stats, mystats, ranking, globalranking, chatranking, rules, help, addword) ----- #
@@ -795,10 +796,10 @@ async def startludo_cmd(message):
 async def start_game(message):
     chatId = message.chat.id
     userObj = message.from_user
-    if (chatId in (BLOCK_CHATS + BLOCK_USERS)) or (message.text.lower() == '/game@octopusen_bot'):
-        return
     if message.chat.type == 'private':
         await startBotCmdInPvt(message, chatId)
+        return
+    if (chatId in BLOCK_CHATS) or (userObj.id in BLOCK_USERS) or (message.text.lower() == '/game@octopusen_bot'):
         return
     # Schedule bot mute for EVS group
     # if chatId == -1001596465392:
@@ -854,7 +855,8 @@ async def start_game(message):
 @bot.message_handler(commands=['stop'])
 async def stop_game(message):
     chatId = message.chat.id
-    if (message.chat.type != 'private') and (chatId not in (BLOCK_CHATS + BLOCK_USERS)):
+    userObj = message.from_user
+    if (message.chat.type != 'private') and (chatId not in BLOCK_CHATS) and (userObj.id not in BLOCK_USERS):
         global STATE
         if await stopGame(message):
             STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
@@ -1477,7 +1479,7 @@ async def handle_query(call):
     userObj = call.from_user
     if chatId not in BLOCK_CHATS:
         if userObj.id in BLOCK_USERS:
-            await bot.answer_callback_query(call.id, "❌ You are restricted from using this bot!\n\nFor queries, join: @CrocodileGamesGroup",
+            await bot.answer_callback_query(call.id, "❌ You were banned from using this bot due to a violation of our Terms of Service.\n\nFor queries, join: @CrocodileGamesGroup",
                                             show_alert=True, cache_time=30)
             return
         # Schedule bot mute for EVS group
