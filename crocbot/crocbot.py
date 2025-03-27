@@ -205,7 +205,7 @@ async def start_cmd(message):
         elif msgTxt == '/start' or msgTxt.startswith('/start ') or msgTxt.startswith('/start@croco'):
             await bot.send_message(chatId, '👋🏻 Hey!\nI\'m Crocodile Game Bot. To start a game, hit command: /game')
 
-# Basic commands (send, cancelbroadcast, botstats, serverinfo, info, del) (superuser only) ---------------------- #
+# Basic commands (send, cancelbroadcast, fwd, botstats, serverinfo, info, del) (superuser only) ---------------------- #
 @bot.message_handler(commands=['send'])
 async def sendBroadcast_cmd(message):
     user_obj = message.from_user
@@ -282,6 +282,35 @@ async def cancelBroadcast_cmd(message):
         return
     global CANCEL_BROADCAST
     CANCEL_BROADCAST = 1
+    await bot.reply_to(message, 'Broadcast cancelled!', allow_sending_without_reply=True)
+    await sleep(2)
+    await bot.send_message(MY_IDs[2][0], f'\#Broadcast cancelled by: [{escName(user_obj.first_name)}](tg://user?id={user_obj.id})', parse_mode='MarkdownV2')
+
+# Forward message by message ID and chat ID
+@bot.message_handler(commands=['fwd'])
+async def fwd_cmd(message):
+    chatId = message.chat.id
+    user_obj = message.from_user
+    if user_obj.id not in MY_IDs[1]:
+        return
+    command_parts = message.text.split(' ', 3)
+    if len(command_parts) < 3:
+        await bot.reply_to(message, 'No chat ID or message ID specified!', allow_sending_without_reply=True)
+        return
+    chat_id = command_parts[1]
+    msg_id = command_parts[2]
+    if not (chat_id.isdigit() or (chat_id.startswith('-') and chat_id[1:].isdigit())
+            or (chat_id.startswith('@') and chat_id[1].isalpha())):
+        await bot.reply_to(message, 'Invalid chat ID!', allow_sending_without_reply=True)
+        return
+    if not msg_id.isdigit():
+        await bot.reply_to(message, 'Invalid message ID!', allow_sending_without_reply=True)
+        return
+    try:
+        print(f'Forwarding from: {chat_id}\nTo: {chatId}\nMessage ID: {msg_id}\n')
+        await bot.forward_message(chatId, chat_id, msg_id, True)
+    except Exception as e:
+        await bot.reply_to(message, f'Failed to forward message.\n\nError: {str(e)}', allow_sending_without_reply=True)
 
 @bot.message_handler(commands=['botstats'])
 async def botStats_cmd(message):
@@ -300,7 +329,7 @@ async def botStats_cmd(message):
         f'*Chats \(total\):* {len(total_ids)}\n' \
         f'*Users:* {len(u_ids)}\n' \
         f'*Groups:* {len(g_ids)}\n' \
-        f'*Potential reach:* 4\.0M\n' \
+        f'*Potential reach:* 4\.1M\n' \
         f'*Super\-users:* {len(MY_IDs[1])}\n' \
         f'*AI users:* {len(AI_USERS)}\n' \
         f'*AI groups:* {len(CROCO_CHATS)}\n' \
@@ -357,27 +386,31 @@ async def serverInfo_cmd(message):
     user_obj = message.from_user
     if user_obj.id not in MY_IDs[1]:
         return
-    # Fetch system info
-    cpu_usage = psutil.cpu_percent()
-    mem = psutil.virtual_memory()
-    disk = psutil.disk_usage('/')
-    # Fetch network speed
-    st = speedtest.Speedtest()
-    st.get_best_server()
-    download_speed = round(st.download() / 1024 / 1024, 2)
-    upload_speed = round(st.upload() / 1024 / 1024, 2)
-    ping = st.results.ping
-    await bot.reply_to(message, f'🖥 *Server info:*\n\n'
-                                f'*System:* {escChar(platform.system())} {escChar(platform.release())}\n'
-                                f'*CPU usage:* {escChar(cpu_usage)}%\n'
-                                f'*Memory usage:* {escChar(mem.percent)}%\n'
-                                f'*Disk usage:* {escChar(disk.percent)}%\n'
-                                f'*Network speed:*\n'
-                                f'\t*– Download:* {escChar(download_speed)} Mb/s\n'
-                                f'\t*– Upload:* {escChar(upload_speed)} Mb/s\n'
-                                f'\t*– Ping:* {escChar(ping)} ms\n'
-                                f'*Uptime:* {escChar(time.strftime("%H:%M:%S", time.gmtime(time.time() - psutil.boot_time())))}\n',
-                                parse_mode='MarkdownV2', allow_sending_without_reply=True)
+    msg = await bot.reply_to(message, '📡 Fetching latest reports...', allow_sending_without_reply=True)
+    try:
+        # Fetch system info
+        cpu_usage = psutil.cpu_percent()
+        mem = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        # Fetch network speed
+        st = speedtest.Speedtest()
+        st.get_best_server()
+        download_speed = round(st.download() / 1024 / 1024, 2)
+        upload_speed = round(st.upload() / 1024 / 1024, 2)
+        ping = round(st.results.ping)
+        text = f'🖥 *Server info:*\n\n' \
+        f'*System:* {escChar(platform.system())} {escChar(platform.release())}\n' \
+        f'*CPU usage:* {escChar(cpu_usage)}%\n' \
+        f'*Memory usage:* {escChar(mem.percent)}%\n' \
+        f'*Disk usage:* {escChar(disk.percent)}%\n' \
+        f'*Network speed:*\n' \
+        f'\t*– Download:* {escChar(download_speed)} Mb/s\n' \
+        f'\t*– Upload:* {escChar(upload_speed)} Mb/s\n' \
+        f'\t*– Ping:* {escChar(ping)} ms\n' \
+        f'*Uptime:* {escChar(time.strftime("%H:%M:%S", time.gmtime(time.time() - psutil.boot_time())))}\n'
+    except Exception as e:
+        text = f'🖥 *Server info:* Failed to fetch data\.\n\n*Error:* {escChar(str(e.__class__))}'
+    await bot.edit_message_text(text=text, chat_id=message.chat.id, message_id=msg.message_id, parse_mode='MarkdownV2')
 
 # See chat/user info
 @bot.message_handler(commands=['info'])
@@ -1088,11 +1121,12 @@ async def cmdlist_cmd(message):
     if user_obj.id not in MY_IDs[1]:
         return
     superusr_cmds = (
-        '/info \- chat/user info\n'                          
+        '/info \- chat/user info\n'
         '/serverinfo \- server info\n'
         '/botstats \- bot stats\n'
         '/send \- send broadcast\n'
         '/cancelbroadcast \- stop broadcast\n'
+        '/fwd \- \[chat\_id\] \[message\_id\]\n'
         '/del \- delete message\n'
         '/approve \- approve new requests\n'
         '/showcheats \- groups with cheats\n'
