@@ -203,6 +203,8 @@ async def start_cmd(message):
         if message.chat.type == 'private':
             await startBotCmdInPvt(message, chatId)
         elif msgTxt == '/start' or msgTxt.startswith('/start ') or msgTxt.startswith('/start@croco'):
+            if (await bot.get_chat_member(chatId, MY_IDs[0])).can_send_messages == False:
+                return
             await bot.send_message(chatId, '👋🏻 Hey!\nI\'m Crocodile Game Bot. To start a game, hit command: /game')
 
 # Basic commands (send, cancelbroadcast, fwd, botstats, serverinfo, info, del) (superuser only) ---------------------- #
@@ -801,6 +803,8 @@ async def start_game(message):
         return
     if (chatId in BLOCK_CHATS) or (userObj.id in BLOCK_USERS) or (message.text.lower() == '/game@octopusen_bot'):
         return
+    if (await bot.get_chat_member(chatId, MY_IDs[0])).can_send_messages == False:
+        return
     # Schedule bot mute for EVS group
     # if chatId == -1001596465392:
     #     now = datetime.now(pytz.timezone('Asia/Kolkata'))
@@ -857,6 +861,8 @@ async def stop_game(message):
     chatId = message.chat.id
     userObj = message.from_user
     if (message.chat.type != 'private') and (chatId not in BLOCK_CHATS) and (userObj.id not in BLOCK_USERS):
+        if (await bot.get_chat_member(chatId, MY_IDs[0])).can_send_messages == False:
+            return
         global STATE
         if await stopGame(message):
             STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
@@ -866,7 +872,7 @@ async def stop_game(message):
 async def stats_cmd(message):
     chatId = message.chat.id
     user_obj = message.from_user
-    if chatId in BLOCK_CHATS and user_obj.id not in MY_IDs[1]:
+    if (chatId in BLOCK_CHATS and user_obj.id not in MY_IDs[1]) or (await bot.get_chat_member(chatId, MY_IDs[0])).can_send_messages == False:
         return
     if message.reply_to_message is not None:
         reply_user_obj = message.reply_to_message.from_user
@@ -919,50 +925,51 @@ async def stats_cmd(message):
 @bot.message_handler(commands=['mystats'])
 async def mystats_cmd(message):
     chatId = message.chat.id
-    if chatId not in BLOCK_CHATS:
-        user_obj = message.from_user
+    if chatId in BLOCK_CHATS or (await bot.get_chat_member(chatId, MY_IDs[0])).can_send_messages == False:
+        return
+    user_obj = message.from_user
+    curr_chat_user_stat = None
+    curr_chat_points = 0
+    total_points = 'Loading...'
+    user_stats = getUserPoints_sql(user_obj.id)
+    if not user_stats:
+        await bot.send_message(chatId, '📊 You have no stats yet!')
+    else:
+        global GLOBAL_RANKS
+        if not GLOBAL_RANKS:
+            granks = {}
+            grp_player_ranks = getTop25PlayersInAllChats_sql()
+            for gprObj in grp_player_ranks:
+                if gprObj.user_id in granks:
+                    granks[gprObj.user_id]['points'] += gprObj.points
+                else:
+                    granks[gprObj.user_id] = {'user_id': int(gprObj.user_id), 'name': gprObj.name, 'points': gprObj.points}
+            GLOBAL_RANKS = sorted(granks.values(), key=lambda x: x['points'], reverse=True)
+        fullName = escName(user_obj, 25, 'full').replace('🏅', '')
+        grp_player_ranks = getTop25Players_sql(chatId, 2000)
+        rank = next((i for i, prObj in enumerate(grp_player_ranks, 1) if int(prObj.user_id) == user_obj.id), 0) if grp_player_ranks and len(grp_player_ranks) > 0 else 0
+        rank = f'*Rank:* \#{rank}\n' if message.chat.type != 'private' else ''
+        _grank = next((i for i, user in enumerate(GLOBAL_RANKS, 1) if user['user_id'] == user_obj.id), 0) if GLOBAL_RANKS is not None else 0
+        grank = f'Top {str(_grank / len(GLOBAL_RANKS) * 100)[:4]}%' if _grank > 999 else f'#{_grank} 🏆' if _grank < 4 else f'#{_grank}'
+        total_points = 0
+        played_in_chats = len(user_stats)
         curr_chat_user_stat = None
-        curr_chat_points = 0
-        total_points = 'Loading...'
-        user_stats = getUserPoints_sql(user_obj.id)
-        if not user_stats:
-            await bot.send_message(chatId, '📊 You have no stats yet!')
-        else:
-            global GLOBAL_RANKS
-            if not GLOBAL_RANKS:
-                granks = {}
-                grp_player_ranks = getTop25PlayersInAllChats_sql()
-                for gprObj in grp_player_ranks:
-                    if gprObj.user_id in granks:
-                        granks[gprObj.user_id]['points'] += gprObj.points
-                    else:
-                        granks[gprObj.user_id] = {'user_id': int(gprObj.user_id), 'name': gprObj.name, 'points': gprObj.points}
-                GLOBAL_RANKS = sorted(granks.values(), key=lambda x: x['points'], reverse=True)
-            fullName = escName(user_obj, 25, 'full').replace('🏅', '')
-            grp_player_ranks = getTop25Players_sql(chatId, 2000)
-            rank = next((i for i, prObj in enumerate(grp_player_ranks, 1) if int(prObj.user_id) == user_obj.id), 0) if grp_player_ranks and len(grp_player_ranks) > 0 else 0
-            rank = f'*Rank:* \#{rank}\n' if message.chat.type != 'private' else ''
-            _grank = next((i for i, user in enumerate(GLOBAL_RANKS, 1) if user['user_id'] == user_obj.id), 0) if GLOBAL_RANKS is not None else 0
-            grank = f'Top {str(_grank / len(GLOBAL_RANKS) * 100)[:4]}%' if _grank > 999 else f'#{_grank} 🏆' if _grank < 4 else f'#{_grank}'
-            total_points = 0
-            played_in_chats = len(user_stats)
-            curr_chat_user_stat = None
-            for us in user_stats:
-                if str(us.chat_id) == str(chatId):
-                    curr_chat_user_stat = us
-                total_points += int(us.points)
-            curr_chat_points = curr_chat_user_stat.points if curr_chat_user_stat else 0
-            curr_chat_points = f' {escChar(curr_chat_points)} 💵' if message.chat.type != 'private' else ''
-            await bot.send_message(chatId, f'*Player stats* 📊\n\n'
-                                    f'*Name:* {"🏅 " if _grank > 0 and _grank < 26 else ""}{escChar(fullName)}\n'
-                                    f'*Earned cash:*{curr_chat_points}\n'
-                                    f' *— in all chats:* {escChar(total_points)} 💵\n'
-                                    f'{rank}'
-                                    f'*Global rank:* {escChar(grank)}\n'
-                                    f'*Played in:* {played_in_chats} groups\n'
-                                    '                               \n'
-                                    f'❕ _You receive 1💵 reward for\neach correct word guess\._',
-                                    parse_mode='MarkdownV2')
+        for us in user_stats:
+            if str(us.chat_id) == str(chatId):
+                curr_chat_user_stat = us
+            total_points += int(us.points)
+        curr_chat_points = curr_chat_user_stat.points if curr_chat_user_stat else 0
+        curr_chat_points = f' {escChar(curr_chat_points)} 💵' if message.chat.type != 'private' else ''
+        await bot.send_message(chatId, f'*Player stats* 📊\n\n'
+                                f'*Name:* {"🏅 " if _grank > 0 and _grank < 26 else ""}{escChar(fullName)}\n'
+                                f'*Earned cash:*{curr_chat_points}\n'
+                                f' *— in all chats:* {escChar(total_points)} 💵\n'
+                                f'{rank}'
+                                f'*Global rank:* {escChar(grank)}\n'
+                                f'*Played in:* {played_in_chats} groups\n'
+                                '                               \n'
+                                f'❕ _You receive 1💵 reward for\neach correct word guess\._',
+                                parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['ranking'])
 async def ranking_cmd(message):
@@ -1035,37 +1042,39 @@ async def chat_ranking_cmd(message):
 @bot.message_handler(commands=['rules'])
 async def rules_cmd(message):
     chatId = message.chat.id
-    if chatId not in BLOCK_CHATS:
-        rplyToMsgId = message.reply_to_message.message_id if message.reply_to_message else None
-        rules_msg = '>In this game, there are two roles: leader and other participants. ' \
-            'The leader selects a random word and tries to describe it without saying the word. ' \
-            'The other players\' goal is to find the word and type it in the group-chat.\n\n' \
-            '*You win 1💵 if you -*\n' \
-            '• Be the first person to guess (type) the correct word.\n\n' \
-            '*You lose 1💵 if you -*\n' \
-            '• Reveal the word yourself being a leader.\n' \
-            '• Found correct word before the leader provides any clues/hints in the chat.\n' \
-            '• Use whisper bots or any other means to cheat.\n\n' \
-            '- For game commands, press /help'
-        rules_msg = escChar(rules_msg).replace('\\*', '*').replace('\\>', '>', 1)
-        await bot.send_message(chatId, f'📖 *Game Rules:*\n\n{rules_msg}', reply_to_message_id=rplyToMsgId, parse_mode='MarkdownV2', allow_sending_without_reply=True)
+    if chatId in BLOCK_CHATS or (await bot.get_chat_member(chatId, MY_IDs[0])).can_send_messages == False:
+        return
+    rplyToMsgId = message.reply_to_message.message_id if message.reply_to_message else None
+    rules_msg = '>In this game, there are two roles: leader and other participants. ' \
+        'The leader selects a random word and tries to describe it without saying the word. ' \
+        'The other players\' goal is to find the word and type it in the group-chat.\n\n' \
+        '*You win 1💵 if you -*\n' \
+        '• Be the first person to guess (type) the correct word.\n\n' \
+        '*You lose 1💵 if you -*\n' \
+        '• Reveal the word yourself being a leader.\n' \
+        '• Found correct word before the leader provides any clues/hints in the chat.\n' \
+        '• Use whisper bots or any other means to cheat.\n\n' \
+        '- For game commands, press /help'
+    rules_msg = escChar(rules_msg).replace('\\*', '*').replace('\\>', '>', 1)
+    await bot.send_message(chatId, f'📖 *Game Rules:*\n\n{rules_msg}', reply_to_message_id=rplyToMsgId, parse_mode='MarkdownV2', allow_sending_without_reply=True)
 
 @bot.message_handler(commands=['help'])
 async def help_cmd(message):
     chatId = message.chat.id
-    if chatId not in BLOCK_CHATS:
-        await bot.send_message(chatId, '🐊📖 *Game commands:*\n\n'
-                                 '🎮 /game \- start a new game\n'
-                                 '🛑 /stop \- stop current game\n'
-                                 '📋 /rules \- know game rules\n'
-                                 '📊 /mystats \- your game stats\n'
-                                 '📈 /ranking \- top 25 players \(in this chat\)\n'
-                                 '📈 /globalranking \- top 25 global players\n'
-                                 '📈 /chatranking \- top 10 chats\n'
-                                 '➕ /addword \- add word to dictionary\n'
-                                 '📖 /help \- show this message\n\n'
-                                 '\- For more info, join: @CrocodileGamesGroup',
-                                 parse_mode='MarkdownV2')
+    if chatId in BLOCK_CHATS or (await bot.get_chat_member(chatId, MY_IDs[0])).can_send_messages == False:
+        return
+    await bot.send_message(chatId, '🐊📖 *Game commands:*\n\n'
+                                '🎮 /game \- start a new game\n'
+                                '🛑 /stop \- stop current game\n'
+                                '📋 /rules \- know game rules\n'
+                                '📊 /mystats \- your game stats\n'
+                                '📈 /ranking \- top 25 players \(in this chat\)\n'
+                                '📈 /globalranking \- top 25 global players\n'
+                                '📈 /chatranking \- top 10 chats\n'
+                                '➕ /addword \- add word to dictionary\n'
+                                '📖 /help \- show this message\n\n'
+                                '\- For more info, join: @CrocodileGamesGroup',
+                                parse_mode='MarkdownV2')
 
 @bot.message_handler(commands=['addword'])
 async def addword_cmd(message):
