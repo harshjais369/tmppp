@@ -413,7 +413,7 @@ async def serverInfo_cmd(message):
         f'\t*– Ping:* {escChar(ping)} ms\n' \
         f'*Uptime:* {escChar(time.strftime("%H:%M:%S", time.gmtime(time.time() - psutil.boot_time())))}\n'
     except Exception as e:
-        text = f'🖥 *Server info:* Failed to fetch data\.\n\n*Error:* {escChar(str(e.__class__))}'
+        text = f'🖥 *Server info:* Failed to fetch data\.\n\n*Error:* {escChar(e.__repr__())}'
     await bot.edit_message_text(text=text, chat_id=message.chat.id, message_id=msg.message_id, parse_mode='MarkdownV2')
 
 # See chat/user info
@@ -1320,6 +1320,8 @@ async def handle_group_message(message):
                 return
         # Check if the message contains the word "Word"
         word = WORD.get(str(chatId))
+        if word is None:
+            return
         isWordMatched = word in msgText.lower().replace(' ', '') if len(word) > 3 else msgText.lower() == word
         if isWordMatched:
             global NO_CHEAT_CHATS
