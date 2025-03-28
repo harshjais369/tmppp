@@ -266,7 +266,7 @@ async def sendBroadcast_cmd(message):
         try:
             await bot.forward_message(chat_id, message.chat.id, message.reply_to_message.message_id)
             i += 1
-            await sleep(0.1)
+            await sleep(1)
         except Exception as e:
             print(f'Failed to forward message to chat ID {chat_id}.\nError: {str(e)}')
             err_msg.append(chat_id)
