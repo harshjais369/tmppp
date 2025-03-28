@@ -1527,9 +1527,10 @@ async def handle_query(call):
         # Game panel inline btn handlers for leader use cases only ---------------- #
         if call.data == 'change_word':
             if curr_status == 'leader':
+                new_word = funcs.getNewWord()
+                await bot.answer_callback_query(call.id, f"Word: {new_word}", show_alert=True)
                 last_word = WORD.get(str(chatId), '')
-                WORD.update({str(chatId): funcs.getNewWord()})
-                await bot.answer_callback_query(call.id, f"Word: {WORD.get(str(chatId))}", show_alert=True)
+                WORD.update({str(chatId): new_word})
                 await changeWord(call, last_word)
                 STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(curr_game['started_at']), 'True', STATE.get(str(chatId))[5]]})
             elif curr_status == 'not_leader':
@@ -1542,7 +1543,7 @@ async def handle_query(call):
             elif curr_status == 'not_leader' and userObj.id != MY_IDs[1][0]:
                 await bot.answer_callback_query(call.id, "⚠ Only leader can see the word!", show_alert=True, cache_time=30)
             else:
-                word = WORD.get(str(chatId)) if WORD.get(str(chatId)) is not None else '[Change this word] ❌'
+                word = WORD.get(str(chatId), '[Change this word] ❌')
                 await bot.answer_callback_query(call.id, f"Word: {word}", show_alert=True)
         elif call.data == 'generate_hints':
             if curr_status == 'not_started':
