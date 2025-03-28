@@ -176,22 +176,19 @@ async def changeWord(message, last_word):
         await bot.send_message(chatId, f'❗{escChar(escName(user_obj))} changed the word\! ~*{escChar(last_word)}*~', parse_mode='MarkdownV2')
 
 async def getCurrGame(chatId, userId):
-    if STATE is not None and str(chatId) in STATE and STATE.get(str(chatId))[0] == WAITING_FOR_WORD:
+    if STATE.get(str(chatId), [-1])[0] == WAITING_FOR_WORD:
         # Game is started (known from STATE)
         state = 'leader' if (STATE.get(str(chatId))[1] == userId) else 'not_leader'
         return dict(status=state, started_at=STATE.get(str(chatId))[3])
     else:
         # Get current game from database
         curr_game = getGame_sql(chatId)
-        if curr_game is None:
-            # Game is not started yet
+        if curr_game is None: # Game is not started yet
             return dict(status='not_started')
-        elif int(curr_game.leader_id) != userId:
-            # User is not a leader
-            return dict(status='not_leader', started_at=int(curr_game.started_at), data=curr_game)
-        else:
-            # User is a leader
+        elif int(curr_game.leader_id) == userId: # User is a leader
             return dict(status='leader', started_at=int(curr_game.started_at), data=curr_game)
+        else: # User is not a leader
+            return dict(status='not_leader', started_at=int(curr_game.started_at), data=curr_game)
 
 # Bot commands handler ------------------------------------------------------------------------ #
 
@@ -1293,8 +1290,9 @@ async def handle_group_message(message):
     rplyMsg = message.reply_to_message
     if chatId in BLOCK_CHATS or userId in BLOCK_USERS:
         return
-    global STATE
-    if STATE.get(str(chatId)) is None:
+    global STATE, CHEAT_RECORD, NO_CHEAT_CHATS, WORD
+    state = STATE.get(str(chatId))
+    if state is None:
         curr_game = await getCurrGame(chatId, userId)
         if curr_game['status'] == 'not_started':
             STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
@@ -1305,30 +1303,31 @@ async def handle_group_message(message):
             if (await bot.get_chat_member(chatId, MY_IDs[0])).can_send_messages == False:
                 return
             await bot.send_message(chatId, f'🔄 *Bot restarted\!*\nAll active games were restored back and will continue running\.', parse_mode='MarkdownV2')
+        state = STATE.get(str(chatId))
     
-    if STATE.get(str(chatId))[0] == WAITING_FOR_WORD:
-        leaderId = STATE.get(str(chatId))[1]
+    if state[0] == WAITING_FOR_WORD:
+        leaderId = state[1]
         # If leader types sth after starting game, change state to show_changed_word_msg=True
         if leaderId == userId:
-            cheat_status = 'Force True' if STATE.get(str(chatId))[4] == 'Force True' else 'False'
-            if (rplyMsg is None) or ((rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[0])):
-                STATE.update({str(chatId): [WAITING_FOR_WORD, userId, True, STATE.get(str(chatId))[3], cheat_status, STATE.get(str(chatId))[5]]})
+            cheat_status = 'Force True' if state[4] == 'Force True' else 'False'
+            if (rplyMsg is None) or (rplyMsg and (rplyMsg.from_user.id == MY_IDs[0])):
+                STATE.update({str(chatId): [WAITING_FOR_WORD, userId, True, state[3], cheat_status, state[5]]})
             else:
                 # When leader replies to any msg, except bot's msg
-                STATE.update({str(chatId): [WAITING_FOR_WORD, userId, STATE.get(str(chatId))[2], STATE.get(str(chatId))[3], cheat_status, STATE.get(str(chatId))[5]]})
+                STATE.update({str(chatId): [WAITING_FOR_WORD, userId, state[2], state[3], cheat_status, state[5]]})
             if message.via_bot and any(t in msgText.lower() for t in ['whisper message to', 'read the whisper', 'private message to', 'generating whisper']):
                 STATE.update({str(chatId): [WAITING_FOR_WORD, userId, STATE.get(str(chatId))[2], STATE.get(str(chatId))[3], 'Force True', STATE.get(str(chatId))[5]]})
                 print('\n>>> Whisper message detected! ChatID:', chatId, '| UserID:', userId, '| Bot:', message.via_bot.username)
                 return
+            state = STATE.get(str(chatId))
         # Check if the message contains the word "Word"
         word = WORD.get(str(chatId))
         if word is None:
             return
         isWordMatched = word in msgText.lower().replace(' ', '') if len(word) > 3 else msgText.lower() == word
         if isWordMatched:
-            global NO_CHEAT_CHATS
             is_cheat_allowed = chatId in NO_CHEAT_CHATS
-            can_show_cheat_msg = STATE.get(str(chatId))[4]
+            can_show_cheat_msg = state[4]
             if not is_cheat_allowed:
                 STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
             elif leaderId != userId:
@@ -1346,12 +1345,7 @@ async def handle_group_message(message):
                     await bot.send_message(chatId, f'🚨 [{escChar(fullName)}](tg://user?id={userId}) lost 1💵 for cheating\! *{word}*',
                                             reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
                     points = -1
-                    global CHEAT_RECORD
-                    curr_cheat_stats = CHEAT_RECORD.get(str(chatId))
-                    if curr_cheat_stats is None:
-                        CHEAT_RECORD.update({str(chatId): 1})
-                    else:
-                        CHEAT_RECORD.update({str(chatId): curr_cheat_stats + 1})                        
+                    CHEAT_RECORD[str(chatId)] = CHEAT_RECORD.get(str(chatId), 0) + 1
                 removeGame_sql(chatId)
                 if points == -1:
                     update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 1, 1)
@@ -1359,16 +1353,15 @@ async def handle_group_message(message):
                 # Leader revealed the word (stop game and deduct leader's points)
                 await stopGame(message, isWordRevealed=True)
                 points = -1
-            fullName = escName(userObj, 100, 'full')
-            incrementPoints_sql(userId, chatId, points, fullName)
+            incrementPoints_sql(userId, chatId, points, escName(userObj, 100, 'full'))
     
     if (
         (str(userId) in AI_USERS.keys())
         and (chatId == int(AI_USERS.get(str(userId))))
         and (not message.text.startswith('/'))
-        and (message.text.startswith('@croco') or ((rplyMsg is not None) and (rplyMsg.from_user.id == MY_IDs[0])))
+        and (message.text.startswith('@croco') or (rplyMsg and (rplyMsg.from_user.id == MY_IDs[0])))
         ):
-        if (STATE.get(str(chatId))[0] == WAITING_FOR_WORD) and (userId not in MY_IDs[1]):
+        if (state[0] == WAITING_FOR_WORD) and (userId not in MY_IDs[1]):
             return
         await bot.send_chat_action(chatId, 'typing')
         p = msgText.replace('@croco', '').lstrip()
@@ -1499,13 +1492,13 @@ async def handle_query(call):
             await bot.answer_callback_query(call.id, '❌ You were banned from using this bot due to a violation of our Terms of Service.' \
                                             '\n\nFor queries, join: @CrocodileGamesGroup', show_alert=True, cache_time=30)
             return
-        try:
-            if (await bot.get_chat_member(chatId, MY_IDs[0])).can_send_messages == False:
-                await bot.answer_callback_query(call.id, '❌ Bot was muted by chat admin!', show_alert=True, cache_time=5)
-                return
-        except:
-            await bot.answer_callback_query(call.id, '❌ Bot was removed from this chat!', show_alert=True, cache_time=10)
-            return
+        # try: # Disabled for best performance
+        #     if (await bot.get_chat_member(chatId, MY_IDs[0])).can_send_messages == False:
+        #         await bot.answer_callback_query(call.id, '❌ Bot was muted by chat admin!', show_alert=True, cache_time=5)
+        #         return
+        # except:
+        #     await bot.answer_callback_query(call.id, '❌ Bot was removed from this chat!', show_alert=True, cache_time=10)
+        #     return
         # Schedule bot mute for EVS group
         # if chatId == -1001596465392:
         #     now = datetime.now(pytz.timezone('Asia/Kolkata'))
@@ -1573,7 +1566,10 @@ async def handle_query(call):
             if curr_status == 'not_started':
                 word = await startGame(call)
                 if word is not None:
-                    await bot.answer_callback_query(call.id, f"Word: {word}", show_alert=True)
+                    try:
+                        await bot.answer_callback_query(call.id, f"Word: {word}", show_alert=True)
+                    except:
+                        pass
                     STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(time.time()), 'True', False]})
                     update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 0, 1)
                 else:
@@ -1622,8 +1618,11 @@ async def handle_query(call):
             if curr_status == 'not_started':
                 word = await startGame(call)
                 if word is not None:
-                    await bot.answer_callback_query(call.id, f"Word: {word}", show_alert=True)
-                    await bot.delete_message(chatId, call.message.message_id)
+                    try:
+                        await bot.answer_callback_query(call.id, f"Word: {word}", show_alert=True)
+                        await bot.delete_message(chatId, call.message.message_id)
+                    except:
+                        pass
                     STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(time.time()), 'True', False]})
                     update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 0, 1)
                 else:
