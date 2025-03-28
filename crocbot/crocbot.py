@@ -311,7 +311,32 @@ async def fwd_cmd(message):
         print(f'Forwarding from: {chat_id}\nTo: {chatId}\nMessage ID: {msg_id}\n')
         await bot.forward_message(chatId, chat_id, msg_id, True)
     except Exception as e:
-        await bot.reply_to(message, f'Failed to forward message.\n\nError: {str(e)}', allow_sending_without_reply=True)
+        await bot.reply_to(message, f'Failed to forward message.\n\nError: {str(e).split("Description:")[-1].strip()}', allow_sending_without_reply=True)
+
+# Get chat administrators
+@bot.message_handler(commands=['getadmins'])
+async def getAdmins_cmd(message):
+    user_obj = message.from_user
+    if user_obj.id not in MY_IDs[1]:
+        return
+    command_parts = message.text.split(' ', 2)
+    if len(command_parts) < 2:
+        await bot.reply_to(message, 'No chat ID specified!', allow_sending_without_reply=True)
+        return
+    chat_id = command_parts[1]
+    if not (chat_id.isdigit() or (chat_id.startswith('-') and chat_id[1:].isdigit())
+            or (chat_id.startswith('@') and chat_id[1].isalpha())):
+        await bot.reply_to(message, 'Invalid chat ID!', allow_sending_without_reply=True)
+        return
+    try:
+        admins = await bot.get_chat_administrators(chat_id)
+    except Exception as e:
+        await bot.reply_to(message, f'Failed to fetch admins.\n\nError: {str(e).split("Description:")[-1].strip()}', allow_sending_without_reply=True)
+        return
+    admin_list = '\n'.join([f'*{i}\.* [{escChar(escName(admin.user, 50, "full"))}](tg://user?id={admin.user.id}) − {admin.user.id} *\({admin.status}\)*'
+                            .replace('\(administrator\)', '').replace('(creator\\', '(owner\\')
+                            for i, admin in enumerate(admins, 1)])
+    await bot.reply_to(message, f'👥 *Chat Admins:*\n\n{admin_list}', parse_mode='MarkdownV2', allow_sending_without_reply=True)
 
 @bot.message_handler(commands=['botstats'])
 async def botStats_cmd(message):
@@ -1137,6 +1162,7 @@ async def cmdlist_cmd(message):
         '/send \- send broadcast\n'
         '/cancelbroadcast \- stop broadcast\n'
         '/fwd \- \[chat\_id\] \[message\_id\]\n'
+        '/getadmins \- get chat admins\n'
         '/del \- delete message\n'
         '/approve \- approve new requests\n'
         '/showcheats \- groups with cheats\n'
