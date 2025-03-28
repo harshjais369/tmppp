@@ -1302,6 +1302,8 @@ async def handle_group_message(message):
         else:
             WORD.update({str(chatId): curr_game['data'].word})
             STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, int(curr_game['started_at']), 'False', False]})
+            if (await bot.get_chat_member(chatId, MY_IDs[0])).can_send_messages == False:
+                return
             await bot.send_message(chatId, f'🔄 *Bot restarted\!*\nAll active games were restored back and will continue running\.', parse_mode='MarkdownV2')
     
     if STATE.get(str(chatId))[0] == WAITING_FOR_WORD:
@@ -1477,6 +1479,8 @@ async def handle_group_media(message):
         else:
             WORD.update({str(chatId): curr_game['data'].word})
             STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, int(curr_game['started_at']), 'False', False]})
+            if (await bot.get_chat_member(chatId, MY_IDs[0])).can_send_messages == False:
+                return
             await bot.send_message(chatId, f'🔄 *Bot restarted\!*\nAll active games were restored back and will continue running\.', parse_mode='MarkdownV2')
     elif STATE.get(str(chatId))[0] == WAITING_FOR_WORD and STATE.get(str(chatId))[1] == userId:
         cheat_status = 'Force True' if STATE.get(str(chatId))[4] == 'Force True' else 'False'
@@ -1492,8 +1496,15 @@ async def handle_query(call):
     userObj = call.from_user
     if chatId not in BLOCK_CHATS:
         if userObj.id in BLOCK_USERS:
-            await bot.answer_callback_query(call.id, "❌ You were banned from using this bot due to a violation of our Terms of Service.\n\nFor queries, join: @CrocodileGamesGroup",
-                                            show_alert=True, cache_time=30)
+            await bot.answer_callback_query(call.id, '❌ You were banned from using this bot due to a violation of our Terms of Service.' \
+                                            '\n\nFor queries, join: @CrocodileGamesGroup', show_alert=True, cache_time=30)
+            return
+        try:
+            if (await bot.get_chat_member(chatId, MY_IDs[0])).can_send_messages == False:
+                await bot.answer_callback_query(call.id, '❌ Bot was muted by chat admin!', show_alert=True, cache_time=5)
+                return
+        except:
+            await bot.answer_callback_query(call.id, '❌ Bot was removed from this chat!', show_alert=True, cache_time=10)
             return
         # Schedule bot mute for EVS group
         # if chatId == -1001596465392:
