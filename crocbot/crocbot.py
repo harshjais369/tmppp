@@ -1237,16 +1237,17 @@ async def handle_new_chat_members(message):
             f'If you\'re chat/group owner and believe this is a mistake, please write to: \@CrocodileGamesGroup', parse_mode='MarkdownV2')
     update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 2, 1)
 
-# Handler for "bot removed by chat/user" (send message to 1st superchat (MY_IDs[2][0]))
+# Handler for "bot removed/stopped by chat/user" (send message to 1st superchat (MY_IDs[2][0]))
 @bot.my_chat_member_handler(func=lambda message: message.new_chat_member.status in ['kicked', 'left'])
 async def handle_my_chat_member(message):
     chatId = message.chat.id
-    username = f'\(\@{escChar(message.chat.username)}\)' if message.chat.username is not None else ''
+    userObj = message.from_user
+    name_chat = escChar(message.chat.title) + (escChar(f' (@{message.chat.username})') if message.chat.username else f' \(`{chatId}`\)')
+    name_user = f'[{escChar(escName(userObj, 50, "full"))}](tg://user?id={userObj.id})' + (escChar(f' (@{userObj.username})') if userObj.username else f' \(`{userObj.id}`\)')
     if message.chat.type != 'private':
-        await bot.send_message(MY_IDs[2][0], f'❌ Bot \#removed by chat: `{escChar(chatId)}`\n{escChar(message.chat.title)}\n{username}', parse_mode='MarkdownV2')
+        await bot.send_message(MY_IDs[2][0], f'❌ Bot \#removed from chat:\n{name_chat}\nBy: {name_user}', parse_mode='MarkdownV2')
     else:
-        fullName = escChar(escName(message.chat, 100, 'full'))
-        await bot.send_message(MY_IDs[2][0], f'❌ Bot \#removed by [user](tg://user?id={chatId}): `{chatId}`\n{fullName}\n{username}', parse_mode='MarkdownV2')
+        await bot.send_message(MY_IDs[2][0], f'❌ Bot \#stopped by user: {name_user}', parse_mode='MarkdownV2')
 
 # Handler for "chat name is changed" (update chat name in TOP10_CHAT_NAMES)
 @bot.message_handler(content_types=['new_chat_title'])
