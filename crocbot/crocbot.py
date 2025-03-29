@@ -1220,13 +1220,19 @@ async def cmdlist_cmd(message):
 
 # Message handler ------------------------------------------------------------------------------ #
 
-# Handler for "bot added to a chat" (send message to 1st superchat (MY_IDs[2][0]))
-@bot.message_handler(content_types=['new_chat_members'], func=lambda message: message.new_chat_members[-1].id == MY_IDs[0])
+# Handler for "bot added to chat/started by user" (send message to 1st superchat (MY_IDs[2][0]))
+@bot.my_chat_member_handler(func=lambda message: message.old_chat_member.status in ['kicked', 'left']
+                            and message.new_chat_member.status in ['member', 'administrator'])
 async def handle_new_chat_members(message):
     chatId = message.chat.id
+    userObj = message.from_user
+    name_user = f'[{escChar(escName(userObj, 50, "full"))}](tg://user?id={userObj.id})' + (escChar(f' (@{userObj.username})') if userObj.username else f' \(`{userObj.id}`\)')
+    if message.chat.type == 'private':
+        await bot.send_message(MY_IDs[2][0], f'✅ Bot \#started by user: {name_user}', parse_mode='MarkdownV2', disable_notification=True)
+        return
+    username = f'\n\(\@{escChar(message.chat.username)}\)' if message.chat.username else ''
     if chatId not in BLOCK_CHATS:
-        username = f'\n\(\@{escChar(message.chat.username)}\)' if message.chat.username is not None else ''
-        await bot.send_message(MY_IDs[2][0], f'✅ Bot \#added to chat: `{escChar(chatId)}`\n{escChar(message.chat.title)}{username}',
+        await bot.send_message(MY_IDs[2][0], f'✅ Bot \#added to chat: `{escChar(chatId)}`\n{escChar(message.chat.title)}{username}\nBy: {name_user}',
                                parse_mode='MarkdownV2', disable_notification=True)
         await sleep(3)
         markup_btn = InlineKeyboardMarkup([
@@ -1235,7 +1241,7 @@ async def handle_new_chat_members(message):
         ])
         await bot.send_message(chatId, f'👉🏻 Tap /help to see game commands.\n\nSupport group: @CrocodileGamesGroup', reply_markup=markup_btn)
     else:
-        await bot.send_message(text=f'☑️ Bot \#added to a \#blocked chat: `{escChar(chatId)}`\n{escChar(message.chat.title)}\n\@{escChar(message.chat.username)}',
+        await bot.send_message(text=f'☑️ Bot \#added to a \#blocked chat: `{escChar(chatId)}`\n{escChar(message.chat.title)}{username}\nBy: {name_user}',
                                chat_id=MY_IDs[2][0], parse_mode='MarkdownV2', disable_notification=True)
         await sleep(3)
         await bot.send_message(chatId, f'🚫 *This chat/group was banned from using this bot due to violation of our Terms of Service\.*\n\n' \
