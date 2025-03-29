@@ -144,13 +144,13 @@ async def stopGame(message, isRefused=False, isChangeLeader=False, isWordReveale
         curr_game = await getCurrGame(chatId, userObj.id)
         curr_status = curr_game['status']
         if curr_status == 'not_started':
-            msg = await bot.send_message(chatId, '⚠ The game is already stopped!')
+            msg = await bot.send_message(chatId, '⚠ The game is already stopped!', disable_notification=True)
             await sleep(10)
             await bot.delete_message(chatId, msg.message_id)
             return False
         chat_admins = await bot.get_chat_administrators(chatId)
         if (userObj.id not in (admin.user.id for admin in chat_admins)) and curr_status == 'not_leader' and (userObj.id not in MY_IDs[1]):
-            msg = await bot.send_message(chatId, '⚠ Only an admin or game leader can stop game!')
+            msg = await bot.send_message(chatId, '⚠ Only an admin or game leader can stop game!', disable_notification=True)
             await sleep(10)
             await bot.delete_message(chatId, msg.message_id)
             return False
@@ -272,7 +272,7 @@ async def sendBroadcast_cmd(message):
             err_msg.append(chat_id)
     if len(err_msg) > 0:
         await bot.reply_to(message, f'Sent: {i}\nFailed: {len(err_msg)}\nTotal: {len(chat_ids)}', allow_sending_without_reply=True)
-        await bot.reply_to(message, f'Failed to forward message to chat IDs: {err_msg}', allow_sending_without_reply=True)
+        await bot.reply_to(message, f'Failed to forward message to chat IDs: {err_msg}', allow_sending_without_reply=True, disable_notification=True)
     else:
         await bot.reply_to(message, 'Message forwarded to all chats successfully!', allow_sending_without_reply=True)
 
@@ -309,7 +309,7 @@ async def fwd_cmd(message):
         return
     try:
         print(f'Forwarding from: {chat_id}\nTo: {chatId}\nMessage ID: {msg_id}\n')
-        await bot.forward_message(chatId, chat_id, msg_id, True)
+        await bot.forward_message(chatId, chat_id, msg_id, True, disable_notification=True)
     except Exception as e:
         await bot.reply_to(message, f'Failed to forward message.\n\nError: {str(e).split("Description:")[-1].strip()}', allow_sending_without_reply=True)
 
@@ -336,7 +336,7 @@ async def getAdmins_cmd(message):
     admin_list = '\n'.join([f'*{i}\.* [{escChar(escName(admin.user, 50, "full"))}](tg://user?id={admin.user.id}) − {admin.user.id} *\({admin.status}\)*'
                             .replace('\(administrator\)', '').replace('(creator\\', '(owner\\')
                             for i, admin in enumerate(admins, 1)])
-    await bot.reply_to(message, f'👥 *Chat Admins:*\n\n{admin_list}', parse_mode='MarkdownV2', allow_sending_without_reply=True)
+    await bot.reply_to(message, f'👥 *Chat Admins:*\n\n{admin_list}', parse_mode='MarkdownV2', allow_sending_without_reply=True, disable_notification=True)
 
 @bot.message_handler(commands=['botstats'])
 async def botStats_cmd(message):
@@ -412,7 +412,7 @@ async def serverInfo_cmd(message):
     user_obj = message.from_user
     if user_obj.id not in MY_IDs[1]:
         return
-    msg = await bot.reply_to(message, '📡 Fetching latest reports...', allow_sending_without_reply=True)
+    msg = await bot.reply_to(message, '📡 Fetching latest reports...', allow_sending_without_reply=True, disable_notification=True)
     try:
         # Fetch system info
         cpu_usage = psutil.cpu_percent()
@@ -465,14 +465,14 @@ async def info_cmd(message):
                                         f'*Username:* @{escChar(chat_obj.username)}\n'
                                         f'*Invite link:* {escChar(chat_obj.invite_link)}\n'
                                         f'*Description:* {escChar(chat_obj.description)}\n',
-                                        parse_mode='MarkdownV2', allow_sending_without_reply=True)
+                                        parse_mode='MarkdownV2', allow_sending_without_reply=True, disable_notification=True)
             return
         await bot.reply_to(message, f'👤 *User info:*\n\n'
                                     f'*ID:* `{escChar(rply_chat_obj.id)}`\n'
                                     f'*Name:* {escChar(escName(rply_chat_obj, 100, "full"))}\n'
                                     f'*Username:* @{escChar(rply_chat_obj.username)}\n'
                                     f'*User link:* [link](tg://user?id={escChar(rply_chat_obj.id)})\n',
-                                    parse_mode='MarkdownV2', allow_sending_without_reply=True)
+                                    parse_mode='MarkdownV2', allow_sending_without_reply=True, disable_notification=True)
         return
     command_parts = message.text.split(' ', 2)
     if len(command_parts) < 2:
@@ -495,7 +495,7 @@ async def info_cmd(message):
                                         f'*Username:* @{escChar(chat_obj.username)}\n'
                                         f'*User link:* [link](tg://user?id={escChar(chat_obj.id)})\n'
                                         f'*Bio:* {escChar(chat_obj.bio)}\n',
-                                        parse_mode='MarkdownV2', allow_sending_without_reply=True)
+                                        parse_mode='MarkdownV2', allow_sending_without_reply=True, disable_notification=True)
     else:
         await bot.reply_to(message, f'👥 *Chat info:*\n\n'
                                             f'*ID:* `{escChar(chat_obj.id)}`\n'
@@ -504,7 +504,7 @@ async def info_cmd(message):
                                             f'*Username:* @{escChar(chat_obj.username)}\n'
                                             f'*Invite link:* {escChar(chat_obj.invite_link)}\n'
                                             f'*Description:* {escChar(chat_obj.description)}\n',
-                                            parse_mode='MarkdownV2', allow_sending_without_reply=True)
+                                            parse_mode='MarkdownV2', allow_sending_without_reply=True, disable_notification=True)
 
 @bot.message_handler(commands=['del'])
 async def del_cmd(message):
@@ -519,7 +519,8 @@ async def del_cmd(message):
         return
     # Check bot permissions if replied message isn't sent by bot
     if rply_msg.from_user.id != MY_IDs[0] and not (await bot.get_chat_member(message.chat.id, MY_IDs[0])).can_delete_messages:
-        alrt_msg = await bot.reply_to(message, '*Permission required:* `can_delete_messages`', parse_mode='MarkdownV2', allow_sending_without_reply=True)
+        alrt_msg = await bot.reply_to(message, '*Permission required:* `can_delete_messages`', parse_mode='MarkdownV2',
+                                      allow_sending_without_reply=True, disable_notification=True)
         await sleep(10)
         await bot.delete_message(message.chat.id, alrt_msg.message_id)
         return
@@ -535,7 +536,7 @@ async def showCheats_cmd(message):
     for i, (chat_id, cheat_count) in enumerate(CHEAT_RECORD.items(), 1):
         cheat_msg += f'{i}. {chat_id} — {cheat_count}\n'
     cheat_msg = '🔍 No cheats found yet\!' if cheat_msg == '' else f'🕵🏻‍♂️ *Cheats detected in groups:* `{toal_cheats}`\n\n' + escChar(cheat_msg)
-    await bot.reply_to(message, cheat_msg, parse_mode='MarkdownV2', allow_sending_without_reply=True)
+    await bot.reply_to(message, cheat_msg, parse_mode='MarkdownV2', allow_sending_without_reply=True, disable_notification=True)
 
 # Admin commands handler (mute, unmute, ban) (superuser only) --------------------------------- #
 # TODO: Add/Fix mute/unmute/ban/unban methods
@@ -617,15 +618,15 @@ async def blockchat_cmd(message):
         return
     command_parts = message.text.split(' ', 3)
     if len(command_parts) < 2:
-        await bot.reply_to(message, 'No chat ID specified!', allow_sending_without_reply=True)
+        await bot.reply_to(message, 'No chat ID specified!', allow_sending_without_reply=True, disable_notification=True)
         return
     chat_id = command_parts[1]
     if not (chat_id.isdigit() or (chat_id.startswith('-') and chat_id[1:].isdigit())
             or (chat_id.startswith('@') and chat_id[1].isalpha())):
-        await bot.reply_to(message, 'Invalid chat ID!', allow_sending_without_reply=True)
+        await bot.reply_to(message, 'Invalid chat ID!', allow_sending_without_reply=True, disable_notification=True)
         return
     if chat_id[0] != '@' and int(chat_id) in BLOCK_CHATS:
-        await bot.reply_to(message, 'Chat already blocked!', allow_sending_without_reply=True)
+        await bot.reply_to(message, 'Chat already blocked!', allow_sending_without_reply=True, disable_notification=True)
         return
     title = 'unknown\_chat'
     try:
@@ -637,7 +638,7 @@ async def blockchat_cmd(message):
         title = chat_obj.title
     except:
         if chat_id[0] == '@':
-            await bot.reply_to(message, 'Chat not found!', allow_sending_without_reply=True)
+            await bot.reply_to(message, 'Chat not found!', allow_sending_without_reply=True, disable_notification=True)
             return
     BLOCK_CHATS.append(int(chat_id))
     await bot.reply_to(message, f'Chat {title} blocked successfully!', parse_mode='Markdown', allow_sending_without_reply=True)
@@ -900,7 +901,7 @@ async def stats_cmd(message):
         reply_user_obj = message.reply_to_message.from_user
         user_stats = getUserPoints_sql(reply_user_obj.id)
         if not user_stats:
-            await bot.send_message(chatId, f'📊 {escName(reply_user_obj)} has no stats yet!')
+            await bot.send_message(chatId, f'📊 {escName(reply_user_obj)} has no stats yet!', disable_notification=True)
         else:
             global GLOBAL_RANKS
             if not GLOBAL_RANKS:
@@ -955,7 +956,7 @@ async def mystats_cmd(message):
     total_points = 'Loading...'
     user_stats = getUserPoints_sql(user_obj.id)
     if not user_stats:
-        await bot.send_message(chatId, '📊 You have no stats yet!')
+        await bot.send_message(chatId, '📊 You have no stats yet!', disable_notification=True)
     else:
         global GLOBAL_RANKS
         if not GLOBAL_RANKS:
@@ -1106,33 +1107,36 @@ async def addword_cmd(message):
         return
     command_parts = message.text.split(' ', 2)
     if len(command_parts) < 2:
-        await bot.send_message(chatId, '❌ No word specified!')
+        await bot.send_message(chatId, '❌ No word specified!', disable_notification=True)
         return
     word = command_parts[1].lower()
     if len(word) > 20:
-        await bot.send_message(chatId, '❌ Word must be less than 20 characters!')
+        await bot.send_message(chatId, '❌ Word must be less than 20 characters!', disable_notification=True)
         return
     if not word.isalpha():
-        await bot.send_message(chatId, '❌ Word must contain only alphabets!')
+        await bot.send_message(chatId, '❌ Word must contain only alphabets!', disable_notification=True)
         return
     if user_obj.id not in MY_IDs[1]:
         import wordlist
         if word in wordlist.WORDLIST:
-            msg = await bot.reply_to(message, f'*{word}* exists in my dictionary\!', parse_mode='MarkdownV2', allow_sending_without_reply=True)
+            msg = await bot.reply_to(message, f'*{word}* exists in my dictionary\!', parse_mode='MarkdownV2',
+                                     allow_sending_without_reply=True, disable_notification=True)
             await sleep(30)
             await bot.delete_message(chatId, msg.message_id)
             return
-        await bot.reply_to(message, '☑️ Your request is being reviewed. You will be notified soon!', allow_sending_without_reply=True)
+        await bot.reply_to(message, '☑️ Your request is being reviewed. You will be notified soon!',
+                           allow_sending_without_reply=True, disable_notification=True)
         await sleep(1)
         await bot.send_message(MY_IDs[2][0], f'\#req\_addNewWord\n*ChatID:* `{chatId}`\n*UserID:* `{user_obj.id}`\n*Word:* `{word}`',
-                               reply_markup=getInlineBtn('addWord_req'), parse_mode='MarkdownV2')
+                               reply_markup=getInlineBtn('addWord_req'), parse_mode='MarkdownV2', disable_notification=True)
         return
     if not funcs.addNewWord(word):
-        msg = await bot.reply_to(message, f'*{word}* exists in my dictionary\!', parse_mode='MarkdownV2', allow_sending_without_reply=True)
+        msg = await bot.reply_to(message, f'*{word}* exists in my dictionary\!', parse_mode='MarkdownV2',
+                                 allow_sending_without_reply=True, disable_notification=True)
         await sleep(30)
         await bot.delete_message(chatId, msg.message_id)
         return
-    await bot.send_message(chatId, f'✅ A new word added to my dictionary\!\n\n*Word:* `{word}`', parse_mode='MarkdownV2')
+    await bot.send_message(chatId, f'✅ A new word added to my dictionary\!\n\n*Word:* `{word}`', parse_mode='MarkdownV2', disable_notification=True)
 
 @bot.message_handler(commands=['approve'])
 async def approveAddWordReq_cmd(message):
@@ -1142,7 +1146,7 @@ async def approveAddWordReq_cmd(message):
     if user_obj.id not in MY_IDs[1]:
         return
     if not NEW_WORD_REQS:
-        await bot.reply_to(message, '❌ No pending requests!', allow_sending_without_reply=True)
+        await bot.reply_to(message, '❌ No pending requests!', allow_sending_without_reply=True, disable_notification=True)
         return
     # Send confirmation message
     for nwr_chat_id, nwr_users in NEW_WORD_REQS.items():
@@ -1222,7 +1226,8 @@ async def handle_new_chat_members(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         username = f'\n\(\@{escChar(message.chat.username)}\)' if message.chat.username is not None else ''
-        await bot.send_message(MY_IDs[2][0], f'✅ Bot \#added to chat: `{escChar(chatId)}`\n{escChar(message.chat.title)}{username}', parse_mode='MarkdownV2')
+        await bot.send_message(MY_IDs[2][0], f'✅ Bot \#added to chat: `{escChar(chatId)}`\n{escChar(message.chat.title)}{username}',
+                               parse_mode='MarkdownV2', disable_notification=True)
         await sleep(3)
         markup_btn = InlineKeyboardMarkup([
             [InlineKeyboardButton('📢 Get bot updates!', url='t.me/CrocodileGames')],
@@ -1231,7 +1236,7 @@ async def handle_new_chat_members(message):
         await bot.send_message(chatId, f'👉🏻 Tap /help to see game commands.\n\nSupport group: @CrocodileGamesGroup', reply_markup=markup_btn)
     else:
         await bot.send_message(text=f'☑️ Bot \#added to a \#blocked chat: `{escChar(chatId)}`\n{escChar(message.chat.title)}\n\@{escChar(message.chat.username)}',
-                               chat_id=MY_IDs[2][0], parse_mode='MarkdownV2')
+                               chat_id=MY_IDs[2][0], parse_mode='MarkdownV2', disable_notification=True)
         await sleep(3)
         await bot.send_message(chatId, f'🚫 *This chat/group was banned from using this bot due to violation of our Terms of Service\.*\n\n' \
             f'If you\'re chat/group owner and believe this is a mistake, please write to: \@CrocodileGamesGroup', parse_mode='MarkdownV2')
@@ -1245,9 +1250,9 @@ async def handle_my_chat_member(message):
     name_chat = escChar(message.chat.title) + (escChar(f' (@{message.chat.username})') if message.chat.username else f' \(`{chatId}`\)')
     name_user = f'[{escChar(escName(userObj, 50, "full"))}](tg://user?id={userObj.id})' + (escChar(f' (@{userObj.username})') if userObj.username else f' \(`{userObj.id}`\)')
     if message.chat.type != 'private':
-        await bot.send_message(MY_IDs[2][0], f'❌ Bot \#removed from chat:\n{name_chat}\nBy: {name_user}', parse_mode='MarkdownV2')
+        await bot.send_message(MY_IDs[2][0], f'❌ Bot \#removed from chat:\n{name_chat}\nBy: {name_user}', parse_mode='MarkdownV2', disable_notification=True)
     else:
-        await bot.send_message(MY_IDs[2][0], f'❌ Bot \#stopped by user: {name_user}', parse_mode='MarkdownV2')
+        await bot.send_message(MY_IDs[2][0], f'❌ Bot \#stopped by user: {name_user}', parse_mode='MarkdownV2', disable_notification=True)
 
 # Handler for "chat name is changed" (update chat name in TOP10_CHAT_NAMES)
 @bot.message_handler(content_types=['new_chat_title'])
@@ -1261,10 +1266,11 @@ async def handle_new_chat_title(message):
             title.pop(title.index(ti))
     title = '[Name Hidden]' if not title else ' '.join(title)
     title = title if message.chat.username is None else f'{title} (@{message.chat.username})'
-    await bot.send_message(MY_IDs[2][0], f'📝 #new_chat_title\nID: {chatId}\nNew: {title}\nOld: {TOP10_CHAT_NAMES.get(str(chatId))}')
+    await bot.send_message(MY_IDs[2][0], f'📝 #new_chat_title\nID: {chatId}\nNew: {title}\nOld: {TOP10_CHAT_NAMES.get(str(chatId))}', disable_notification=True)
     TOP10_CHAT_NAMES.update({str(chatId): str(title)})
     await sleep(1)
-    await bot.send_message(chatId, f'📝 *Updated chat title in rank list\!*\n\nFor top\-10 chats: /chatranking\nFor any query, ask \@CrocodileGamesGroup', parse_mode='MarkdownV2')
+    await bot.send_message(chatId, f'📝 *Updated chat title in rank list\!*\n\nFor top\-10 chats: /chatranking\nFor any query, ask \@CrocodileGamesGroup',
+                           parse_mode='MarkdownV2', disable_notification=True)
 
 # Handler for incoming images (if AI model is enabled) -------------------------------------- #
 @bot.message_handler(content_types=['photo'], func=lambda message: str(message.from_user.id) in AI_USERS.keys())
@@ -1304,7 +1310,8 @@ async def handle_image_ai(message):
             aiResp = aiResp if aiResp != 0 else 'Something went wrong! Please try again later.'
             aiResp = aiResp.replace('Croco:', '', 1).lstrip() if aiResp.startswith('Croco:') else aiResp
             aiResp = escChar(aiResp).replace('\\*\\*', '*').replace('\\`', '`')
-            await bot.send_message(chatId, aiResp, reply_to_message_id=message.message_id, parse_mode='MarkdownV2', allow_sending_without_reply=True)
+            await bot.send_message(chatId, aiResp, reply_to_message_id=message.message_id, parse_mode='MarkdownV2',
+                                   allow_sending_without_reply=True, disable_notification=True)
             return
 
 # Handler for incoming messages in groups
@@ -1433,7 +1440,8 @@ async def handle_group_message(message):
         aiResp = aiResp if aiResp != 0 else 'Something went wrong! Please try again later.'
         aiResp = aiResp.replace('Croco:', '', 1).lstrip() if aiResp.startswith('Croco:') else aiResp
         aiResp = escChar(aiResp).replace('\\*\\*', '*').replace('\\`', '`')
-        await bot.send_message(chatId, aiResp, reply_to_message_id=rplyToMsg.message_id, parse_mode='MarkdownV2', allow_sending_without_reply=True)
+        await bot.send_message(chatId, aiResp, reply_to_message_id=rplyToMsg.message_id, parse_mode='MarkdownV2',
+                               allow_sending_without_reply=True, disable_notification=True)
         return
 
     elif chatId in CROCO_CHATS: # Check if chat is allowed to use Croco AI
@@ -1455,7 +1463,7 @@ async def handle_group_message(message):
                     rem_prmt_frm_indx = str(preConvObj.prompt).find(rplyText)
                     if rem_prmt_frm_indx == -1:
                         await bot.send_message(chatId, f'Something went wrong\!\n*Err:* \#0x604', reply_to_message_id=message.message_id,
-                                                parse_mode='MarkdownV2', allow_sending_without_reply=True)
+                                                parse_mode='MarkdownV2', allow_sending_without_reply=True, disable_notification=True)
                         return
                     end_offset_index = rem_prmt_frm_indx + len(rplyText)
                     if end_offset_index == len(preConvObj.prompt):
@@ -1473,7 +1481,7 @@ async def handle_group_message(message):
                 updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
             aiResp = escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
             await bot.send_message(chatId, f'*Croco:* {aiResp}', reply_to_message_id=message.message_id,
-                                    parse_mode='MarkdownV2', allow_sending_without_reply=True)
+                                    parse_mode='MarkdownV2', allow_sending_without_reply=True, disable_notification=True)
         elif any(t in msgText.lower() for t in funcs.AI_TRIGGER_MSGS):
             await bot.send_chat_action(chatId, 'typing')
             p = f'You: {msgText}\nCroco: '
@@ -1481,7 +1489,7 @@ async def handle_group_message(message):
             updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
             aiResp = escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
             await bot.send_message(chatId, f'*Croco:* {aiResp}', reply_to_message_id=message.message_id,
-                                    parse_mode='MarkdownV2', allow_sending_without_reply=True)
+                                    parse_mode='MarkdownV2', allow_sending_without_reply=True, disable_notification=True)
 
 # Handler for incoming media in groups
 @bot.message_handler(content_types=['sticker', 'photo', 'video', 'document', 'animation', 'dice', 'poll', 'voice', 'video_note', 'audio', 'contact'],
