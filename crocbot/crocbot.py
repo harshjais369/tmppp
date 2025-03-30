@@ -1557,6 +1557,10 @@ async def handle_query(call):
                 WORD.update({str(chatId): curr_game['data'].word})
                 STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, int(curr_game['started_at']), 'False', False]})
                 await bot.send_message(chatId, f'🔄 *Bot restarted\!*\nAll active games were restored back and will continue running\.', parse_mode='MarkdownV2')
+        elif curr_status != 'not_started' and STATE.get(str(chatId))[0] == WAITING_FOR_COMMAND:
+            # STATE is not synced with curr_status
+            WORD.update({str(chatId): curr_game['data'].word})
+            STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, int(curr_game['started_at']), 'False', False]})
 
         # Game panel inline btn handlers for leader use cases only ---------------- #
         if call.data == 'change_word':
