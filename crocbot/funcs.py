@@ -1,6 +1,7 @@
 import os
 import re
 import random
+import pathlib
 
 AI_PLATFORM = os.environ.get('AI_PLATFORM', 'google')
 AI_API_KEY = os.environ.get('AI_API_KEY', None)
@@ -85,7 +86,7 @@ def getAIResp(
             raise Exception('AI_PLATFORM or AI_API_KEY is not configured properly. Please check .env file!')
         elif AI_PLATFORM == 'google':
             res = client.models.generate_content(
-                model='gemini-2.5-pro-exp-03-25',
+                model='gemini-2.5-pro-preview-03-25',
                 contents=prompt,
                 config=GenerateContentConfig(
                     temperature=temperature,
@@ -123,12 +124,12 @@ def getImgAIResp(prompt, model, img_path):
         elif AI_PLATFORM != 'google':
             raise Exception('Image AI model is only supported by Google AI platform!')
         try:
-            with open(img_path, 'rb') as f: img = f.read()
+            img = pathlib.Path(img_path).read_bytes()
         except Exception as e:
             print(str(e))
             return 'Error 0x403: Failed to read image file!'
         res = client.models.generate_content(
-            model='gemini-2.5-pro-exp-03-25',
+            model='gemini-2.5-pro-preview-03-25',
             contents=[Part.from_bytes(data=img, mime_type='image/png'), prompt],
             config=GenerateContentConfig(
                 temperature=1,
