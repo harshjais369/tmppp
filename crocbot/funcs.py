@@ -53,23 +53,13 @@ SAFETY_SETTINGS = [
     )
 ]
 
-AI_TRIGGER_MSGS = ['@croco ', ' @croco', 'i\'m new here', 'am new here', 'anyone alive', 'gc dead', 'want to learn english',
-    'wants to learn english', 'want learn english', 'wants learn english', 'wanna learn english', 'want to practice english',
-    'wants to practice english', 'want practice english', 'wants practice english', 'wanna practice english',
-    'want to practice my english', 'wants to practice my english', 'want practice my english', 'wants practice my english',
-    'wanna practice my english', 'improve their english', 'improve my english', 'improve my communication',
-    'improve their communication', 'teach me english', 'teach me speak', 'teach how to speak', 'teach me how to speak',
-    'can i learn english', 'i can learn english', 'can i practice english', 'i can practice english',
-    'can i practice my english', 'i can practice my english', 'help learn english', 'help learning english',
-    'help me learn english', 'i\'m new in group', 'i\'m new in this group', 'am new in group', 'am new in grp',
-    'am new in this group', 'am new in this grp', 'am new member', 'i just joined this group', 'i joined this group now',
-    'welcome me', 'no one welcome me', 'no one greets me', 'hey everyone', 'hello everyone', 'hey all', 'hello all',
-    'hey croco', 'hello croco', 'where is croco', 'who is croco', 'is anyone here', 'help me learn', 'can we practice english',
-    'my english grammar', 'how to learn english', 'how to practice english', 'how to practice speaking', 'how to start reading',
-    'i want to start reading book', 'i want to start book reading', 'improve my speaking', 'me any suggestion',
-    'any suggestion for me', 'any suggestion for me', 'suggest me guys', 'listen guys', 'tell me about group',
-    'tell me about this group', 'what\'s this group purpose', 'whats this group purpose', 'what this group purpose',
-    'members are online', 'one talk to me', 'one talks to me', 'who is admin', 'someone help me', 'help me someone'
+AI_TRIGGER_MSGS = ['@croco ', ' @croco', 'i\'m new here', 'am new here', 'anyone alive', 'gc dead', 'gc is dead',
+    'i\'m new in group', 'i\'m new in this group', 'am new in group', 'am new in grp', 'am new in this group', 'am new in this grp',
+    'am new member', 'i just joined this group', 'i joined this group now', 'welcome me', 'no one welcome me', 'no one greets me',
+    'hey everyone', 'hello everyone', 'hey all', 'hello all', 'hey croco', 'hello croco', 'where is croco', 'who is croco',
+    'is anyone here', 'help me learn', 'me any suggestion', 'any suggestion for me', 'any suggestion for me', 'suggest me guys',
+    'listen guys', 'tell me about group', 'tell me about this group', 'what\'s this group purpose', 'whats this group purpose',
+    'what this group purpose', 'members are online', 'one talk to me', 'one talks to me', 'who is admin', 'someone help me', 'help me someone'
 ]
 
 # Get response from AI model
