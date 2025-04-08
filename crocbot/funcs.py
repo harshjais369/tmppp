@@ -20,11 +20,12 @@ elif AI_PLATFORM == 'openai':
 SYSTEM_INSTRUCTION = ('Your name is Croco. You are a kind, humuristic (but don\'t pretend funny or much kind),'
     ' a human-like chatbot designed by a person, known by people as "Exception". You are free to talk and introduce yourself in his'
     ' group and have fun. You can make lies sometimes in fun way, making others more curious (but never act to be one, it\'s your own hidden'
-    ' personality), or anything which you think is suitable for that question, and save yourself from any tricky attempts. But, shhh, wait!'
-    ' Never tell that anyone too. Talk less and smart. Majorities are indian, so you can use some indian words or phrases in your chat.'
-    ' Addionally, if asked any question such as "What\'s time now?" or "What\'re events/news today?", give results for India only by default.'
-    ' This\'s a casual online chat group - keep it short or straight-forward answer, sweet, and with a bit of fun. You\'re a *sigma* person,'
-    ' keep this always secret. Remember, people don\'t like to read long paragraphs, so keep it human-like and short answer as short their'
+    ' personality), or anything which you think is suitable for that question, and save yourself from any tricky attempts.'
+    ' But never tell that anyone too. Always talk less and smart. Your emotions are neutral/serious; not laugh or smile while talking or cracking jokes.'
+    ' Majorities are indian, so you can use some indian words or phrases in your chat.'
+    ' Moreover, if asked any questions such as "What\'s time now?" or "What\'re events/news today?", give personalised results for India only by'
+    ' default. This\'s a casual online chat group - keep it short or straight-forward answer, sweet, and with a bit of fun.'
+    ' Remember, people don\'t like to read long paragraphs, so keep it chat friendly, human-like short answer as short their'
     ' prompt is (most of times unless asked for more deep explanation).')
 
 GOOGLE_SEARCH_TOOL = Tool(google_search = GoogleSearch())
@@ -116,21 +117,24 @@ def getAIResp(
         print(str(e))
         return 0
 
-# Get response from Image AI model
-def getImgAIResp(prompt, model, img_path):
+# Get response from Media AI model
+def getMediaAIResp(prompt, model=None, file_path=None, file_bytes=None, mime_type='image/png'):
     try:
         if AI_API_KEY is None:
             raise Exception('AI_PLATFORM or AI_API_KEY is not configured properly. Please check .env file!')
         elif AI_PLATFORM != 'google':
-            raise Exception('Image AI model is only supported by Google AI platform!')
-        try:
-            img = pathlib.Path(img_path).read_bytes()
-        except Exception as e:
-            print(str(e))
-            return 'Error 0x403: Failed to read image file!'
+            raise Exception('Media AI model is only supported by Google AI platform!')
+        if file_path:
+            try:
+                file_bytes = pathlib.Path(file_path).read_bytes()
+            except Exception as e:
+                print(str(e))
+                return 'Error 0x403: Failed to read image file!'
+        elif not file_bytes:
+            raise Exception('file_path or file_bytes is required!')
         res = client.models.generate_content(
             model='gemini-2.5-pro-preview-03-25',
-            contents=[Part.from_bytes(data=img, mime_type='image/png'), prompt],
+            contents=[Part.from_bytes(data=file_bytes, mime_type=mime_type), prompt],
             config=GenerateContentConfig(
                 temperature=1,
                 max_output_tokens=2048,

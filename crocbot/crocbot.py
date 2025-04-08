@@ -1278,22 +1278,23 @@ async def handle_new_chat_title(message):
     await bot.send_message(chatId, f'📝 *Updated chat title in rank list\!*\n\nFor top\-10 chats: /chatranking\nFor any query, ask \@CrocodileGamesGroup',
                            parse_mode='MarkdownV2', disable_notification=True)
 
-# Handler for incoming images (if AI model is enabled) -------------------------------------- #
-@bot.message_handler(content_types=['photo'], func=lambda message: str(message.from_user.id) in AI_USERS.keys())
-async def handle_image_ai(message):
+# Handler for incoming media (if AI model is enabled) -------------------------------------- #
+@bot.message_handler(content_types=['photo', 'video', 'audio', 'voice'], func=lambda message: str(message.from_user.id) in AI_USERS.keys())
+async def handle_media_ai(message):
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         userObj = message.from_user
         userId = userObj.id
         rplyMsg = message.reply_to_message
+        contentType = message.content_type
         if userId in BLOCK_USERS:
             return
         if (
             (str(userId) in AI_USERS.keys()) and (chatId == int(AI_USERS.get(str(userId))))
-            and ((message.caption and message.caption.startswith('@croco ')) or (rplyMsg is None) or (rplyMsg.from_user.id == MY_IDs[0]))
+            and ((message.caption and message.caption.startswith('@croco')) or (rplyMsg and rplyMsg.from_user.id == MY_IDs[0]))
             ):
             await bot.send_chat_action(chatId, 'typing')
-            prompt = 'You: [Image]\n' + message.caption.replace('@croco ', '') if message.caption else 'You: [Image]'
+            prompt = f'You: [content: {contentType}]\n' + message.caption.replace('@croco ', '') if message.caption else f'You: [content: {contentType}]'
             if rplyMsg:
                 if rplyMsg.from_user.id == MY_IDs[0]:
                     prompt = f'Croco: {rplyMsg.text}\n\n{prompt}'
@@ -1303,21 +1304,42 @@ async def handle_image_ai(message):
                     prompt = f'You: {rplyMsg.text}\n\n{prompt}'
             prompt += '\n\nCroco:'
             # Generate response using AI model and send it to user as a reply to message
-            if message.photo:
-                file_info = await bot.get_file(message.photo[-1].file_id)
-                file_path = file_info.file_path
-                # img_url = f'https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}'
-                img_path = await bot.download_file(file_path)
-                with open('image.jpg', 'wb') as new_file:
-                    new_file.write(img_path)
-                    aiResp = funcs.getImgAIResp(prompt, '', 'image.jpg')
-            else:
-                aiResp = funcs.getAIResp(prompt, 'text-davinci-002', 0.8, 1800, 1, 0.2, 0)
+            file_obj = None
+            mime_type = 'image/png'
+            try:
+                if message.photo:
+                    file_obj = await bot.get_file(message.photo[-1].file_id)
+                elif message.video:
+                    file_obj = await bot.get_file(message.video.file_id)
+                    mime_type = message.video.mime_type
+                elif message.audio:
+                    file_obj = await bot.get_file(message.audio.file_id)
+                    mime_type = message.audio.mime_type
+                elif message.voice:
+                    file_obj = await bot.get_file(message.voice.file_id)
+                    mime_type = str(message.voice.mime_type)
+            except Exception as e:
+                if 'too big' in str(e):
+                    link = f'[Learn more why.](https://core.telegram.org/bots/api#file:~:text=The%20maximum%20file%20size%20to%20download%20is%2020%20MB)'
+                    await bot.reply_to(message, '❌ File size must be < 20MB.\n\n' + link, allow_sending_without_reply=True,
+                                       parse_mode='Markdown', disable_web_page_preview=True)
+                else:
+                    await bot.reply_to(message, '❌ An unexpected error occurred!', allow_sending_without_reply=True)
+                return
+            if file_obj is None:
+                await bot.reply_to(message, '❌ Failed to retrieve the file!', allow_sending_without_reply=True)
+                return
+            file_bytes = await bot.download_file(file_obj.file_path)
+            # file_url = f'https://api.telegram.org/file/bot{BOT_TOKEN}/{file_obj.file_path}'
+            # Save the file locally
+            # file_name = f'{contentType}.{file_obj.file_path.split('.')[-1]}'
+            # with open(file_name, 'wb') as new_file:
+            #     new_file.write(file_bytes)
+            aiResp = funcs.getMediaAIResp(prompt, None, None, file_bytes, mime_type)
             aiResp = aiResp if aiResp != 0 else 'Something went wrong! Please try again later.'
             aiResp = aiResp.replace('Croco:', '', 1).lstrip() if aiResp.startswith('Croco:') else aiResp
             aiResp = escChar(aiResp).replace('\\*\\*', '*').replace('\\`', '`')
-            await bot.send_message(chatId, aiResp, reply_to_message_id=message.message_id, parse_mode='MarkdownV2',
-                                   allow_sending_without_reply=True, disable_notification=True)
+            await bot.reply_to(message, aiResp, parse_mode='MarkdownV2', allow_sending_without_reply=True, disable_notification=True)
             return
 
 # Handler for incoming messages in groups
@@ -1404,45 +1426,72 @@ async def handle_group_message(message):
         if (state[0] == WAITING_FOR_WORD) and (userId not in MY_IDs[1]):
             return
         await bot.send_chat_action(chatId, 'typing')
+        supported_media = ['photo', 'video', 'audio', 'voice']
         p = msgText.replace('@croco', '').lstrip()
         prompt = 'You: ' + p
         rplyToMsg = message
+        rplyMsg_contentType = None
         if rplyMsg:
+            rplyMsg_contentType = rplyMsg.content_type
             if p == '':
                 if rplyMsg.from_user.id == MY_IDs[0]:
                     return
                 else:
                     rplyToMsg = rplyMsg
-                    if rplyMsg.photo:
-                        prompt = f'You: [Image]\n{rplyMsg.caption}' if rplyMsg.caption else 'You: [Image]'
+                    if rplyMsg_contentType in supported_media:
+                        prompt = f'You: [{rplyMsg_contentType}]\n{rplyMsg.caption}' if rplyMsg.caption else f'You: [{rplyMsg_contentType}]'
                     else:
                         prompt += rplyMsg.text
             elif rplyMsg.from_user.id == MY_IDs[0]:
-                if rplyMsg.photo:
-                    prompt = f'Croco: [Image]\n{rplyMsg.caption}\n\n{prompt}' if rplyMsg.caption else f'Croco: [Image]\n\n{prompt}'
+                if rplyMsg_contentType in supported_media:
+                    prompt = f'Croco: [content: {rplyMsg_contentType}]\n{rplyMsg.caption}\n\n{prompt}' if rplyMsg.caption \
+                        else f'Croco: [content: {rplyMsg_contentType}]\n\n{prompt}'
                 else:
                     prompt = f'Croco: {rplyMsg.text}\n\n{prompt}'
             elif rplyMsg.from_user.id != userId:
-                if rplyMsg.photo:
-                    prompt = f'Another member: [Image]\n{rplyMsg.caption}\n\n{prompt}' if rplyMsg.caption else f'Another member: [Image]\n\n{prompt}'
+                if rplyMsg_contentType in supported_media:
+                    prompt = f'Another member: [content: {rplyMsg_contentType}]\n{rplyMsg.caption}\n\n{prompt}' if rplyMsg.caption \
+                        else f'Another member: [content: {rplyMsg_contentType}]\n\n{prompt}'
                 else:
                     prompt = f'Another member: {rplyMsg.text}\n\n{prompt}'
             else:
-                if rplyMsg.photo:
-                    prompt = f'You: [Image]\n{rplyMsg.caption}\n\n{prompt}' if rplyMsg.caption else f'You: [Image]\n\n{prompt}'
+                if rplyMsg_contentType in supported_media:
+                    prompt = f'You: [content: {rplyMsg_contentType}]\n{rplyMsg.caption}\n\n{prompt}' if rplyMsg.caption \
+                        else f'You: [content: {rplyMsg_contentType}]\n\n{prompt}'
                 else:
                     prompt = f'You: {rplyMsg.text}\n\n{prompt}'
         prompt += '\n\nCroco:'
         # Generate response using AI model and send it to user as a reply to his message
-        if rplyMsg and rplyMsg.photo:
-            file_info = await bot.get_file(rplyMsg.photo[-1].file_id)
-            file_path = file_info.file_path
-            img_path = await bot.download_file(file_path)
-            with open('image.jpg', 'wb') as new_file:
-                new_file.write(img_path)
-                aiResp = funcs.getImgAIResp(prompt, '', 'image.jpg')
+        if rplyMsg and rplyMsg_contentType in supported_media:
+            file_obj = None
+            mime_type = 'image/png'
+            try:
+                if rplyMsg.photo:
+                    file_obj = await bot.get_file(rplyMsg.photo[-1].file_id)
+                elif rplyMsg.video:
+                    file_obj = await bot.get_file(rplyMsg.video.file_id)
+                    mime_type = rplyMsg.video.mime_type
+                elif rplyMsg.audio:
+                    file_obj = await bot.get_file(rplyMsg.audio.file_id)
+                    mime_type = rplyMsg.audio.mime_type
+                elif rplyMsg.voice:
+                    file_obj = await bot.get_file(rplyMsg.voice.file_id)
+                    mime_type = rplyMsg.voice.mime_type
+            except Exception as e:
+                if 'too big' in str(e):
+                    link = f'[Learn more why.](https://core.telegram.org/bots/api#file:~:text=The%20maximum%20file%20size%20to%20download%20is%2020%20MB)'
+                    await bot.reply_to(message, '❌ File size must be < 20MB.\n\n' + link, allow_sending_without_reply=True,
+                                       parse_mode='Markdown', disable_web_page_preview=True)
+                else:
+                    await bot.reply_to(message, '❌ An unexpected error occurred!', allow_sending_without_reply=True)
+                return
+            if file_obj is None:
+                await bot.reply_to(message, f'❌ Failed to retrieve the {rplyMsg_contentType}!', allow_sending_without_reply=True)
+                return
+            file_bytes = await bot.download_file(file_obj.file_path)
+            aiResp = funcs.getMediaAIResp(prompt, None, None, file_bytes, mime_type)
         else:
-            aiResp = funcs.getAIResp(prompt, 'text-davinci-002', 0.8, 1800, 1, 0.2, 0)
+            aiResp = funcs.getAIResp(prompt)
         aiResp = aiResp if aiResp != 0 else 'Something went wrong! Please try again later.'
         aiResp = aiResp.replace('Croco:', '', 1).lstrip() if aiResp.startswith('Croco:') else aiResp
         aiResp = escChar(aiResp).replace('\\*\\*', '*').replace('\\`', '`')
@@ -1505,6 +1554,9 @@ async def handle_group_media(message):
     userId = message.from_user.id
     if chatId in BLOCK_CHATS and userId in BLOCK_USERS:
         return
+    # print(message.content_type)
+    # with open('sentMsg.json', 'w') as f:
+    #     f.write(str(message).replace('\'', '\"').replace('None', 'null').replace('True', 'true').replace('False', 'false'))
     global STATE
     if STATE.get(str(chatId)) is None:
         curr_game = await getCurrGame(chatId, userId)
