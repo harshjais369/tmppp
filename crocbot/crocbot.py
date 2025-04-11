@@ -1504,11 +1504,6 @@ async def handle_group_message(message):
         msgText_lwr = msgText.lower()
         if msgText.startswith(('/', '@')) and not msgText_lwr.startswith('@croco'):
             return
-        if state[0] == WAITING_FOR_WORD and userId not in MY_IDs[1]:
-            msg = await bot.reply_to(message, '✋🏻 Don\'t blabber! I\'m busy with the game right now!', allow_sending_without_reply=True, disable_notification=True)
-            await sleep(15)
-            await bot.delete_message(chatId, msg.message_id)
-            return
         IGNORE_MSGS = [
             ('🎉 ', '❗', '❌ ', '⚠ ', '🚨 ', '🛑 ', '⏳ ', '📊 ', '👤 ', '👥 ', '👋🏻 ', '✋🏻 ', '👉🏻 ', '✅ ', '🐊📖 ', '📖 ',
                 '🔄 ', '🤖 ', '🖥 ', '📡 ', '🕵🏻‍♂️ ', '🔍 ', '📝 ', '☑️ ', 'Player stats 📊', 'TOP-25 players 🐊📊', '#req_',
@@ -1519,6 +1514,11 @@ async def handle_group_message(message):
             ((rplyMsg.from_user.id == MY_IDs[0]) and (not rplyMsg.text.startswith(IGNORE_MSGS[0])) and (not rplyMsg.text.endswith(IGNORE_MSGS[1])))
             or (msgText_lwr.startswith('@croco'))
             ):
+            if state[0] == WAITING_FOR_WORD and userId not in MY_IDs[1]:
+                msg = await bot.reply_to(message, '✋🏻 Don\'t blabber! I\'m busy with the game right now!', allow_sending_without_reply=True, disable_notification=True)
+                await sleep(15)
+                await bot.delete_message(chatId, msg.message_id)
+                return
             await bot.send_chat_action(chatId, 'typing')
             usr_name = (''.join(filter(str.isalpha, escName(userObj, 25, 'full')))).strip()
             if usr_name in ['', 'id']: usr_name = 'Member'
@@ -1574,6 +1574,8 @@ async def handle_group_message(message):
             aiResp = escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
             await bot.reply_to(rplyToMsg, aiResp, parse_mode='MarkdownV2', allow_sending_without_reply=True, disable_notification=True)
         elif any(t in msgText_lwr for t in funcs.AI_TRIGGER_MSGS):
+            if state[0] == WAITING_FOR_WORD and userId not in MY_IDs[1]:
+                return
             await bot.send_chat_action(chatId, 'typing')
             usr_name = (''.join(filter(str.isalpha, escName(userObj, 25, 'full')))).strip()
             if usr_name in ['', 'id']: usr_name = 'Member'
