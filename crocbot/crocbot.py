@@ -190,6 +190,74 @@ async def getCurrGame(chatId, userId):
         else: # User is not a leader
             return dict(status='not_leader', started_at=int(curr_game.started_at), data=curr_game)
 
+# Other functions --------------------------------------------------------------------------------- #
+def getPromptForMediaAI(userId, msgText, rplyToMsg, rplyMsg, rplyMsg_contentType, prompt, usr_name, supported_media) -> tuple | None:
+    if msgText.lower().replace('@croco', '') == '':
+        if rplyMsg.from_user.id == MY_IDs[0]:
+            return None
+        else:
+            rplyToMsg = rplyMsg
+            rply_usr_name = (''.join(filter(str.isalpha, escName(rplyMsg.from_user, 25, 'full')))).strip()
+            if rply_usr_name in ['', 'id']: rply_usr_name = 'Another Member'
+            if rplyMsg_contentType in supported_media:
+                prompt = f'{rply_usr_name}: [content: {rplyMsg_contentType}]\n{rplyMsg.caption}' if rplyMsg.caption else f'{rply_usr_name}: [content: {rplyMsg_contentType}]'
+            else:
+                prompt = f'{rply_usr_name}: {rplyMsg.text}'
+    elif rplyMsg.from_user.id == MY_IDs[0]:
+        if rplyMsg_contentType in supported_media:
+            prompt = f'Croco: [content: {rplyMsg_contentType}]\n{rplyMsg.caption}\n\n{prompt}' if rplyMsg.caption \
+                else f'Croco: [content: {rplyMsg_contentType}]\n\n{prompt}'
+        else:
+            prompt = f'Croco: {rplyMsg.text}\n\n{prompt}'
+    elif rplyMsg.from_user.id != userId:
+        rply_usr_name = (''.join(filter(str.isalpha, escName(rplyMsg.from_user, 25, 'full')))).strip()
+        if rply_usr_name in ['', 'id']: rply_usr_name = 'Another Member'
+        if rplyMsg_contentType in supported_media:
+            prompt = f'{rply_usr_name}: [content: {rplyMsg_contentType}]\n{rplyMsg.caption}\n\n{prompt}' if rplyMsg.caption \
+                else f'{rply_usr_name}: [content: {rplyMsg_contentType}]\n\n{prompt}'
+        else:
+            prompt = f'{rply_usr_name}: {rplyMsg.text}\n\n{prompt}'
+    else:
+        if rplyMsg_contentType in supported_media:
+            prompt = f'{usr_name}: [content: {rplyMsg_contentType}]\n{rplyMsg.caption}\n\n{prompt}' if rplyMsg.caption \
+                else f'{usr_name}: [content: {rplyMsg_contentType}]\n\n{prompt}'
+        else:
+            prompt = f'{usr_name}: {rplyMsg.text}\n\n{prompt}'
+    return (rplyToMsg, prompt)
+
+async def getFileFromMsgObj(message, msgVarObj, msgVarObj_contentType='file') -> tuple | None:
+    file_obj = None
+    mime_type = 'image/png'
+    try:
+        if msgVarObj.photo:
+            file_obj = await bot.get_file(msgVarObj.photo[-1].file_id)
+        elif msgVarObj.video:
+            file_obj = await bot.get_file(msgVarObj.video.file_id)
+            mime_type = msgVarObj.video.mime_type
+        elif msgVarObj.audio:
+            file_obj = await bot.get_file(msgVarObj.audio.file_id)
+            mime_type = msgVarObj.audio.mime_type
+        elif msgVarObj.voice:
+            file_obj = await bot.get_file(msgVarObj.voice.file_id)
+            mime_type = msgVarObj.voice.mime_type
+    except Exception as e:
+        if 'too big' in str(e):
+            link = f'[Learn more why.](https://core.telegram.org/bots/api#file:~:text=The%20maximum%20file%20size%20to%20download%20is%2020%20MB)'
+            await bot.reply_to(message, '❌ File size must be < 20MB.\n\n' + link, allow_sending_without_reply=True,
+                                parse_mode='Markdown', disable_web_page_preview=True)
+        else:
+            await bot.reply_to(message, '❌ An unexpected error occurred!', allow_sending_without_reply=True)
+        return None
+    if file_obj is None:
+        await bot.reply_to(message, f'❌ Failed to retrieve the {msgVarObj_contentType}!', allow_sending_without_reply=True)
+        return None
+    # file_url = f'https://api.telegram.org/file/bot{BOT_TOKEN}/{file_obj.file_path}'
+    # Save the file locally
+    # file_name = f'{contentType}.{file_obj.file_path.split('.')[-1]}'
+    # with open(file_name, 'wb') as new_file:
+    #     new_file.write(file_bytes)
+    return (await bot.download_file(file_obj.file_path), mime_type)
+
 # Bot commands handler ------------------------------------------------------------------------ #
 
 @bot.message_handler(commands=['start'])
@@ -864,7 +932,7 @@ async def start_game(message):
             if STATE.get(str(chatId))[0] == WAITING_FOR_COMMAND: # If game stopped before 5 secs
                 return
             if not STATE.get(str(chatId))[5]: # If cancelled by button press
-                print('Change-leader request cancelled! Chat:', chatId)
+                # print('Change-leader request cancelled! Chat:', chatId)
                 return
             try:
                 ico = '✅' if i == 5 else '⌛' if i&1 else '⏳'
@@ -1278,9 +1346,10 @@ async def handle_new_chat_title(message):
     await bot.send_message(chatId, f'📝 *Updated chat title in rank list\!*\n\nFor top\-10 chats: /chatranking\nFor any query, ask \@CrocodileGamesGroup',
                            parse_mode='MarkdownV2', disable_notification=True)
 
-# Handler for incoming media (if AI model is enabled) -------------------------------------- #
-@bot.message_handler(content_types=['photo', 'video', 'audio', 'voice'], func=lambda message: str(message.from_user.id) in AI_USERS.keys())
+# Handler for incoming media (if AI is enabled for chat/user) -------------------------------------- #
+@bot.message_handler(content_types=['photo', 'video', 'audio', 'voice'], func=lambda msg: msg.chat.type in ['supergroup', 'group'])
 async def handle_media_ai(message):
+    await handle_group_media(message) # Setting up STATE for chat
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         userObj = message.from_user
@@ -1289,58 +1358,37 @@ async def handle_media_ai(message):
         contentType = message.content_type
         if userId in BLOCK_USERS:
             return
-        if (
-            (str(userId) in AI_USERS.keys()) and (chatId == int(AI_USERS.get(str(userId))))
+        isAiUser = ((str(userId) in AI_USERS.keys()) and (chatId == int(AI_USERS.get(str(userId)))))
+        if ((isAiUser or (chatId in CROCO_CHATS))
             and ((message.caption and message.caption.startswith('@croco')) or (rplyMsg and rplyMsg.from_user.id == MY_IDs[0]))
             ):
+            if STATE.get(str(chatId))[0] == WAITING_FOR_WORD and not isAiUser:
+                msg = await bot.reply_to(message, '✋🏻 Don\'t blabber! I\'m busy with the game right now!', allow_sending_without_reply=True, disable_notification=True)
+                await sleep(15)
+                await bot.delete_message(chatId, msg.message_id)
+                return
             await bot.send_chat_action(chatId, 'typing')
-            prompt = f'You: [content: {contentType}]\n' + message.caption.replace('@croco ', '') if message.caption else f'You: [content: {contentType}]'
+            usr_name = (''.join(filter(str.isalpha, escName(userObj, 25, 'full')))).strip()
+            if usr_name in ['', 'id']: usr_name = 'Member'
+            prompt = f'{usr_name}: [content: {contentType}]\n' + message.caption.replace('@croco ', '') if message.caption else f'{usr_name}: [content: {contentType}]'
             if rplyMsg:
-                if rplyMsg.from_user.id == MY_IDs[0]:
-                    prompt = f'Croco: {rplyMsg.text}\n\n{prompt}'
-                elif rplyMsg.from_user.id != userId:
-                    prompt = f'Another member: {rplyMsg.text}\n\n{prompt}'
-                else:
-                    prompt = f'You: {rplyMsg.text}\n\n{prompt}'
+                if not rplyMsg.text:
+                    await bot.reply_to(message, f'✋🏻 I cannot handle multiple {contentType}s from different users at a moment!', allow_sending_without_reply=True)
+                    return
+                rply_usr_name = (''.join(filter(str.isalpha, escName(rplyMsg.from_user, 25, 'full')))).strip()
+                if rply_usr_name in ['', 'id']: rply_usr_name = 'Another Member'
+                rply_usr_name = 'Croco' if rplyMsg.from_user.id == MY_IDs[0] else usr_name if rplyMsg.from_user.id == userId else rply_usr_name
+                prompt = f'{rply_usr_name}: {rplyMsg.text}\n\n{prompt}'
             prompt += '\n\nCroco:'
-            # Generate response using AI model and send it to user as a reply to message
-            file_obj = None
-            mime_type = 'image/png'
-            try:
-                if message.photo:
-                    file_obj = await bot.get_file(message.photo[-1].file_id)
-                elif message.video:
-                    file_obj = await bot.get_file(message.video.file_id)
-                    mime_type = message.video.mime_type
-                elif message.audio:
-                    file_obj = await bot.get_file(message.audio.file_id)
-                    mime_type = message.audio.mime_type
-                elif message.voice:
-                    file_obj = await bot.get_file(message.voice.file_id)
-                    mime_type = str(message.voice.mime_type)
-            except Exception as e:
-                if 'too big' in str(e):
-                    link = f'[Learn more why.](https://core.telegram.org/bots/api#file:~:text=The%20maximum%20file%20size%20to%20download%20is%2020%20MB)'
-                    await bot.reply_to(message, '❌ File size must be < 20MB.\n\n' + link, allow_sending_without_reply=True,
-                                       parse_mode='Markdown', disable_web_page_preview=True)
-                else:
-                    await bot.reply_to(message, '❌ An unexpected error occurred!', allow_sending_without_reply=True)
-                return
-            if file_obj is None:
-                await bot.reply_to(message, '❌ Failed to retrieve the file!', allow_sending_without_reply=True)
-                return
-            file_bytes = await bot.download_file(file_obj.file_path)
-            # file_url = f'https://api.telegram.org/file/bot{BOT_TOKEN}/{file_obj.file_path}'
-            # Save the file locally
-            # file_name = f'{contentType}.{file_obj.file_path.split('.')[-1]}'
-            # with open(file_name, 'wb') as new_file:
-            #     new_file.write(file_bytes)
+            file = await getFileFromMsgObj(message, message, contentType)
+            if file is None: return
+            file_bytes, mime_type = file
             aiResp = funcs.getMediaAIResp(prompt, None, None, file_bytes, mime_type)
             aiResp = aiResp if aiResp != 0 else 'Something went wrong! Please try again later.'
             aiResp = aiResp.replace('Croco:', '', 1).lstrip() if aiResp.startswith('Croco:') else aiResp
             aiResp = escChar(aiResp).replace('\\*\\*', '*').replace('\\`', '`')
             await bot.reply_to(message, aiResp, parse_mode='MarkdownV2', allow_sending_without_reply=True, disable_notification=True)
-            return
+        return
 
 # Handler for incoming messages in groups
 @bot.message_handler(content_types=['text'], func=lambda message: message.chat.type in ['supergroup', 'group'])
@@ -1427,127 +1475,116 @@ async def handle_group_message(message):
             return
         await bot.send_chat_action(chatId, 'typing')
         supported_media = ['photo', 'video', 'audio', 'voice']
-        p = msgText.replace('@croco', '').lstrip()
-        prompt = 'You: ' + p
+        usr_name = (''.join(filter(str.isalpha, escName(userObj, 25, 'full')))).strip()
+        if usr_name in ['', 'id']: usr_name = 'Member'
+        prompt = f'{usr_name}: {msgText}'
         rplyToMsg = message
         rplyMsg_contentType = None
         if rplyMsg:
             rplyMsg_contentType = rplyMsg.content_type
-            if p == '':
-                if rplyMsg.from_user.id == MY_IDs[0]:
-                    return
-                else:
-                    rplyToMsg = rplyMsg
-                    if rplyMsg_contentType in supported_media:
-                        prompt = f'You: [{rplyMsg_contentType}]\n{rplyMsg.caption}' if rplyMsg.caption else f'You: [{rplyMsg_contentType}]'
-                    else:
-                        prompt += rplyMsg.text
-            elif rplyMsg.from_user.id == MY_IDs[0]:
-                if rplyMsg_contentType in supported_media:
-                    prompt = f'Croco: [content: {rplyMsg_contentType}]\n{rplyMsg.caption}\n\n{prompt}' if rplyMsg.caption \
-                        else f'Croco: [content: {rplyMsg_contentType}]\n\n{prompt}'
-                else:
-                    prompt = f'Croco: {rplyMsg.text}\n\n{prompt}'
-            elif rplyMsg.from_user.id != userId:
-                if rplyMsg_contentType in supported_media:
-                    prompt = f'Another member: [content: {rplyMsg_contentType}]\n{rplyMsg.caption}\n\n{prompt}' if rplyMsg.caption \
-                        else f'Another member: [content: {rplyMsg_contentType}]\n\n{prompt}'
-                else:
-                    prompt = f'Another member: {rplyMsg.text}\n\n{prompt}'
-            else:
-                if rplyMsg_contentType in supported_media:
-                    prompt = f'You: [content: {rplyMsg_contentType}]\n{rplyMsg.caption}\n\n{prompt}' if rplyMsg.caption \
-                        else f'You: [content: {rplyMsg_contentType}]\n\n{prompt}'
-                else:
-                    prompt = f'You: {rplyMsg.text}\n\n{prompt}'
+            tmp = getPromptForMediaAI(userId, msgText, rplyToMsg, rplyMsg, rplyMsg_contentType, prompt, usr_name, supported_media)
+            if tmp is None: return
+            rplyToMsg, prompt = tmp
         prompt += '\n\nCroco:'
         # Generate response using AI model and send it to user as a reply to his message
         if rplyMsg and rplyMsg_contentType in supported_media:
-            file_obj = None
-            mime_type = 'image/png'
-            try:
-                if rplyMsg.photo:
-                    file_obj = await bot.get_file(rplyMsg.photo[-1].file_id)
-                elif rplyMsg.video:
-                    file_obj = await bot.get_file(rplyMsg.video.file_id)
-                    mime_type = rplyMsg.video.mime_type
-                elif rplyMsg.audio:
-                    file_obj = await bot.get_file(rplyMsg.audio.file_id)
-                    mime_type = rplyMsg.audio.mime_type
-                elif rplyMsg.voice:
-                    file_obj = await bot.get_file(rplyMsg.voice.file_id)
-                    mime_type = rplyMsg.voice.mime_type
-            except Exception as e:
-                if 'too big' in str(e):
-                    link = f'[Learn more why.](https://core.telegram.org/bots/api#file:~:text=The%20maximum%20file%20size%20to%20download%20is%2020%20MB)'
-                    await bot.reply_to(message, '❌ File size must be < 20MB.\n\n' + link, allow_sending_without_reply=True,
-                                       parse_mode='Markdown', disable_web_page_preview=True)
-                else:
-                    await bot.reply_to(message, '❌ An unexpected error occurred!', allow_sending_without_reply=True)
-                return
-            if file_obj is None:
-                await bot.reply_to(message, f'❌ Failed to retrieve the {rplyMsg_contentType}!', allow_sending_without_reply=True)
-                return
-            file_bytes = await bot.download_file(file_obj.file_path)
+            file = await getFileFromMsgObj(message, rplyMsg, rplyMsg_contentType)
+            if file is None: return
+            file_bytes, mime_type = file
             aiResp = funcs.getMediaAIResp(prompt, None, None, file_bytes, mime_type)
         else:
             aiResp = funcs.getAIResp(prompt)
         aiResp = aiResp if aiResp != 0 else 'Something went wrong! Please try again later.'
         aiResp = aiResp.replace('Croco:', '', 1).lstrip() if aiResp.startswith('Croco:') else aiResp
         aiResp = escChar(aiResp).replace('\\*\\*', '*').replace('\\`', '`')
-        await bot.send_message(chatId, aiResp, reply_to_message_id=rplyToMsg.message_id, parse_mode='MarkdownV2',
-                               allow_sending_without_reply=True, disable_notification=True)
+        await bot.reply_to(rplyToMsg, aiResp, parse_mode='MarkdownV2', allow_sending_without_reply=True, disable_notification=True)
         return
 
     elif chatId in CROCO_CHATS: # Check if chat is allowed to use Croco AI
-        if msgText.lower().startswith('/') or msgText.lower().startswith('@') or msgText.lower().startswith('croco:'):
+        msgText_lwr = msgText.lower()
+        if msgText.startswith(('/', '@')) and not msgText_lwr.startswith('@croco'):
             return
-        if (rplyMsg) and (rplyMsg.from_user.id == MY_IDs[0]) and (rplyMsg.text.startswith('Croco:')):
+        if state[0] == WAITING_FOR_WORD and userId not in MY_IDs[1]:
+            msg = await bot.reply_to(message, '✋🏻 Don\'t blabber! I\'m busy with the game right now!', allow_sending_without_reply=True, disable_notification=True)
+            await sleep(15)
+            await bot.delete_message(chatId, msg.message_id)
+            return
+        IGNORE_MSGS = [
+            ('🎉 ', '❗', '❌ ', '⚠ ', '🚨 ', '🛑 ', '⏳ ', '📊 ', '👤 ', '👥 ', '👋🏻 ', '✋🏻 ', '👉🏻 ', '✅ ', '🐊📖 ', '📖 ',
+                '🔄 ', '🤖 ', '🖥 ', '📡 ', '🕵🏻‍♂️ ', '🔍 ', '📝 ', '☑️ ', 'Player stats 📊', 'TOP-25 players 🐊📊', '#req_',
+                'TOP-25 players in all groups 🐊📊', 'TOP-10 groups 🐊📊', 'User ', 'Invalid ', 'Something went wrong!', 'Error 0x'),
+            (' is explaining the word!', ' refused to lead!')
+        ]
+        if (rplyMsg) and (
+            ((rplyMsg.from_user.id == MY_IDs[0]) and (not rplyMsg.text.startswith(IGNORE_MSGS[0])) and (not rplyMsg.text.endswith(IGNORE_MSGS[1])))
+            or (msgText_lwr.startswith('@croco'))
+            ):
             await bot.send_chat_action(chatId, 'typing')
+            usr_name = (''.join(filter(str.isalpha, escName(userObj, 25, 'full')))).strip()
+            if usr_name in ['', 'id']: usr_name = 'Member'
             rplyText = rplyMsg.text
+            rplyToMsg = message
             resp = None
             preConvObjList = getEngAIConv_sql(chatId, rplyText)
             if preConvObjList:
                 preConvObj = preConvObjList[0]
                 # get Croco AI resp and then update prompt in DB
-                if (int(rplyMsg.date) - int(preConvObj.time)) < 5:
-                    p = f"{preConvObj.prompt}\nYou: {msgText}\nCroco: "
-                    resp = funcs.getCrocoResp(p).lstrip()
-                    updateEngAIPrompt_sql(id=preConvObj.id, chat_id=chatId, prompt=str(p + resp), isNewConv=False)
+                time_diff = int(rplyMsg.date) - int(preConvObj.time)
+                if 0 < time_diff < 5:
+                    prompt = f'{preConvObj.prompt}\n{usr_name}: {msgText}\nCroco: '
+                    resp = funcs.getCrocoResp(prompt).lstrip()
+                    updateEngAIPrompt_sql(id=preConvObj.id, chat_id=chatId, prompt=str(prompt + resp), isNewConv=False)
                 else:
                     rem_prmt_frm_indx = str(preConvObj.prompt).find(rplyText)
                     if rem_prmt_frm_indx == -1:
-                        await bot.send_message(chatId, f'Something went wrong\!\n*Err:* \#0x604', reply_to_message_id=message.message_id,
+                        await bot.reply_to(message, f'Something went wrong\!\n*Err:* \#0x604 : Failed to retrieve last conversation\.',
                                                 parse_mode='MarkdownV2', allow_sending_without_reply=True, disable_notification=True)
                         return
                     end_offset_index = rem_prmt_frm_indx + len(rplyText)
                     if end_offset_index == len(preConvObj.prompt):
-                        p = f"{preConvObj.prompt}\nYou: {msgText}\nCroco: "
-                        resp = funcs.getCrocoResp(p).lstrip()
-                        updateEngAIPrompt_sql(id=preConvObj.id, chat_id=chatId, prompt=str(p + resp), isNewConv=False)
+                        prompt = f'{preConvObj.prompt}\n{usr_name}: {msgText}\nCroco: '
+                        resp = funcs.getCrocoResp(prompt).lstrip()
+                        updateEngAIPrompt_sql(id=preConvObj.id, chat_id=chatId, prompt=str(prompt + resp), isNewConv=False)
                     else:
                         renew_prompt = preConvObj.prompt[:end_offset_index]
-                        p = f"{renew_prompt}\nYou: {msgText}\nCroco: "
-                        resp = funcs.getCrocoResp(p).lstrip()
-                        updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
+                        prompt = f'{renew_prompt}\n{usr_name}: {msgText}\nCroco: '
+                        resp = funcs.getCrocoResp(prompt).lstrip()
+                        updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(prompt + resp), isNewConv=True)
             else:
-                p = f'{rplyText}\nYou: {msgText}\nCroco: '
-                resp = funcs.getCrocoResp(p).lstrip()
-                updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
+                supported_media = ['photo', 'video', 'audio', 'voice']
+                rply_usr_name = (''.join(filter(str.isalpha, escName(rplyMsg.from_user, 25, 'full')))).strip()
+                if rply_usr_name in ['', 'id']: rply_usr_name = 'Another Member'
+                rply_usr_name = 'Croco' if rplyMsg.from_user.id == MY_IDs[0] else usr_name if rplyMsg.from_user.id == userId else rply_usr_name
+                rplyToMsg = message
+                rplyMsg_contentType = rplyMsg.content_type
+                prompt = f'{usr_name}: {msgText}'
+                tmp = getPromptForMediaAI(userId, msgText, rplyToMsg, rplyMsg, rplyMsg_contentType, prompt, usr_name, supported_media)
+                if tmp is None: return
+                rplyToMsg, prompt = tmp
+                prompt += '\nCroco: '
+                if rplyMsg_contentType in supported_media:
+                    file = await getFileFromMsgObj(message, rplyMsg, rplyMsg_contentType)
+                    if file is None: return
+                    file_bytes, mime_type = file
+                    resp = funcs.getMediaAIResp(prompt, None, None, file_bytes, mime_type)
+                    resp = resp if resp != 0 else 'Error 0x404: Please try again later!'
+                else:
+                    resp = funcs.getCrocoResp(prompt).lstrip()
+                updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(prompt + resp), isNewConv=True)
             aiResp = escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
-            await bot.send_message(chatId, f'*Croco:* {aiResp}', reply_to_message_id=message.message_id,
-                                    parse_mode='MarkdownV2', allow_sending_without_reply=True, disable_notification=True)
-        elif any(t in msgText.lower() for t in funcs.AI_TRIGGER_MSGS):
+            await bot.reply_to(rplyToMsg, aiResp, parse_mode='MarkdownV2', allow_sending_without_reply=True, disable_notification=True)
+        elif any(t in msgText_lwr for t in funcs.AI_TRIGGER_MSGS):
             await bot.send_chat_action(chatId, 'typing')
-            p = f'You: {msgText}\nCroco: '
-            resp = funcs.getCrocoResp(p).lstrip()
-            updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(p + resp), isNewConv=True)
+            usr_name = (''.join(filter(str.isalpha, escName(userObj, 25, 'full')))).strip()
+            if usr_name in ['', 'id']: usr_name = 'Member'
+            prompt = f'{usr_name}: {msgText}\nCroco: '
+            resp = funcs.getCrocoResp(prompt).lstrip()
+            updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(prompt + resp), isNewConv=True)
             aiResp = escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
-            await bot.send_message(chatId, f'*Croco:* {aiResp}', reply_to_message_id=message.message_id,
-                                    parse_mode='MarkdownV2', allow_sending_without_reply=True, disable_notification=True)
+            await bot.reply_to(message, aiResp, parse_mode='MarkdownV2', allow_sending_without_reply=True, disable_notification=True)
 
 # Handler for incoming media in groups
-@bot.message_handler(content_types=['sticker', 'photo', 'video', 'document', 'animation', 'dice', 'poll', 'voice', 'video_note', 'audio', 'contact'],
+@bot.message_handler(content_types=['sticker', 'document', 'animation', 'dice', 'poll', 'video_note', 'contact'],
                      func=lambda message: message.chat.type in ['supergroup', 'group'])
 async def handle_group_media(message):
     chatId = message.chat.id
