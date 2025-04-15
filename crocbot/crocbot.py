@@ -908,8 +908,12 @@ async def start_game(message):
     curr_status = curr_game['status']
     if (curr_status != 'not_started'):
         if STATE.get(str(chatId)) is None or STATE.get(str(chatId))[0] == WAITING_FOR_COMMAND:
+            started_at = int(curr_game['started_at'])
             WORD.update({str(chatId): curr_game['data'].word})
-            STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, int(curr_game['started_at']), 'False', False]})
+            STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, started_at, 'False', False]})
+            if int(datetime.now(pytz.timezone('Asia/Kolkata')).timestamp()) - started_at > 43200:
+                # Don't send [restart notice] if game started 12 hours ago
+                return
             await bot.send_message(chatId, f'🔄 *Bot restarted\!*\nAll active games were restored back and will continue running\.', parse_mode='MarkdownV2')
         isNewPlyr = getUserPoints_sql(userObj.id) is None
         started_from = int(time.time() - curr_game['started_at'])
@@ -1408,8 +1412,12 @@ async def handle_group_message(message):
             STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
             return
         else:
+            started_at = int(curr_game['started_at'])
             WORD.update({str(chatId): curr_game['data'].word})
-            STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, int(curr_game['started_at']), 'False', False]})
+            STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, started_at, 'False', False]})
+            if int(datetime.now(pytz.timezone('Asia/Kolkata')).timestamp()) - started_at > 43200:
+                # Don't send [restart notice] if game started 12 hours ago
+                return
             if (await bot.get_chat_member(chatId, MY_IDs[0])).can_send_messages == False:
                 return
             await bot.send_message(chatId, f'🔄 *Bot restarted\!*\nAll active games were restored back and will continue running\.', parse_mode='MarkdownV2')
@@ -1602,8 +1610,12 @@ async def handle_group_media(message):
         if curr_game['status'] == 'not_started':
             STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
         else:
+            started_at = int(curr_game['started_at'])
             WORD.update({str(chatId): curr_game['data'].word})
-            STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, int(curr_game['started_at']), 'False', False]})
+            STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, started_at, 'False', False]})
+            if int(datetime.now(pytz.timezone('Asia/Kolkata')).timestamp()) - started_at > 43200:
+                # Don't send [restart notice] if game started 12 hours ago
+                return
             if (await bot.get_chat_member(chatId, MY_IDs[0])).can_send_messages == False:
                 return
             await bot.send_message(chatId, f'🔄 *Bot restarted\!*\nAll active games were restored back and will continue running\.', parse_mode='MarkdownV2')
@@ -1645,8 +1657,12 @@ async def handle_query(call):
             if curr_status == 'not_started':
                 STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
             else:
+                started_at = int(curr_game['started_at'])
                 WORD.update({str(chatId): curr_game['data'].word})
-                STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, int(curr_game['started_at']), 'False', False]})
+                STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, started_at, 'False', False]})
+                if int(datetime.now(pytz.timezone('Asia/Kolkata')).timestamp()) - started_at > 43200:
+                    # Don't send [restart notice] if game started 12 hours ago
+                    return
                 await bot.send_message(chatId, f'🔄 *Bot restarted\!*\nAll active games were restored back and will continue running\.', parse_mode='MarkdownV2')
         elif curr_status != 'not_started' and STATE.get(str(chatId))[0] == WAITING_FOR_COMMAND:
             # STATE is not synced with curr_status
