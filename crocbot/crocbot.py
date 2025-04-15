@@ -262,6 +262,8 @@ async def getFileFromMsgObj(message, msgVarObj, msgVarObj_contentType='file') ->
 
 @bot.message_handler(commands=['start'])
 async def start_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         msgTxt = message.text.lower()
@@ -275,6 +277,8 @@ async def start_cmd(message):
 # Basic commands (send, cancelbroadcast, fwd, botstats, serverinfo, info, del) (superuser only) ---------------------- #
 @bot.message_handler(commands=['send'])
 async def sendBroadcast_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     user_obj = message.from_user
     # Check if user is superuser (MY_IDs[1] = list of superuser IDs)
     if user_obj.id not in MY_IDs[1]:
@@ -346,6 +350,8 @@ async def sendBroadcast_cmd(message):
 
 @bot.message_handler(commands=['cancelbroadcast'])
 async def cancelBroadcast_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     user_obj = message.from_user
     if user_obj.id not in MY_IDs[1]:
         return
@@ -358,6 +364,8 @@ async def cancelBroadcast_cmd(message):
 # Forward message by message ID and chat ID
 @bot.message_handler(commands=['fwd'])
 async def fwd_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     chatId = message.chat.id
     user_obj = message.from_user
     if user_obj.id not in MY_IDs[1]:
@@ -384,6 +392,8 @@ async def fwd_cmd(message):
 # Get chat administrators
 @bot.message_handler(commands=['getadmins'])
 async def getAdmins_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     user_obj = message.from_user
     if user_obj.id not in MY_IDs[1]:
         return
@@ -408,6 +418,8 @@ async def getAdmins_cmd(message):
 
 @bot.message_handler(commands=['botstats'])
 async def botStats_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     chatId = message.chat.id
     user_obj = message.from_user
     if user_obj.id not in MY_IDs[1]:
@@ -477,6 +489,8 @@ async def botStats_cmd(message):
 
 @bot.message_handler(commands=['serverinfo'])
 async def serverInfo_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     user_obj = message.from_user
     if user_obj.id not in MY_IDs[1]:
         return
@@ -509,6 +523,8 @@ async def serverInfo_cmd(message):
 # See chat/user info
 @bot.message_handler(commands=['info'])
 async def info_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     user_obj = message.from_user
     if user_obj.id not in MY_IDs[1]:
         return
@@ -576,6 +592,8 @@ async def info_cmd(message):
 
 @bot.message_handler(commands=['del'])
 async def del_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     user_obj = message.from_user
     if user_obj.id not in MY_IDs[1]:
         return
@@ -596,6 +614,8 @@ async def del_cmd(message):
 
 @bot.message_handler(commands=['showcheats'])
 async def showCheats_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     user_obj = message.from_user
     if user_obj.id not in MY_IDs[1]:
         return
@@ -610,6 +630,8 @@ async def showCheats_cmd(message):
 # TODO: Add/Fix mute/unmute/ban/unban methods
 @bot.message_handler(commands=['mute'])
 async def mute_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     user_obj = message.from_user
     if user_obj.id not in MY_IDs[1]:
         return
@@ -674,6 +696,8 @@ async def mute_cmd(message):
 
 @bot.message_handler(commands=['unmute'])
 async def unmute_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     user_obj = message.from_user
     if user_obj.id not in MY_IDs[1]:
         return
@@ -723,6 +747,8 @@ async def unmute_cmd(message):
 # Block/Unblock chat/user (superuser only) --------------------------------------------------------- #
 @bot.message_handler(commands=['blockchat'])
 async def blockchat_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     user_obj = message.from_user
     if user_obj.id not in MY_IDs[1]:
         return
@@ -766,6 +792,8 @@ async def blockchat_cmd(message):
 
 @bot.message_handler(commands=['unblockchat'])
 async def unblockchat_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     user_obj = message.from_user
     if user_obj.id not in MY_IDs[1]:
         return
@@ -803,6 +831,8 @@ async def unblockchat_cmd(message):
 
 @bot.message_handler(commands=['blockuser'])
 async def blockuser_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     user_obj = message.from_user
     if user_obj.id not in MY_IDs[1]:
         return
@@ -853,6 +883,8 @@ async def blockuser_cmd(message):
 
 @bot.message_handler(commands=['unblockuser'])
 async def unblockuser_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     user_obj = message.from_user
     if user_obj.id not in MY_IDs[1]:
         return
@@ -904,6 +936,8 @@ async def unblockuser_cmd(message):
 # Add/Remove/Show AI chats (superuser only) --------------------------------------------------- #
 @bot.message_handler(commands=['aiuser'])
 async def setaiuser_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         user_obj = message.from_user
@@ -921,6 +955,8 @@ async def setaiuser_cmd(message):
 
 @bot.message_handler(commands=['delaiuser'])
 async def delaiuser_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         user_obj = message.from_user
@@ -937,6 +973,8 @@ async def delaiuser_cmd(message):
 
 @bot.message_handler(commands=['showaiusers'])
 async def showaiusers_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         user_obj = message.from_user
@@ -952,6 +990,8 @@ async def showaiusers_cmd(message):
 # Ludo game commands handler (startludo) ------------------------------------------------------ #
 @bot.message_handler(commands=['startludo'])
 async def startludo_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     # chatId = message.chat.id
     # if chatId not in (BLOCK_CHATS + BLOCK_USERS):
     #     await bot.send_game(chatId, 'ludo')
@@ -961,6 +1001,8 @@ async def startludo_cmd(message):
 # (game, stop, stats, mystats, ranking, globalranking, chatranking, rules, help, addword) ----- #
 @bot.message_handler(commands=['game'])
 async def start_game(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     chatId = message.chat.id
     userObj = message.from_user
     if message.chat.type == 'private':
@@ -1027,6 +1069,8 @@ async def start_game(message):
 
 @bot.message_handler(commands=['stop'])
 async def stop_game(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     chatId = message.chat.id
     userObj = message.from_user
     if (message.chat.type != 'private') and (chatId not in BLOCK_CHATS) and (userObj.id not in BLOCK_USERS):
@@ -1039,6 +1083,8 @@ async def stop_game(message):
 # See other user's stats (superuser only)
 @bot.message_handler(commands=['stats'])
 async def stats_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     if message.reply_to_message is None:
         await mystats_cmd(message)
         return
@@ -1095,6 +1141,8 @@ async def stats_cmd(message):
 
 @bot.message_handler(commands=['mystats'])
 async def mystats_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     chatId = message.chat.id
     if chatId in BLOCK_CHATS or (await bot.get_chat_member(chatId, MY_IDs[0])).can_send_messages == False:
         return
@@ -1144,6 +1192,8 @@ async def mystats_cmd(message):
 
 @bot.message_handler(commands=['ranking'])
 async def ranking_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         if message.chat.type == 'private':
@@ -1167,6 +1217,8 @@ async def ranking_cmd(message):
 
 @bot.message_handler(commands=['globalranking'])
 async def global_ranking_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         grp_player_ranks = getTop25PlayersInAllChats_sql()
@@ -1196,6 +1248,8 @@ async def global_ranking_cmd(message):
 
 @bot.message_handler(commands=['chatranking'])
 async def chat_ranking_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         grp_ranks = getTop10Chats_sql()
@@ -1212,6 +1266,8 @@ async def chat_ranking_cmd(message):
 
 @bot.message_handler(commands=['rules'])
 async def rules_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     chatId = message.chat.id
     if chatId in BLOCK_CHATS or (await bot.get_chat_member(chatId, MY_IDs[0])).can_send_messages == False:
         return
@@ -1231,6 +1287,8 @@ async def rules_cmd(message):
 
 @bot.message_handler(commands=['help'])
 async def help_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     chatId = message.chat.id
     if chatId in BLOCK_CHATS or (await bot.get_chat_member(chatId, MY_IDs[0])).can_send_messages == False:
         return
@@ -1249,6 +1307,8 @@ async def help_cmd(message):
 
 @bot.message_handler(commands=['addword'])
 async def addword_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     chatId = message.chat.id
     user_obj = message.from_user
     if (chatId in (BLOCK_CHATS + BLOCK_USERS) and user_obj.id not in MY_IDs[1]) or user_obj.id in BLOCK_USERS:
@@ -1288,21 +1348,24 @@ async def addword_cmd(message):
 
 @bot.message_handler(commands=['approve'])
 async def approveAddWordReq_cmd(message):
-    chatId = message.chat.id
+    if message.forward_from or message.forward_from_chat:
+        return
     user_obj = message.from_user
-    cnfrm_msg = ''
     if user_obj.id not in MY_IDs[1]:
         return
     if not NEW_WORD_REQS:
         await bot.reply_to(message, '❌ No pending requests!', allow_sending_without_reply=True, disable_notification=True)
         return
     # Send confirmation message
+    cnfrm_msg = ''
     for nwr_chat_id, nwr_users in NEW_WORD_REQS.items():
         cnfrm_msg += f'\n{escChar(nwr_chat_id)}: \[\n' + ',\n'.join([f'    [{u}](tg://user?id={u}): \[{nwr_users[u]}\]' for u in nwr_users]) + '\n\]'
     await bot.reply_to(message, f'⏳ *Pending requests:* {len(NEW_WORD_REQS)}\n{cnfrm_msg}', parse_mode='MarkdownV2', reply_markup=getInlineBtn('addWord_req_approve'), allow_sending_without_reply=True)
 
 @bot.message_handler(commands=['cmdhelp', 'cmdlist'])
 async def cmdlist_cmd(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     chatId = message.chat.id
     user_obj = message.from_user
     if user_obj.id not in MY_IDs[1]:
@@ -1430,6 +1493,8 @@ async def handle_new_chat_title(message):
 @bot.message_handler(content_types=['photo', 'video', 'audio', 'voice'], func=lambda msg: msg.chat.type in ['supergroup', 'group'])
 async def handle_media_ai(message):
     await handle_group_media(message) # Setting up STATE for chat
+    if message.forward_from or message.forward_from_chat:
+        return
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
         userObj = message.from_user
@@ -1473,6 +1538,8 @@ async def handle_media_ai(message):
 # Handler for incoming messages in groups
 @bot.message_handler(content_types=['text'], func=lambda message: message.chat.type in ['supergroup', 'group'])
 async def handle_group_message(message):
+    if message.forward_from or message.forward_from_chat:
+        return
     chatId = message.chat.id
     userObj = message.from_user
     userId = userObj.id
