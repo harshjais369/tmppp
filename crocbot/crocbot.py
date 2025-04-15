@@ -297,26 +297,29 @@ async def sendBroadcast_cmd(message):
         # Remove duplicates
         chat_ids = list(set(chat_ids))
         # Remove my IDs and blocked chats
-        chat_ids = [chat_id for chat_id in chat_ids if chat_id not in MY_IDs and chat_id not in BLOCK_CHATS]
+        chat_ids = [chat_id for chat_id in chat_ids if chat_id not in BLOCK_CHATS]
         await bot.reply_to(message, f'Total chat IDs: {len(chat_ids)}', allow_sending_without_reply=True)
         return
-    if message.text.strip() == '/send * groups CONFIRM':
+    elif message.text.strip() == '/send * state CONFIRM':
+        # Forward to all chats from STATE
+        chat_ids = [chat_id for chat_id in STATE.keys() if chat_id not in BLOCK_CHATS]
+    elif message.text.strip() == '/send * groups CONFIRM':
         c_ids, u_ids = getAllChatIds_sql()
         chat_ids.extend(c_ids)
         chat_ids = list(set(chat_ids))
-        chat_ids = [chat_id for chat_id in chat_ids if chat_id not in (BLOCK_CHATS + MY_IDs)]
-    if message.text.strip() == '/send * users CONFIRM':
+        chat_ids = [chat_id for chat_id in chat_ids if chat_id not in BLOCK_CHATS]
+    elif message.text.strip() == '/send * users CONFIRM':
         c_ids, u_ids = getAllChatIds_sql()
         chat_ids.extend(u_ids)
         chat_ids = list(set(chat_ids))
-        chat_ids = [chat_id for chat_id in chat_ids if chat_id not in (BLOCK_USERS + MY_IDs)]
-    if message.text.strip() == '/send * CONFIRM':
+        chat_ids = [chat_id for chat_id in chat_ids if chat_id not in BLOCK_USERS]
+    elif message.text.strip() == '/send * CONFIRM':
         # Forward to all chats from your database
         c_ids, u_ids = getAllChatIds_sql()
         chat_ids.extend(c_ids)
         chat_ids.extend(u_ids)
         chat_ids = list(set(chat_ids))
-        chat_ids = [chat_id for chat_id in chat_ids if chat_id not in (BLOCK_CHATS + BLOCK_USERS + MY_IDs)]
+        chat_ids = [chat_id for chat_id in chat_ids if chat_id not in (BLOCK_CHATS + BLOCK_USERS)]
     else:
         # Forward to specified chat IDs
         command_parts = message.text.split(' ', 2)
@@ -325,7 +328,7 @@ async def sendBroadcast_cmd(message):
             chat_ids = [int(chat_id.strip()) for chat_id in chat_ids_str.split(',') if chat_id.strip().lstrip('-').isdigit()]
             chat_ids = list(set(chat_ids))
     if len(chat_ids) == 0:
-        await bot.reply_to(message, 'No chat ID specified!', allow_sending_without_reply=True)
+        await bot.reply_to(message, 'No chat IDs specified!', allow_sending_without_reply=True)
         return
     await bot.send_message(MY_IDs[2][0], f'\#Broadcast started by: [{escChar(escName(user_obj))}](tg://user?id={user_obj.id})\n\n'
                     f'*Parameters:* {escChar(message.text[6:])}\n*Total chats:* {len(chat_ids)}', parse_mode='MarkdownV2')
@@ -344,6 +347,12 @@ async def sendBroadcast_cmd(message):
             err_msg.append(chat_id)
     if len(err_msg) > 0:
         await bot.reply_to(message, f'Sent: {i}\nFailed: {len(err_msg)}\nTotal: {len(chat_ids)}', allow_sending_without_reply=True)
+        if len(err_msg) > 1000:
+            with open('failed_chat_ids.txt', 'w') as f:
+                f.write('\n'.join(map(str, err_msg)))
+            with open('failed_chat_ids.txt', 'rb') as f:
+                await bot.send_document(MY_IDs[2][0], f, caption='Failed chat IDs', protect_content=True, disable_notification=True)
+            return
         await bot.reply_to(message, f'Failed to forward message to chat IDs: {err_msg}', allow_sending_without_reply=True, disable_notification=True)
     else:
         await bot.reply_to(message, 'Message forwarded to all chats successfully!', allow_sending_without_reply=True)
@@ -484,7 +493,7 @@ async def botStats_cmd(message):
             f'*Games played:* {int(games_played[-1] * 100)}\n' \
             f'*Cheating rate:* {escChar(100*cheats_detected[-1]/games_played[-1])[:4]}%\n' \
             '                                     \n' + stats_msg
-        await bot.send_photo(chatId, img, caption=stats_msg, parse_mode='MarkdownV2',
+        await bot.send_photo(chatId, img, caption=stats_msg, parse_mode='MarkdownV2', protect_content=True,
                              reply_to_message_id=message.message_id, allow_sending_without_reply=True)
 
 @bot.message_handler(commands=['serverinfo'])
