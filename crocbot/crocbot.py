@@ -1577,9 +1577,9 @@ async def handle_group_message(message):
         state = STATE.get(str(chatId))
     
     if state[0] == WAITING_FOR_WORD:
-        leaderId = state[1]
-        # If leader types sth after starting game, change state to show_changed_word_msg=True
-        if leaderId == userId:
+        isLeader = state[1] == userId
+        # If leader types sth after starting game, change state[2]; ie. show_changed_word_msg=True
+        if isLeader:
             cheat_status = 'Force True' if state[4] == 'Force True' else 'False'
             if (rplyMsg is None) or (rplyMsg and (rplyMsg.from_user.id == MY_IDs[0])):
                 STATE.update({str(chatId): [WAITING_FOR_WORD, userId, True, state[3], cheat_status, state[5]]})
@@ -1595,19 +1595,21 @@ async def handle_group_message(message):
         word = WORD.get(str(chatId))
         if word is None:
             return
-        isWordMatched = word in msgText.lower().replace(' ', '') if len(word) > 3 else msgText.lower() == word
-        if isWordMatched:
+        can_show_cheat_msg = state[4]
+        msgText_lwr = msgText.lower()
+        isWordMatched = word in msgText_lwr.replace(' ', '') if len(word) > 3 else msgText_lwr == word
+        canMatchWithAI = (state[2] and (int(time.time()) - state[3]) < 3600 and not isLeader and can_show_cheat_msg == 'False')
+        if isWordMatched or (canMatchWithAI and (await )):
             is_cheat_allowed = chatId in NO_CHEAT_CHATS
-            can_show_cheat_msg = state[4]
             if not is_cheat_allowed:
                 STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
-            elif leaderId != userId:
+            elif not isLeader:
                 STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
             points = 1
             fullName = escName(userObj)
             # Check if user is not leader, or if the chat can ignore cheat
-            if leaderId != userId or is_cheat_allowed:
-                if is_cheat_allowed and leaderId == userId:
+            if not isLeader or is_cheat_allowed:
+                if is_cheat_allowed and isLeader:
                     return
                 if can_show_cheat_msg == 'False' or is_cheat_allowed:
                     await bot.send_message(chatId, f'🎉 [{escChar(fullName)}](tg://user?id={userId}) found the word\! *{word}*',
