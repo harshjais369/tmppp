@@ -65,7 +65,7 @@ AI_TRIGGER_MSGS = ['@croco ', ' @croco', 'i\'m new here', 'am new here', 'anyone
 ]
 
 # Get response from AI model
-def getAIResp(
+async def getAIResp(
     prompt,
     model=None,
     temperature=1,
@@ -78,7 +78,7 @@ def getAIResp(
         if AI_API_KEY is None:
             raise Exception('AI_PLATFORM or AI_API_KEY is not configured properly. Please check .env file!')
         elif AI_PLATFORM == 'google':
-            res = client.models.generate_content(
+            res = await client.aio.models.generate_content(
                 model='gemini-2.5-pro-preview-03-25',
                 contents=prompt,
                 config=GenerateContentConfig(
@@ -110,7 +110,7 @@ def getAIResp(
         return 0
 
 # Get response from Media AI model
-def getMediaAIResp(prompt, model=None, file_path=None, file_bytes=None, mime_type='image/png'):
+async def getMediaAIResp(prompt, model=None, file_path=None, file_bytes=None, mime_type='image/png'):
     try:
         if AI_API_KEY is None:
             raise Exception('AI_PLATFORM or AI_API_KEY is not configured properly. Please check .env file!')
@@ -124,7 +124,7 @@ def getMediaAIResp(prompt, model=None, file_path=None, file_bytes=None, mime_typ
                 return 'Error 0x403: Failed to read image file!'
         elif not file_bytes:
             raise Exception('file_path or file_bytes is required!')
-        res = client.models.generate_content(
+        res = await client.aio.models.generate_content(
             model='gemini-2.5-pro-preview-03-25',
             contents=[Part.from_bytes(data=file_bytes, mime_type=mime_type), prompt],
             config=GenerateContentConfig(
@@ -144,12 +144,12 @@ def getMediaAIResp(prompt, model=None, file_path=None, file_bytes=None, mime_typ
 
 
 # Generate word
-def getNewWord():
+async def getNewWord():
     import wordlist
     return random.choice(wordlist.WORDLIST).lower()
 
 # Add new word to wordlist
-def addNewWord(word):
+async def addNewWord(word):
     import wordlist as wdl
     wordlist = wdl.WORDLIST
     if word in wordlist:
@@ -178,9 +178,9 @@ def addNewWord(word):
     return True
 
 # Generate hints
-def getHints(word):
+async def getHints(word):
     prompt = f"Me: I am playing an english word guessing game with my friend, in which my role is to give hints to my friend for the word which I am expecting him to guess with less information I provisioned to him. I want you to generate word with a hint for me. You will give me a word and first hint with hint-number (i.e Hint 1:), don\'t say anything else. Then I will ask my friend to guess the word, and if he couldn\'t, then I will ask you to generate one more hint about the word and you will have to keep doing it for me until my friend finds the correct word. Now, I\'ve explained all the general rules of the game to you, and if still something is yet now to explain, you are free to use your intelligence and understand it. Make sure that the word is not so factual-based that only few specific persons with well knowledge about it, can get it only. I\'m starting the game with my friend now, keep all rules in your mind as I said above, and provide me a word (which I will ask to my friend) and its first hint (don\'t say anything else except word and hint only).\n\nGPT4: Word: Bicycle\nHint 1: It has two wheels.\n\nMe: Another hint!\n\nGPT4: Hint 2: You pedal it to make it move.\n\nMe: Another hint!\n\nGPT4: Hint 3: It is often used for transportation or exercise.\n\nMe: Great job GPT4! My friend has found the word \"Bicycle\" from your hints I gave to him for guessing. Now, I\'m starting the game again with him. Keep doing it like this as you did in last game. Give me another word and this time I want you to give me all hints (5 hints) for the word at once, so I will not need you to ask for another hint everytime.\n\nGPT4: Word: Volcano\nHint 1: It is an opening in the Earth\'s surface.\nHint 2: It can cause destruction to nearby areas.\nHint 3: The word begins with \"V\" letter.\nHint 4: It can be found in mountain range areas.\nHint 5: Caused by high pressure in the Earth\'s crust.\n\nMe: Start the game again!\n\nGPT4: Word: light\nHint 1: It can be found on wall or rooftop of many households.\nHint 2: You cannot ever touch or smell it.\nHint 3: It can change the color of a room.\nHint 4: Related to this equation of Einstin: E=hv\nHint 5: You need this to see the things around you.\n\nMe: Perfect! Now start the game again one more time. Just keep doing as you are now, and don\'t say anything else. Give me a word and all hints for next round of game.\n\nGPT4: Word: {word}\nHint 1:"
-    resp = getAIResp(prompt)
+    resp = await getAIResp(prompt)
     if resp == 0:
         return ["Error 0x404: Please try again later!"]
     else:
@@ -191,8 +191,8 @@ def getHints(word):
             return ["Error 0x406: Please try again later!"]
 
 # Get Croco AI response
-def getCrocoResp(prompt):
-    resp = getAIResp(prompt=prompt, frequency_penalty=0.5)
+async def getCrocoResp(prompt):
+    resp = await getAIResp(prompt=prompt, frequency_penalty=0.5)
     if resp == 0:
         return "Error 0x404: Please try again later!"
     else:
@@ -214,7 +214,7 @@ async def getWordMatchAIResp(word, guess) -> bool:
             ' even with small human mistakes, its meaning must not match with any different word (for eg. making != marking, mistake: got an extra letter r).'
             ' You will have Word and Guess as inputs, return Result (True/False). Don\'t say anything else.'
         )
-        res = client.models.generate_content(
+        res = await client.aio.models.generate_content(
             model='gemini-1.5-flash-8b',
             contents=(PROMPT_WORD_MATCHER + f'\nWord: {word}\nGuess: {guess}\nResult:'),
             config=GenerateContentConfig(
