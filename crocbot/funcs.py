@@ -203,30 +203,30 @@ def getCrocoResp(prompt):
             return "Error 0x406: Please try again later!"
 
 # Get word match response via AI model
-async def getWordMatchResp(word, guess) -> bool:
+async def getWordMatchAIResp(word, guess) -> bool:
     try:
         if AI_API_KEY is None and AI_PLATFORM != 'google':
             return False
-        print('Inside getWordMatchResp()')
         sys_instructs = (
             'You are a word finder algorithm. From given a string (word guess), you\'ve to recognise if a specified word is present in the list'
-            ' or if its very closely matches to the word. You can ignore common human mistakes, but meaning shouldn\'t change completely. You'
-            ' will have Word and Guess as inputs, return Result (True/False). Don\'t say anything else.'
+            ' or if its very closely matches to the word. You can ignore common human mistakes, but meaning shouldn\'t change completely. True if word has very small'
+            ' human/spell mistakes,'
+            ' even with small human mistakes, its meaning must not match with any different word (for eg. making != marking, mistake: got an extra letter r).'
+            ' You will have Word and Guess as inputs, return Result (True/False). Don\'t say anything else.'
         )
         res = client.models.generate_content(
             model='gemini-1.5-flash-8b',
             contents=(PROMPT_WORD_MATCHER + f'\nWord: {word}\nGuess: {guess}\nResult:'),
             config=GenerateContentConfig(
-                temperature=1.5,
+                temperature=1.3,
                 max_output_tokens=2048,
-                top_p=1.0,
-                system_instruction=SYSTEM_INSTRUCTION,
-                safety_settings=sys_instructs,
+                top_p=0.95,
+                system_instruction=sys_instructs,
+                safety_settings=SAFETY_SETTINGS,
                 response_modalities=['TEXT']
             )
         )
-        print(res.text)
-        return True if 'true' in res.text.lower() else False
+        return 'True' in res.text
     except Exception as e:
         print(str(e))
         return False

@@ -175,8 +175,84 @@ Word: code
 Guess: coddfgec
 Result: False
 -
-Word: code
-Guess: coddfgec
+Word: nevertheless
+Guess: nonetheless
+Result: False
+-
+Word: nevertheless
+Guess: never the less
+Result: True
+-
+Word: nevertheless
+Guess: neverthemore
+Result: False
+-
+Word: shrink
+Guess: shk
+Result: False
+-
+Word: shrink
+Guess: sink
+Result: False
+-
+Word: shrink
+Guess: srink
+Result: True
+-
+Word: shrink
+Guess: s h r i n k
+Result: True
+-
+Word: shrink
+Guess: she rank
+Result: False
+-
+Word: speciality
+Guess: spatial ty
+Result: False
+-
+Word: speciality
+Guess: specs litti
+Result: False
+-
+Word: speciality
+Guess: specificity
+Result: False
+-
+Word: speciality
+Guess: special s ist ity
+Result: True
+-
+Word: speciality
+Guess: spclty
+Result: False
+-
+Word: stampede
+Guess: stamp
+Result: False
+-
+Word: playstation
+Guess: play
+Result: False
+-
+Word: container
+Guess: conta
+Result: False
+-
+Word: retirement
+Guess: retire
+Result: False
+-
+Word: affected
+Guess: affects
+Result: True
+-
+Word: affected
+Guess: affection
+Result: False
+-
+Word: affected
+Guess: affectionate
 Result: False
 -
 """.strip()

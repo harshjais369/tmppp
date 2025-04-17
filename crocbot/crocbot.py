@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import json
 import pytz
@@ -13,7 +14,7 @@ from asyncio import sleep
 from telebot.async_telebot import AsyncTeleBot, ExceptionHandler, traceback
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import funcs
-from funcs import escName, escChar
+from funcs import escName, escChar, getWordMatchAIResp
 from sql_helper.current_running_game_sql import addGame_sql, getGame_sql, removeGame_sql
 from sql_helper.rankings_sql import incrementPoints_sql, getUserPoints_sql, getTop25Players_sql, getTop25PlayersInAllChats_sql, getTop10Chats_sql, getAllChatIds_sql
 from sql_helper.daily_botstats_sql import update_dailystats_sql, get_last30days_stats_sql
@@ -1596,10 +1597,9 @@ async def handle_group_message(message):
         if word is None:
             return
         can_show_cheat_msg = state[4]
-        msgText_lwr = msgText.lower()
-        isWordMatched = word in msgText_lwr.replace(' ', '') if len(word) > 3 else msgText_lwr == word
-        canMatchWithAI = (state[2] and (int(time.time()) - state[3]) < 3600 and not isLeader and can_show_cheat_msg == 'False')
-        if isWordMatched or (canMatchWithAI and (await )):
+        isWordMatched = re.search(rf'\b({word})(?=(\w{{1,5}}\b|[.,\/\s]|$))', msgText, re.IGNORECASE) is not None
+        if (isWordMatched) or (((state[2]) and ((int(time.time())-state[3]) < 3600) and (len(msgText) < 80) and (not isLeader) and (can_show_cheat_msg == 'False'))
+                                and ((await getWordMatchAIResp(word, msgText)) and (STATE.get(str(chatId), [0])[0] == WAITING_FOR_WORD) and (WORD.get(str(chatId), '0') == word))):
             is_cheat_allowed = chatId in NO_CHEAT_CHATS
             if not is_cheat_allowed:
                 STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
