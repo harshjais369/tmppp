@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import json
 import pytz
@@ -13,7 +14,7 @@ from asyncio import sleep
 from telebot.async_telebot import AsyncTeleBot, ExceptionHandler, traceback
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import funcs
-from funcs import escName, escChar
+from funcs import escName, escChar, getWordMatchAIResp
 from sql_helper.current_running_game_sql import addGame_sql, getGame_sql, removeGame_sql
 from sql_helper.rankings_sql import incrementPoints_sql, getUserPoints_sql, getTop25Players_sql, getTop25PlayersInAllChats_sql, getTop10Chats_sql, getAllChatIds_sql
 from sql_helper.daily_botstats_sql import update_dailystats_sql, get_last30days_stats_sql
@@ -1577,9 +1578,9 @@ async def handle_group_message(message):
         state = STATE.get(str(chatId))
     
     if state[0] == WAITING_FOR_WORD:
-        leaderId = state[1]
-        # If leader types sth after starting game, change state to show_changed_word_msg=True
-        if leaderId == userId:
+        isLeader = state[1] == userId
+        # If leader types sth after starting game, change state[2]; ie. show_changed_word_msg=True
+        if isLeader:
             cheat_status = 'Force True' if state[4] == 'Force True' else 'False'
             if (rplyMsg is None) or (rplyMsg and (rplyMsg.from_user.id == MY_IDs[0])):
                 STATE.update({str(chatId): [WAITING_FOR_WORD, userId, True, state[3], cheat_status, state[5]]})
@@ -1595,19 +1596,20 @@ async def handle_group_message(message):
         word = WORD.get(str(chatId))
         if word is None:
             return
-        isWordMatched = word in msgText.lower().replace(' ', '') if len(word) > 3 else msgText.lower() == word
-        if isWordMatched:
+        can_show_cheat_msg = state[4]
+        isWordMatched = re.search(rf'\b({word})(?=(\w{{1,5}}\b|[.,\/\s]|$))', msgText, re.IGNORECASE) is not None
+        if (isWordMatched) or (((state[2]) and ((int(time.time())-state[3]) < 3600) and (len(msgText) < 80) and (not isLeader) and (can_show_cheat_msg == 'False'))
+                                and ((await getWordMatchAIResp(word, msgText)) and (STATE.get(str(chatId), [0])[0] == WAITING_FOR_WORD) and (WORD.get(str(chatId), '0') == word))):
             is_cheat_allowed = chatId in NO_CHEAT_CHATS
-            can_show_cheat_msg = state[4]
             if not is_cheat_allowed:
                 STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
-            elif leaderId != userId:
+            elif not isLeader:
                 STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
             points = 1
             fullName = escName(userObj)
             # Check if user is not leader, or if the chat can ignore cheat
-            if leaderId != userId or is_cheat_allowed:
-                if is_cheat_allowed and leaderId == userId:
+            if not isLeader or is_cheat_allowed:
+                if is_cheat_allowed and isLeader:
                     return
                 if can_show_cheat_msg == 'False' or is_cheat_allowed:
                     await bot.send_message(chatId, f'🎉 [{escChar(fullName)}](tg://user?id={userId}) found the word\! *{word}*',
