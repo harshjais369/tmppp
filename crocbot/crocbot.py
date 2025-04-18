@@ -1044,8 +1044,8 @@ async def start_game(message):
         if state is None or state[0] == WAITING_FOR_COMMAND:
             started_at = int(curr_game['started_at'])
             WORD.update({str(chatId): curr_game['data'].word})
-            state = {str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, started_at, 'False', False]}
-            STATE.update(state)
+            state = [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, started_at, 'False', False]
+            STATE.update({str(chatId): state})
             if int(datetime.now(pytz.timezone('Asia/Kolkata')).timestamp()) - started_at > 43200:
                 # Don't send [restart notice] if game started 12 hours ago
                 return
