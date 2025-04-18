@@ -17,7 +17,7 @@ class AiConvSql(BASE):
 
 AiConvSql.__table__.create(checkfirst=True, bind=SESSION.bind)
 
-def getEngAIConv_sql(chat_id, search_str):
+def getCrocoAIConv_sql(chat_id, search_str):
     try:
         query = SESSION.query(AiConvSql).filter_by(chat_id=str(chat_id)).filter(AiConvSql.prompt.ilike(f'%{search_str}%')).order_by(AiConvSql.time.desc())
         return query.all()
@@ -28,7 +28,7 @@ def getEngAIConv_sql(chat_id, search_str):
     finally:
         SESSION.close()
 
-def updateEngAIPrompt_sql(id, chat_id, prompt, isNewConv):
+def updateCrocoAIPrompt_sql(id, chat_id, prompt, isNewConv):
     try:
         adder = False
         if isNewConv:

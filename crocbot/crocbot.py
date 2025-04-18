@@ -1,4 +1,5 @@
 import os
+import io
 import re
 import time
 import json
@@ -10,7 +11,7 @@ import platform
 import psutil
 import speedtest
 import asyncio
-from asyncio import sleep
+from asyncio import sleep, to_thread
 from telebot.async_telebot import AsyncTeleBot, ExceptionHandler, traceback
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import funcs
@@ -18,7 +19,7 @@ from funcs import AI_TRIGGER_MSGS, escName, escChar, getWordMatchAIResp
 from sql_helper.current_running_game_sql import addGame_sql, getGame_sql, removeGame_sql
 from sql_helper.rankings_sql import incrementPoints_sql, getUserPoints_sql, getTop25Players_sql, getTop25PlayersInAllChats_sql, getTop10Chats_sql, getAllChatIds_sql
 from sql_helper.daily_botstats_sql import update_dailystats_sql, get_last30days_stats_sql
-from sql_helper.ai_conv_sql import getEngAIConv_sql, updateEngAIPrompt_sql
+from sql_helper.ai_conv_sql import getCrocoAIConv_sql, updateCrocoAIPrompt_sql
 
 BOT_TOKEN = os.environ.get('BOT_TOKEN', None)
 OTHER_SU_IDs = [5145384413]
@@ -115,9 +116,9 @@ async def startGame(message):
     # Save word to database and start game
     word = await funcs.getNewWord()
     WORD.update({str(chatId): word})
-    if not addGame_sql(chatId, userObj.id, word):
+    if not (await to_thread(addGame_sql, chatId, userObj.id, word)):
         msg = await bot.send_message(chatId, '❌ An unexpected error occurred while starting game! Please try again later.\n\nUse /help for more information.')
-        removeGame_sql(chatId)
+        await to_thread(removeGame_sql, chatId)
         await sleep(10)
         await bot.delete_message(chatId, msg.message_id)
         return None
@@ -159,8 +160,8 @@ async def stopGame(message, isRefused=False, isChangeLeader=False, isWordReveale
         await bot.send_message(chatId, '🛑 The game is stopped!\nTo start a new game, hit command:\n/game@CrocodileGameEnn_bot')
     # Delete word from database
     WORD.pop(str(chatId), None)
-    HINTS.pop(str(chatId), None)
-    removeGame_sql(chatId)
+    # HINTS.pop(str(chatId), None)
+    await to_thread(removeGame_sql, chatId)
     return True
 
 async def changeWord(message, last_word):
@@ -171,20 +172,21 @@ async def changeWord(message, last_word):
         chatId = message.message.chat.id
     user_obj = message.from_user
     global STATE
+    state = STATE.get(str(chatId), [-1])
+    # HINTS.pop(str(chatId), None)
     # Save word to database and return (leader changed the word)
-    HINTS.pop(str(chatId), None)
-    addGame_sql(chatId, user_obj.id, WORD.get(str(chatId)))
-    if (STATE.get(str(chatId))[0] == WAITING_FOR_COMMAND) or (STATE.get(str(chatId))[0] == WAITING_FOR_WORD and STATE.get(str(chatId))[2]):
+    await to_thread(addGame_sql, chatId, user_obj.id, WORD.get(str(chatId)))
+    if (state[0] == WAITING_FOR_WORD and state[2]) or (state[0] == WAITING_FOR_COMMAND):
         await bot.send_message(chatId, f'❗{escChar(escName(user_obj))} changed the word\! ~*{escChar(last_word)}*~', parse_mode='MarkdownV2')
 
 async def getCurrGame(chatId, userId):
-    if STATE.get(str(chatId), [-1])[0] == WAITING_FOR_WORD:
+    state = STATE.get(str(chatId), [-1])
+    if state[0] == WAITING_FOR_WORD:
         # Game is started (known from STATE)
-        state = 'leader' if (STATE.get(str(chatId))[1] == userId) else 'not_leader'
-        return dict(status=state, started_at=STATE.get(str(chatId))[3])
+        return dict(status=('leader' if state[1]==userId else 'not_leader'), started_at=state[3])
     else:
         # Get current game from database
-        curr_game = getGame_sql(chatId)
+        curr_game = await to_thread(getGame_sql, chatId)
         if curr_game is None: # Game is not started yet
             return dict(status='not_started')
         elif int(curr_game.leader_id) == userId: # User is a leader
@@ -292,7 +294,7 @@ async def sendBroadcast_cmd(message):
     err_msg = []
     if message.text.strip() == '/send -count':
         # Count all chat_ids from database
-        c_ids, u_ids = getAllChatIds_sql()
+        c_ids, u_ids = await to_thread(getAllChatIds_sql)
         # Add both chat IDs and user IDs to chat_ids
         chat_ids.extend(c_ids)
         chat_ids.extend(u_ids)
@@ -306,18 +308,18 @@ async def sendBroadcast_cmd(message):
         # Forward to all chats from STATE
         chat_ids = [chat_id for chat_id in STATE.keys() if chat_id not in BLOCK_CHATS]
     elif message.text.strip() == '/send * groups CONFIRM':
-        c_ids, u_ids = getAllChatIds_sql()
+        c_ids, u_ids = await to_thread(getAllChatIds_sql)
         chat_ids.extend(c_ids)
         chat_ids = list(set(chat_ids))
         chat_ids = [chat_id for chat_id in chat_ids if chat_id not in BLOCK_CHATS]
     elif message.text.strip() == '/send * users CONFIRM':
-        c_ids, u_ids = getAllChatIds_sql()
+        c_ids, u_ids = await to_thread(getAllChatIds_sql)
         chat_ids.extend(u_ids)
         chat_ids = list(set(chat_ids))
         chat_ids = [chat_id for chat_id in chat_ids if chat_id not in BLOCK_USERS]
     elif message.text.strip() == '/send * CONFIRM':
         # Forward to all chats from your database
-        c_ids, u_ids = getAllChatIds_sql()
+        c_ids, u_ids = await to_thread(getAllChatIds_sql)
         chat_ids.extend(c_ids)
         chat_ids.extend(u_ids)
         chat_ids = list(set(chat_ids))
@@ -436,7 +438,7 @@ async def botStats_cmd(message):
     if user_obj.id not in MY_IDs[1]:
         return
     total_ids = [] # Total chats
-    g_ids, u_ids = getAllChatIds_sql() # Group chats, Private (user) chats
+    g_ids, u_ids = await to_thread(getAllChatIds_sql) # Group chats, Private (user) chats
     g_ids, u_ids = (list(set(g_ids)), list(set(u_ids)))
     total_ids.extend(g_ids)
     total_ids.extend(u_ids)
@@ -456,7 +458,7 @@ async def botStats_cmd(message):
         f'*Blocked users:* {len(BLOCK_USERS)}\n' \
         f'*Total WORDs:* {len(wordlist.WORDLIST)}\n' \
         f'*Active chats \(since reboot\):* {len(STATE)}\n'
-    last30days_stats = get_last30days_stats_sql()
+    last30days_stats = await to_thread(get_last30days_stats_sql)
     if len(last30days_stats) == 0:
         await bot.reply_to(message, stats_msg, parse_mode='MarkdownV2', allow_sending_without_reply=True)
         return
@@ -486,17 +488,17 @@ async def botStats_cmd(message):
     ax.set_title('Crocodile Game Bot (In last 30 days)')
     ax.legend(frameon=False)
     plt.tight_layout()
-    plt.savefig('last30days_stats.png')
+    buffer = io.BytesIO()
+    plt.savefig(buffer, format='png')
     plt.close()
-    with open('last30days_stats.png', 'rb') as img:
-        # Append today's stats to message
-        stats_msg = f'📅 *Today\'s stats:*\n\n' \
-            f'*New chats:* {chats_added[-1]}\n' \
-            f'*Games played:* {int(games_played[-1] * 100)}\n' \
-            f'*Cheating rate:* {escChar(100*cheats_detected[-1]/games_played[-1])[:4]}%\n' \
-            '                                     \n' + stats_msg
-        await bot.send_photo(chatId, img, caption=stats_msg, parse_mode='MarkdownV2', protect_content=True,
-                             reply_to_message_id=message.message_id, allow_sending_without_reply=True)
+    # Append today's stats to message
+    stats_msg = f'📅 *Today\'s stats:*\n\n' \
+        f'*New chats:* {chats_added[-1]}\n' \
+        f'*Games played:* {int(games_played[-1] * 100)}\n' \
+        f'*Cheating rate:* {escChar(100*cheats_detected[-1]/games_played[-1])[:4]}%\n' \
+        '                                     \n' + stats_msg
+    await bot.send_photo(chatId, photo=buffer.getvalue(), caption=stats_msg, parse_mode='MarkdownV2', protect_content=True,
+                            reply_to_message_id=message.message_id, allow_sending_without_reply=True)
 
 @bot.message_handler(commands=['sysinfo', 'serverinfo'])
 async def serverInfo_cmd(message):
@@ -518,22 +520,22 @@ async def serverInfo_cmd(message):
             download_speed = round(st.download() / 1024 / 1024, 2)
             upload_speed = round(st.upload() / 1024 / 1024, 2)
             ping = round(st.results.ping)
-            return cpu_usage, mem, disk, download_speed, upload_speed, ping
-        # Fetch system info and network speed in a separate thread
-        cpu_usage, mem, disk, download_speed, upload_speed, ping = await asyncio.to_thread(getSysInfo)
-        text = f'🖥 *Server info:*\n\n' \
-        f'*System:* {escChar(platform.system())} {escChar(platform.release())}\n' \
-        f'*CPU usage:* {escChar(cpu_usage)}%\n' \
-        f'*Memory usage:* {escChar(mem.percent)}%\n' \
-        f'*Disk usage:* {escChar(disk.percent)}%\n' \
-        f'*Network speed:*\n' \
-        f'\t*– Download:* {escChar(download_speed)} Mb/s\n' \
-        f'\t*– Upload:* {escChar(upload_speed)} Mb/s\n' \
-        f'\t*– Ping:* {escChar(ping)} ms\n' \
-        f'*Uptime:* {escChar(time.strftime("%H:%M:%S", time.gmtime(time.time() - psutil.boot_time())))}\n'
+            text = f'🖥 *Server info:*\n\n' \
+                f'*System:* {escChar(platform.system())} {escChar(platform.release())}\n' \
+                f'*CPU usage:* {escChar(cpu_usage)}%\n' \
+                f'*Memory usage:* {escChar(mem.percent)}%\n' \
+                f'*Disk usage:* {escChar(disk.percent)}%\n' \
+                f'*Network speed:*\n' \
+                f'\t*– Download:* {escChar(download_speed)} Mb/s\n' \
+                f'\t*– Upload:* {escChar(upload_speed)} Mb/s\n' \
+                f'\t*– Ping:* {escChar(ping)} ms\n' \
+                f'*Uptime:* {escChar(time.strftime("%H:%M:%S", time.gmtime(time.time() - psutil.boot_time())))}\n'
+            return text
+        # Fetch results in a separate thread
+        resTxt = await to_thread(getSysInfo)
     except Exception as e:
-        text = f'🖥 *Server info:* Failed to fetch data\.\n\n*Error:* {escChar(e.__repr__())}'
-    await bot.edit_message_text(text=text, chat_id=message.chat.id, message_id=msg.message_id, parse_mode='MarkdownV2')
+        resTxt = f'🖥 *Server info:* Failed to fetch data\.\n\n*Error:* {escChar(e.__repr__())}'
+    await bot.edit_message_text(text=resTxt, chat_id=message.chat.id, message_id=msg.message_id, parse_mode='MarkdownV2')
 
 # See chat/user info
 @bot.message_handler(commands=['info'])
@@ -1038,22 +1040,24 @@ async def start_game(message):
     curr_game = await getCurrGame(chatId, userObj.id)
     curr_status = curr_game['status']
     if (curr_status != 'not_started'):
-        if STATE.get(str(chatId)) is None or STATE.get(str(chatId))[0] == WAITING_FOR_COMMAND:
+        state = STATE.get(str(chatId))
+        if state is None or state[0] == WAITING_FOR_COMMAND:
             started_at = int(curr_game['started_at'])
             WORD.update({str(chatId): curr_game['data'].word})
-            STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, started_at, 'False', False]})
+            state = {str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, started_at, 'False', False]}
+            STATE.update(state)
             if int(datetime.now(pytz.timezone('Asia/Kolkata')).timestamp()) - started_at > 43200:
                 # Don't send [restart notice] if game started 12 hours ago
                 return
             await bot.send_message(chatId, f'🔄 *Bot restarted\!*\nAll active games were restored back and will continue running\.', parse_mode='MarkdownV2')
-        isNewPlyr = getUserPoints_sql(userObj.id) is None
+        isNewPlyr = (await to_thread(getUserPoints_sql, userObj.id)) is None
         started_from = int(time.time() - curr_game['started_at'])
         if (started_from < 30 or (isNewPlyr and started_from < 600 and curr_status != 'leader')):
             msg = await bot.send_message(chatId, '⚠ Do not blabber! The game has already started.')
             await sleep(10)
             await bot.delete_message(chatId, msg.message_id)
             return
-        if STATE.get(str(chatId))[5]:
+        if state[5]:
             msg = await bot.send_message(chatId, '⚠ Do not blabber! Someone else is going to lead the game next.')
             await sleep(10)
             await bot.delete_message(chatId, msg.message_id)
@@ -1064,9 +1068,10 @@ async def start_game(message):
         STATE[str(chatId)][5] = True
         for i in range(1, 6):
             await sleep(1)
-            if STATE.get(str(chatId))[0] == WAITING_FOR_COMMAND: # If game stopped before 5 secs
+            state = STATE.get(str(chatId))
+            if state[0] == WAITING_FOR_COMMAND: # If game stopped before 5 secs
                 return
-            if not STATE.get(str(chatId))[5]: # If cancelled by button press
+            if not state[5]: # If cancelled by button press
                 # print('Change-leader request cancelled! Chat:', chatId)
                 return
             try:
@@ -1080,7 +1085,7 @@ async def start_game(message):
         await sleep(0.3)
     if await startGame(message) is not None:
         STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(time.time()), 'True', False]})
-        update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 0, 1)
+        await to_thread(update_dailystats_sql, datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 0, 1)
 
 @bot.message_handler(commands=['stop'])
 async def stop_game(message):
@@ -1108,14 +1113,14 @@ async def stats_cmd(message):
     if (chatId in BLOCK_CHATS and user_obj.id not in MY_IDs[1]) or (await bot.get_chat_member(chatId, MY_IDs[0])).can_send_messages == False:
         return
     reply_user_obj = message.reply_to_message.from_user
-    user_stats = getUserPoints_sql(reply_user_obj.id)
+    user_stats = await to_thread(getUserPoints_sql, reply_user_obj.id)
     if not user_stats:
         await bot.send_message(chatId, f'📊 {escName(reply_user_obj)} has no stats yet!', disable_notification=True)
     else:
         global GLOBAL_RANKS
         if not GLOBAL_RANKS:
             granks = {}
-            grp_player_ranks = getTop25PlayersInAllChats_sql()
+            grp_player_ranks = await to_thread(getTop25PlayersInAllChats_sql)
             for gprObj in grp_player_ranks:
                 if gprObj.user_id in granks:
                     granks[gprObj.user_id]['points'] += gprObj.points
@@ -1123,7 +1128,7 @@ async def stats_cmd(message):
                     granks[gprObj.user_id] = {'user_id': int(gprObj.user_id), 'name': gprObj.name, 'points': gprObj.points}
             GLOBAL_RANKS = sorted(granks.values(), key=lambda x: x['points'], reverse=True)
         fullName = escName(reply_user_obj, 25, 'full').replace("🏅", "")
-        grp_player_ranks = getTop25Players_sql(chatId, 2000)
+        grp_player_ranks = await to_thread(getTop25Players_sql, chatId, 2000)
         rank = next((i for i, prObj in enumerate(grp_player_ranks, 1) if int(prObj.user_id) == reply_user_obj.id), 0) if grp_player_ranks and len(grp_player_ranks) > 0 else 0
         rank = f'*Rank:* \#{rank}\n' if message.chat.type != 'private' else ''
         _grank = next((i for i, user in enumerate(GLOBAL_RANKS, 1) if user['user_id'] == reply_user_obj.id), 0) if GLOBAL_RANKS is not None else 0
@@ -1165,14 +1170,14 @@ async def mystats_cmd(message):
     curr_chat_user_stat = None
     curr_chat_points = 0
     total_points = 'Loading...'
-    user_stats = getUserPoints_sql(user_obj.id)
+    user_stats = await to_thread(getUserPoints_sql, user_obj.id)
     if not user_stats:
         await bot.send_message(chatId, '📊 You have no stats yet!', disable_notification=True)
     else:
         global GLOBAL_RANKS
         if not GLOBAL_RANKS:
             granks = {}
-            grp_player_ranks = getTop25PlayersInAllChats_sql()
+            grp_player_ranks = await to_thread(getTop25PlayersInAllChats_sql)
             for gprObj in grp_player_ranks:
                 if gprObj.user_id in granks:
                     granks[gprObj.user_id]['points'] += gprObj.points
@@ -1180,7 +1185,7 @@ async def mystats_cmd(message):
                     granks[gprObj.user_id] = {'user_id': int(gprObj.user_id), 'name': gprObj.name, 'points': gprObj.points}
             GLOBAL_RANKS = sorted(granks.values(), key=lambda x: x['points'], reverse=True)
         fullName = escName(user_obj, 25, 'full').replace('🏅', '')
-        grp_player_ranks = getTop25Players_sql(chatId, 2000)
+        grp_player_ranks = await to_thread(getTop25Players_sql, chatId, 2000)
         rank = next((i for i, prObj in enumerate(grp_player_ranks, 1) if int(prObj.user_id) == user_obj.id), 0) if grp_player_ranks and len(grp_player_ranks) > 0 else 0
         rank = f'*Rank:* \#{rank}\n' if message.chat.type != 'private' else ''
         _grank = next((i for i, user in enumerate(GLOBAL_RANKS, 1) if user['user_id'] == user_obj.id), 0) if GLOBAL_RANKS is not None else 0
@@ -1214,7 +1219,7 @@ async def ranking_cmd(message):
         if message.chat.type == 'private':
             await bot.send_message(chatId, 'This command can be used in group chats only!\nOr use: /globalranking')
             return
-        grp_player_ranks = getTop25Players_sql(chatId)
+        grp_player_ranks = await to_thread(getTop25Players_sql, chatId)
         if grp_player_ranks is None or len(grp_player_ranks) < 1:
             await bot.send_message(chatId, '📊 No player\'s rank determined yet for this group!')
         else:
@@ -1236,7 +1241,7 @@ async def global_ranking_cmd(message):
         return
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
-        grp_player_ranks = getTop25PlayersInAllChats_sql()
+        grp_player_ranks = await to_thread(getTop25PlayersInAllChats_sql)
         if grp_player_ranks is None:
             await bot.send_message(chatId, '📊 No player\'s rank determined yet!')
         else:
@@ -1267,7 +1272,7 @@ async def chat_ranking_cmd(message):
         return
     chatId = message.chat.id
     if chatId not in BLOCK_CHATS:
-        grp_ranks = getTop10Chats_sql()
+        grp_ranks = await to_thread(getTop10Chats_sql)
         if grp_ranks is None:
             msg = await bot.send_message(chatId, '❗ An unknown error occurred!')
             await sleep(5)
@@ -1472,7 +1477,7 @@ async def handle_new_chat_members(message):
         await sleep(3)
         await bot.send_message(chatId, f'🚫 *This chat/group was banned from using this bot due to violation of our Terms of Service\.*\n\n' \
             f'If you\'re chat/group owner and believe this is a mistake, please write to: \@CrocodileGamesGroup', parse_mode='MarkdownV2')
-    update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 2, 1)
+    await to_thread(update_dailystats_sql, datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 2, 1)
 
 # Handler for "bot removed/stopped by chat/user" (send message to 1st superchat (MY_IDs[2][0]))
 @bot.my_chat_member_handler(func=lambda message: message.new_chat_member.status in ['kicked', 'left'])
@@ -1623,14 +1628,14 @@ async def handle_group_message(message):
                                             reply_markup=getInlineBtn('found_word'), parse_mode='MarkdownV2')
                     points = -1
                     CHEAT_RECORD[str(chatId)] = CHEAT_RECORD.get(str(chatId), 0) + 1
-                removeGame_sql(chatId)
+                await to_thread(removeGame_sql, chatId)
                 if points == -1:
-                    update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 1, 1)
+                    await to_thread(update_dailystats_sql, datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 1, 1)
             else:
                 # Leader revealed the word (stop game and deduct leader's points)
                 await stopGame(message, isWordRevealed=True)
                 points = -1
-            incrementPoints_sql(userId, chatId, points, escName(userObj, 100, 'full'))
+            await to_thread(incrementPoints_sql, userId, chatId, points, escName(userObj, 100, 'full'))
     
     if (
         (str(userId) in AI_USERS.keys())
@@ -1692,7 +1697,7 @@ async def handle_group_message(message):
             rplyText = rplyMsg.text
             rplyToMsg = message
             resp = None
-            preConvObjList = getEngAIConv_sql(chatId, rplyText)
+            preConvObjList = await to_thread(getCrocoAIConv_sql, chatId, rplyText)
             if preConvObjList:
                 preConvObj = preConvObjList[0]
                 # get Croco AI resp and then update prompt in DB
@@ -1700,7 +1705,7 @@ async def handle_group_message(message):
                 if 0 < time_diff < 5:
                     prompt = f'{preConvObj.prompt}\n{usr_name}: {msgText}\nCroco: '
                     resp = (await funcs.getCrocoResp(prompt)).lstrip()
-                    updateEngAIPrompt_sql(id=preConvObj.id, chat_id=chatId, prompt=str(prompt + resp), isNewConv=False)
+                    await to_thread(updateCrocoAIPrompt_sql, id=preConvObj.id, chat_id=chatId, prompt=str(prompt + resp), isNewConv=False)
                 else:
                     rem_prmt_frm_indx = str(preConvObj.prompt).find(rplyText)
                     if rem_prmt_frm_indx == -1:
@@ -1711,12 +1716,12 @@ async def handle_group_message(message):
                     if end_offset_index == len(preConvObj.prompt):
                         prompt = f'{preConvObj.prompt}\n{usr_name}: {msgText}\nCroco: '
                         resp = (await funcs.getCrocoResp(prompt)).lstrip()
-                        updateEngAIPrompt_sql(id=preConvObj.id, chat_id=chatId, prompt=str(prompt + resp), isNewConv=False)
+                        await to_thread(updateCrocoAIPrompt_sql, id=preConvObj.id, chat_id=chatId, prompt=str(prompt + resp), isNewConv=False)
                     else:
                         renew_prompt = preConvObj.prompt[:end_offset_index]
                         prompt = f'{renew_prompt}\n{usr_name}: {msgText}\nCroco: '
                         resp = (await funcs.getCrocoResp(prompt)).lstrip()
-                        updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(prompt + resp), isNewConv=True)
+                        await to_thread(updateCrocoAIPrompt_sql, id=None, chat_id=chatId, prompt=str(prompt + resp), isNewConv=True)
             else:
                 supported_media = ['photo', 'video', 'audio', 'voice']
                 rply_usr_name = (''.join(filter(str.isalpha, escName(rplyMsg.from_user, 25, 'full')))).strip()
@@ -1737,7 +1742,7 @@ async def handle_group_message(message):
                     resp = resp if resp != 0 else 'Error 0x404: Please try again later!'
                 else:
                     resp = (await funcs.getCrocoResp(prompt)).lstrip()
-                updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(prompt + resp), isNewConv=True)
+                await to_thread(updateCrocoAIPrompt_sql, id=None, chat_id=chatId, prompt=str(prompt + resp), isNewConv=True)
             aiResp = escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
             await bot.reply_to(rplyToMsg, aiResp, parse_mode='MarkdownV2', allow_sending_without_reply=True, disable_notification=True)
         elif any(t in msgText_lwr for t in AI_TRIGGER_MSGS):
@@ -1748,7 +1753,7 @@ async def handle_group_message(message):
             if usr_name in ['', 'id']: usr_name = 'Member'
             prompt = f'{usr_name}: {msgText}\nCroco: '
             resp = (await funcs.getCrocoResp(prompt)).lstrip()
-            updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(prompt + resp), isNewConv=True)
+            await to_thread(updateCrocoAIPrompt_sql, id=None, chat_id=chatId, prompt=str(prompt + resp), isNewConv=True)
             aiResp = escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
             await bot.reply_to(message, aiResp, parse_mode='MarkdownV2', allow_sending_without_reply=True, disable_notification=True)
 
@@ -1764,7 +1769,8 @@ async def handle_group_media(message):
     # with open('sentMsg.json', 'w') as f:
     #     f.write(str(message).replace('\'', '\"').replace('None', 'null').replace('True', 'true').replace('False', 'false'))
     global STATE
-    if STATE.get(str(chatId)) is None:
+    state = STATE.get(str(chatId))
+    if state is None:
         curr_game = await getCurrGame(chatId, userId)
         if curr_game['status'] == 'not_started':
             STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
@@ -1778,9 +1784,9 @@ async def handle_group_media(message):
             if (await bot.get_chat_member(chatId, MY_IDs[0])).can_send_messages == False:
                 return
             await bot.send_message(chatId, f'🔄 *Bot restarted\!*\nAll active games were restored back and will continue running\.', parse_mode='MarkdownV2')
-    elif STATE.get(str(chatId))[0] == WAITING_FOR_WORD and STATE.get(str(chatId))[1] == userId:
-        cheat_status = 'Force True' if STATE.get(str(chatId))[4] == 'Force True' else 'False'
-        STATE.update({str(chatId): [WAITING_FOR_WORD, userId, STATE.get(str(chatId))[2], STATE.get(str(chatId))[3], cheat_status, STATE.get(str(chatId))[5]]})
+    elif state[0] == WAITING_FOR_WORD and state[1] == userId:
+        cheat_status = 'Force True' if state[4] == 'Force True' else 'False'
+        STATE.update({str(chatId): [WAITING_FOR_WORD, userId, state[2], state[3], cheat_status, state[5]]})
 
 
 
@@ -1812,7 +1818,8 @@ async def handle_query(call):
         global STATE
         curr_game = await getCurrGame(chatId, userObj.id)
         curr_status = curr_game['status']
-        if STATE.get(str(chatId)) is None:
+        state = STATE.get(str(chatId))
+        if state is None:
             if curr_status == 'not_started':
                 STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
             else:
@@ -1823,7 +1830,7 @@ async def handle_query(call):
                     # Don't send [restart notice] if game started 12 hours ago
                     return
                 await bot.send_message(chatId, f'🔄 *Bot restarted\!*\nAll active games were restored back and will continue running\.', parse_mode='MarkdownV2')
-        elif curr_status != 'not_started' and STATE.get(str(chatId))[0] == WAITING_FOR_COMMAND:
+        elif curr_status != 'not_started' and state[0] == WAITING_FOR_COMMAND:
             # STATE is not synced with curr_status
             WORD.update({str(chatId): curr_game['data'].word})
             STATE.update({str(chatId): [WAITING_FOR_WORD, int(curr_game['data'].leader_id), True, int(curr_game['started_at']), 'False', False]})
@@ -1882,11 +1889,11 @@ async def handle_query(call):
                     except:
                         pass
                     STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(time.time()), 'True', False]})
-                    update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 0, 1)
+                    await to_thread(update_dailystats_sql, datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 0, 1)
                 else:
                     STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
             elif curr_status == 'not_leader':
-                isNewPlyr = getUserPoints_sql(userObj.id) is None
+                isNewPlyr = (await to_thread(getUserPoints_sql, userObj.id)) is None
                 started_from = int(time.time() - curr_game['started_at'])
                 if (started_from > 30 and not isNewPlyr) or (started_from > 600):
                     if STATE.get(str(chatId))[5]:
@@ -1918,7 +1925,7 @@ async def handle_query(call):
                         STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(time.time()), 'True', False]})
                         await sleep(0.3)
                         await bot.delete_message(chatId, rmsg.message_id)
-                        update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 0, 1)
+                        await to_thread(update_dailystats_sql, datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 0, 1)
                     else:
                         STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
                 else:
@@ -1935,11 +1942,11 @@ async def handle_query(call):
                     except:
                         pass
                     STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(time.time()), 'True', False]})
-                    update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 0, 1)
+                    await to_thread(update_dailystats_sql, datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 0, 1)
                 else:
                     STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
             elif curr_status == 'not_leader':
-                isNewPlyr = getUserPoints_sql(userObj.id) is None
+                isNewPlyr = (await to_thread(getUserPoints_sql, userObj.id)) is None
                 started_from = int(time.time() - curr_game['started_at'])
                 if (started_from > 30 and not isNewPlyr) or (started_from > 600):
                     if STATE.get(str(chatId))[5]:
@@ -1971,7 +1978,7 @@ async def handle_query(call):
                         STATE.update({str(chatId): [WAITING_FOR_WORD, userObj.id, False, int(time.time()), 'True', False]})
                         await sleep(0.3)
                         await bot.delete_message(chatId, rmsg.message_id)
-                        update_dailystats_sql(datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 0, 1)
+                        await to_thread(update_dailystats_sql, datetime.now(pytz.timezone('Asia/Kolkata')).date().isoformat(), 0, 1)
                     else:
                         STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
                 else:
@@ -1982,7 +1989,7 @@ async def handle_query(call):
         elif call.data == 'ludo':
             await bot.answer_callback_query(call.id, url='https://t.me/CrocodileGameEnn_bot?game=ludo')
         elif call.data == 'ranking_list_findMe_currChat':
-            user_stats = getTop25Players_sql(chatId, 2000)
+            user_stats = await to_thread(getTop25Players_sql, chatId, 2000)
             if not user_stats:
                 await bot.answer_callback_query(call.id, '❌ Something went wrong!\n\n- If the issue still persists, kindly report it to: @CrocodileGamesGroup', show_alert=True)
                 return
@@ -1999,7 +2006,7 @@ async def handle_query(call):
             global GLOBAL_RANKS
             if not GLOBAL_RANKS:
                 granks = {}
-                grp_player_ranks = getTop25PlayersInAllChats_sql()
+                grp_player_ranks = await to_thread(getTop25PlayersInAllChats_sql)
                 for gprObj in grp_player_ranks:
                     if gprObj.user_id in granks:
                         granks[gprObj.user_id]['points'] += gprObj.points
