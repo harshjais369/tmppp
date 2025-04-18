@@ -1606,9 +1606,9 @@ async def handle_group_message(message):
         if word is None:
             return
         can_show_cheat_msg = state[4]
-        isWordMatched = re.search(rf'\b({word})(?=(\w{{1,5}}\b|[.,\/\s]|$))', msgText, re.IGNORECASE) is not None
-        if (isWordMatched) or (((state[2]) and ((int(time.time())-state[3]) < 3600) and (len(msgText) < 80) and (not isLeader) and (can_show_cheat_msg == 'False'))
-                                and ((await getWordMatchAIResp(word, msgText)) and (STATE.get(str(chatId), [0])[0] == WAITING_FOR_WORD) and (WORD.get(str(chatId), '0') == word))):
+        if re.search(rf'\b({word})(?=(\w{{1,5}}\b|[.,\/\s]|$))', msgText, re.IGNORECASE) is not None:
+            # (regex_pattern) or (((state[2]) and ((int(time.time())-state[3]) < 3600) and (len(msgText) < 80) and (not isLeader) and (can_show_cheat_msg == 'False'))
+            #                     and ((await getWordMatchAIResp(word, msgText)) and (STATE.get(str(chatId), [0])[0] == WAITING_FOR_WORD) and (WORD.get(str(chatId), '0') == word)))
             is_cheat_allowed = chatId in NO_CHEAT_CHATS
             if not is_cheat_allowed:
                 STATE.update({str(chatId): [WAITING_FOR_COMMAND]})
