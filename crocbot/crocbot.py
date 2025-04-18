@@ -14,7 +14,7 @@ from asyncio import sleep
 from telebot.async_telebot import AsyncTeleBot, ExceptionHandler, traceback
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import funcs
-from funcs import escName, escChar, getWordMatchAIResp
+from funcs import AI_TRIGGER_MSGS, escName, escChar, getWordMatchAIResp
 from sql_helper.current_running_game_sql import addGame_sql, getGame_sql, removeGame_sql
 from sql_helper.rankings_sql import incrementPoints_sql, getUserPoints_sql, getTop25Players_sql, getTop25PlayersInAllChats_sql, getTop10Chats_sql, getAllChatIds_sql
 from sql_helper.daily_botstats_sql import update_dailystats_sql, get_last30days_stats_sql
@@ -113,7 +113,7 @@ async def startGame(message):
         chatId = message.message.chat.id
     userObj = message.from_user
     # Save word to database and start game
-    word = funcs.getNewWord()
+    word = await funcs.getNewWord()
     WORD.update({str(chatId): word})
     if not addGame_sql(chatId, userObj.id, word):
         msg = await bot.send_message(chatId, '❌ An unexpected error occurred while starting game! Please try again later.\n\nUse /help for more information.')
@@ -498,7 +498,7 @@ async def botStats_cmd(message):
         await bot.send_photo(chatId, img, caption=stats_msg, parse_mode='MarkdownV2', protect_content=True,
                              reply_to_message_id=message.message_id, allow_sending_without_reply=True)
 
-@bot.message_handler(commands=['serverinfo'])
+@bot.message_handler(commands=['sysinfo', 'serverinfo'])
 async def serverInfo_cmd(message):
     if message.forward_from or message.forward_from_chat:
         return
@@ -507,16 +507,20 @@ async def serverInfo_cmd(message):
         return
     msg = await bot.reply_to(message, '📡 Fetching latest reports...', allow_sending_without_reply=True, disable_notification=True)
     try:
-        # Fetch system info
-        cpu_usage = psutil.cpu_percent()
-        mem = psutil.virtual_memory()
-        disk = psutil.disk_usage('/')
-        # Fetch network speed
-        st = speedtest.Speedtest()
-        st.get_best_server()
-        download_speed = round(st.download() / 1024 / 1024, 2)
-        upload_speed = round(st.upload() / 1024 / 1024, 2)
-        ping = round(st.results.ping)
+        def getSysInfo():
+            # Fetch system info
+            cpu_usage = psutil.cpu_percent()
+            mem = psutil.virtual_memory()
+            disk = psutil.disk_usage('/')
+            # Fetch network speed
+            st = speedtest.Speedtest()
+            st.get_best_server()
+            download_speed = round(st.download() / 1024 / 1024, 2)
+            upload_speed = round(st.upload() / 1024 / 1024, 2)
+            ping = round(st.results.ping)
+            return cpu_usage, mem, disk, download_speed, upload_speed, ping
+        # Fetch system info and network speed in a separate thread
+        cpu_usage, mem, disk, download_speed, upload_speed, ping = await asyncio.to_thread(getSysInfo)
         text = f'🖥 *Server info:*\n\n' \
         f'*System:* {escChar(platform.system())} {escChar(platform.release())}\n' \
         f'*CPU usage:* {escChar(cpu_usage)}%\n' \
@@ -1349,7 +1353,7 @@ async def addword_cmd(message):
         await bot.send_message(MY_IDs[2][0], f'\#req\_addNewWord\n*ChatID:* `{chatId}`\n*UserID:* `{user_obj.id}`\n*Word:* `{word}`',
                                reply_markup=getInlineBtn('addWord_req'), parse_mode='MarkdownV2', disable_notification=True)
         return
-    if not funcs.addNewWord(word):
+    if not (await funcs.addNewWord(word)):
         msg = await bot.reply_to(message, f'*{word}* exists in my dictionary\!', parse_mode='MarkdownV2',
                                  allow_sending_without_reply=True, disable_notification=True)
         await sleep(30)
@@ -1383,13 +1387,12 @@ async def cmdlist_cmd(message):
         return
     superusr_cmds = (
         '/info \- chat/user info\n'
-        '/serverinfo \- server info\n'
+        '/sysinfo \- server stats\n'
         '/botstats \- bot stats\n'
         '/send \- send broadcast\n'
         '/cancelbroadcast \- stop broadcast\n'
         '/fwd \- \[chat\_id\] \[message\_id\]\n'
         '/getadmins \- get chat admins\n'
-        '/del \- delete message\n'
         '/approve \- approve new requests\n'
         '/showcheats \- groups with cheats\n'
         '/cmdhelp \- show this message\n'
@@ -1401,6 +1404,7 @@ async def cmdlist_cmd(message):
         '/unblockuser \- unblock user\n'
     )
     admin_cmds = (
+        '/del \- delete message\n'
         '/mute \- mute user\n'
         '/unmute \- unmute user\n'
         '/ban \- ~ban user~ \(disabled\)\n'
@@ -1539,7 +1543,7 @@ async def handle_media_ai(message):
             file = await getFileFromMsgObj(message, message, contentType)
             if file is None: return
             file_bytes, mime_type = file
-            aiResp = funcs.getMediaAIResp(prompt, None, None, file_bytes, mime_type)
+            aiResp = await funcs.getMediaAIResp(prompt, None, None, file_bytes, mime_type)
             aiResp = aiResp if aiResp != 0 else 'Something went wrong! Please try again later.'
             aiResp = aiResp.replace('Croco:', '', 1).lstrip() if aiResp.startswith('Croco:') else aiResp
             aiResp = escChar(aiResp).replace('\\*\\*', '*').replace('\\`', '`')
@@ -1654,9 +1658,9 @@ async def handle_group_message(message):
             file = await getFileFromMsgObj(message, rplyMsg, rplyMsg_contentType)
             if file is None: return
             file_bytes, mime_type = file
-            aiResp = funcs.getMediaAIResp(prompt, None, None, file_bytes, mime_type)
+            aiResp = await funcs.getMediaAIResp(prompt, None, None, file_bytes, mime_type)
         else:
-            aiResp = funcs.getAIResp(prompt)
+            aiResp = await funcs.getAIResp(prompt)
         aiResp = aiResp if aiResp != 0 else 'Something went wrong! Please try again later.'
         aiResp = aiResp.replace('Croco:', '', 1).lstrip() if aiResp.startswith('Croco:') else aiResp
         aiResp = escChar(aiResp).replace('\\*\\*', '*').replace('\\`', '`')
@@ -1695,7 +1699,7 @@ async def handle_group_message(message):
                 time_diff = int(rplyMsg.date) - int(preConvObj.time)
                 if 0 < time_diff < 5:
                     prompt = f'{preConvObj.prompt}\n{usr_name}: {msgText}\nCroco: '
-                    resp = funcs.getCrocoResp(prompt).lstrip()
+                    resp = (await funcs.getCrocoResp(prompt)).lstrip()
                     updateEngAIPrompt_sql(id=preConvObj.id, chat_id=chatId, prompt=str(prompt + resp), isNewConv=False)
                 else:
                     rem_prmt_frm_indx = str(preConvObj.prompt).find(rplyText)
@@ -1706,12 +1710,12 @@ async def handle_group_message(message):
                     end_offset_index = rem_prmt_frm_indx + len(rplyText)
                     if end_offset_index == len(preConvObj.prompt):
                         prompt = f'{preConvObj.prompt}\n{usr_name}: {msgText}\nCroco: '
-                        resp = funcs.getCrocoResp(prompt).lstrip()
+                        resp = (await funcs.getCrocoResp(prompt)).lstrip()
                         updateEngAIPrompt_sql(id=preConvObj.id, chat_id=chatId, prompt=str(prompt + resp), isNewConv=False)
                     else:
                         renew_prompt = preConvObj.prompt[:end_offset_index]
                         prompt = f'{renew_prompt}\n{usr_name}: {msgText}\nCroco: '
-                        resp = funcs.getCrocoResp(prompt).lstrip()
+                        resp = (await funcs.getCrocoResp(prompt)).lstrip()
                         updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(prompt + resp), isNewConv=True)
             else:
                 supported_media = ['photo', 'video', 'audio', 'voice']
@@ -1729,21 +1733,21 @@ async def handle_group_message(message):
                     file = await getFileFromMsgObj(message, rplyMsg, rplyMsg_contentType)
                     if file is None: return
                     file_bytes, mime_type = file
-                    resp = funcs.getMediaAIResp(prompt, None, None, file_bytes, mime_type)
+                    resp = await funcs.getMediaAIResp(prompt, None, None, file_bytes, mime_type)
                     resp = resp if resp != 0 else 'Error 0x404: Please try again later!'
                 else:
-                    resp = funcs.getCrocoResp(prompt).lstrip()
+                    resp = (await funcs.getCrocoResp(prompt)).lstrip()
                 updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(prompt + resp), isNewConv=True)
             aiResp = escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
             await bot.reply_to(rplyToMsg, aiResp, parse_mode='MarkdownV2', allow_sending_without_reply=True, disable_notification=True)
-        elif any(t in msgText_lwr for t in funcs.AI_TRIGGER_MSGS):
+        elif any(t in msgText_lwr for t in AI_TRIGGER_MSGS):
             if state[0] == WAITING_FOR_WORD and userId not in MY_IDs[1]:
                 return
             await bot.send_chat_action(chatId, 'typing')
             usr_name = (''.join(filter(str.isalpha, escName(userObj, 25, 'full')))).strip()
             if usr_name in ['', 'id']: usr_name = 'Member'
             prompt = f'{usr_name}: {msgText}\nCroco: '
-            resp = funcs.getCrocoResp(prompt).lstrip()
+            resp = (await funcs.getCrocoResp(prompt)).lstrip()
             updateEngAIPrompt_sql(id=None, chat_id=chatId, prompt=str(prompt + resp), isNewConv=True)
             aiResp = escChar(resp).replace('\\*\\*', '*').replace('\\`', '`')
             await bot.reply_to(message, aiResp, parse_mode='MarkdownV2', allow_sending_without_reply=True, disable_notification=True)
@@ -1827,7 +1831,7 @@ async def handle_query(call):
         # Game panel inline btn handlers for leader use cases only ---------------- #
         if call.data == 'change_word':
             if curr_status == 'leader':
-                new_word = funcs.getNewWord()
+                new_word = await funcs.getNewWord()
                 await bot.answer_callback_query(call.id, f"Word: {new_word}", show_alert=True)
                 last_word = WORD.get(str(chatId), '')
                 WORD.update({str(chatId): new_word})
@@ -1855,7 +1859,7 @@ async def handle_query(call):
                 if WORD.get(str(chatId)) is None:
                     HINTS.update({str(chatId): ['❌ Error: Change this word or restart the game!']})
                 elif not (HINTS.get(str(chatId)) is not None and len(HINTS.get(str(chatId))) > 0):
-                    HINTS.update({str(chatId): funcs.getHints(WORD.get(str(chatId)))})
+                    HINTS.update({str(chatId): await funcs.getHints(WORD.get(str(chatId)))})
                 await bot.answer_callback_query(call.id, f"{HINTS.get(str(chatId))[0]}\n\n❕ You are free to use your own customised hints!", show_alert=True)
                 HINTS.get(str(chatId)).pop(0)
         elif call.data == 'drop_lead':
@@ -2024,7 +2028,7 @@ async def handle_query(call):
                     for user_id, words in users.items():
                         added_words = []
                         for wd in words:
-                            if funcs.addNewWord(wd):
+                            if await funcs.addNewWord(wd):
                                 added_words.append(wd)
                         if added_words:
                             target_chatId = chat_id
